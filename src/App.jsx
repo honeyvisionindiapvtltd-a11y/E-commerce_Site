@@ -24,6 +24,7 @@ import Support from './pages/Support.jsx'
 import Compare from './pages/Compare.jsx'
 import Login from './pages/Login.jsx'
 import Delivery from './pages/Delivery.jsx'
+import Installation from './pages/Installation.jsx'
 import RequestDemo from './pages/RequestDemo.jsx'
 import GetStarted from './pages/GetStarted.jsx'
 import NotFound from './pages/NotFound.jsx'
@@ -60,6 +61,7 @@ function App() {
           <Route path="/compare" element={<Compare />} />
           <Route path="/login" element={<Login />} />
           <Route path="/delivery" element={<Delivery />} />
+          <Route path="/installation" element={<Installation />} />
           <Route path="/request-demo" element={<RequestDemo />} />
           <Route path="/get-started" element={<GetStarted />} />
           <Route path="/register" element={<Register />} />

@@ -20,6 +20,7 @@ export default function ProductDetails() {
   const [selectedImage, setSelectedImage] = useState(images[0]);
   const [quantity, setQuantity] = useState(1);
   const [activeTab, setActiveTab] = useState("overview");
+  const [shareStatus, setShareStatus] = useState("");
   const inWishlist = product ? wishlist.includes(product.id) : false;
   const related = product ? recommendationsFor(product.id, 8) : [];
   const bundle = product ? bundleByProductId[product.id] : null;
@@ -43,6 +44,40 @@ export default function ProductDetails() {
     addToCart(product.id, quantity, false);
     Array.from(bundleSelected).forEach((id) => addToCart(id, 1, false));
     navigate("/checkout");
+  };
+
+  const handleShare = async () => {
+    if (!product) return;
+
+    const shareUrl = typeof window !== "undefined" ? window.location.href : "";
+    const shareText = `Check out ${product.name} from Honey Vision India`;
+
+    try {
+      if (navigator.share) {
+        await navigator.share({
+          title: product.name,
+          text: shareText,
+          url: shareUrl,
+        });
+        setShareStatus("Shared successfully");
+        return;
+      }
+
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(shareUrl);
+        setShareStatus("Product link copied");
+        return;
+      }
+
+      window.prompt("Copy this product link", shareUrl);
+      setShareStatus("Copy the link manually");
+    } catch (error) {
+      if (error?.name !== "AbortError") {
+        setShareStatus("Unable to share right now");
+      }
+    }
+
+    window.setTimeout(() => setShareStatus(""), 2200);
   };
 
   return (
@@ -72,18 +107,29 @@ export default function ProductDetails() {
                 ))}
               </div>
 
-              <div className="relative flex-1 flex items-center justify-center bg-[#fafafa] rounded-3xl overflow-hidden">
+              <div className="group relative flex-1 flex items-center justify-center bg-[#fafafa] rounded-3xl overflow-hidden">
                 <button
                   type="button"
+                  aria-label="Add to wishlist"
                   onClick={() => product && toggleWishlist(product.id)}
-                  className={`absolute top-5 right-5 w-12 h-12 rounded-full bg-white shadow flex items-center justify-center transition ${inWishlist ? "bg-yellow-500 text-white" : "hover:bg-yellow-100"}`}
+                  className={`absolute top-5 right-5 w-12 h-12 rounded-full bg-white shadow flex items-center justify-center transition-all duration-300 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto ${inWishlist ? "bg-yellow-500 text-white" : "hover:bg-yellow-100"}`}
                 >
                   <Heart size={20} />
                 </button>
-                <button className="absolute top-20 right-5 w-12 h-12 rounded-full bg-white shadow flex items-center justify-center hover:bg-yellow-100 transition">
+                <button
+                  type="button"
+                  aria-label="Share product"
+                  onClick={handleShare}
+                  className="absolute top-20 right-5 w-12 h-12 rounded-full bg-white shadow flex items-center justify-center hover:bg-yellow-100 transition-all duration-300 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                >
                   <Share2 size={18} />
                 </button>
-                <img src={selectedImage} alt={product?.name} className="h-[520px] object-contain transition-transform duration-500 hover:scale-105" />
+                {shareStatus ? (
+                  <div className="absolute bottom-5 left-5 rounded-full bg-slate-900/90 px-3 py-2 text-sm text-white shadow-lg">
+                    {shareStatus}
+                  </div>
+                ) : null}
+                <img src={selectedImage} alt={product?.name} className="h-[520px] object-contain" />
               </div>
             </div>
           </div>

@@ -2,29 +2,8 @@ import { useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { ChevronRight, LayoutGrid, List } from "lucide-react";
 import { useCommerce } from "../context/CommerceContext";
-import { products as allProducts, slugifyCategory, categoryFromSlug } from "../lib/products";
-
-const categories = [
-  "Computers & Laptops",
-  "Components",
-  "Networking",
-  "Storage",
-  "Peripherals",
-  "Software",
-  "Mobiles & Tablets",
-  "IT Accessories",
-  "Gaming",
-  "Display",
-  "Security & Surveillance",
-  "Office Equipment",
-  "Power Backup",
-  "Electronics",
-  "Drones & Cameras",
-  "Smart Home",
-  "Cooling Solutions",
-  "Tools & Maintenance",
-  "Biometric & Access Control",
-];
+import ProductSidebar from "../components/ProductSidebar";
+import { products as allProducts, categoryFromSlug, matchesCategorySlug } from "../lib/products";
 
 export default function Products() {
   const [gridView, setGridView] = useState(true);
@@ -32,8 +11,8 @@ export default function Products() {
   const { wishlist, toggleWishlist } = useCommerce();
   const categorySlug = searchParams.get("category");
   const selectedCategory = categorySlug ? categoryFromSlug(categorySlug) : null;
-  const products = selectedCategory
-    ? allProducts.filter((product) => slugifyCategory(product.category) === categorySlug)
+  const products = categorySlug
+    ? allProducts.filter((product) => matchesCategorySlug(product.category, categorySlug))
     : allProducts;
 
   return (
@@ -69,67 +48,28 @@ export default function Products() {
             <button
               type="button"
               onClick={() => setGridView(true)}
-              className={`h-12 w-12 rounded-2xl transition ${gridView ? "bg-amber-500 text-slate-950" : "bg-white text-slate-700 border border-slate-200"}`}
+              className={`h-12 w-9 rounded-2xl transition ${gridView ? "bg-amber-500 text-slate-950" : "bg-white text-slate-700 border border-slate-200"}`}
             >
               <LayoutGrid />
             </button>
             <button
               type="button"
               onClick={() => setGridView(false)}
-              className={`h-12 w-12 rounded-2xl transition ${!gridView ? "bg-amber-500 text-slate-950" : "bg-white text-slate-700 border border-slate-200"}`}
+              className={`h-12 w-9 rounded-2xl transition ${!gridView ? "bg-amber-500 text-slate-950" : "bg-white text-slate-700 border border-slate-200"}`}
             >
               <List />
             </button>
           </div>
         </div>
 
-        <div className="grid gap-8 lg:grid-cols-[280px_minmax(0,1fr)]">
-          <aside className="space-y-8">
-            <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-              <h2 className="text-lg font-semibold text-slate-900">Categories</h2>
-              <div className="mt-5 space-y-3">
-                {categories.map((category) => (
-                  <Link
-                    key={category}
-                    to={`/products/category/${slugifyCategory(category)}`}
-                    className="flex w-full items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-left text-sm text-slate-700 transition hover:bg-slate-100"
-                  >
-                    <span>{category}</span>
-                    <ChevronRight size={16} />
-                  </Link>
-                ))}
-              </div>
-            </div>
+        <div className="grid gap-8 lg:grid-cols-[320px_minmax(0,1fr)]">
+          <ProductSidebar key={categorySlug ?? "all-products"} products={allProducts} selectedCategorySlug={categorySlug} />
 
-            <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-              <h2 className="text-lg font-semibold text-slate-900">Filters</h2>
-              <div className="mt-5 space-y-5 text-sm text-slate-700">
-                <div>
-                  <p className="font-semibold">Price range</p>
-                  <div className="mt-3 flex flex-wrap gap-3">
-                    <span className="rounded-2xl bg-slate-100 px-3 py-2">?0</span>
-                    <span className="rounded-2xl bg-slate-100 px-3 py-2">?50,000+</span>
-                  </div>
-                </div>
-                <div>
-                  <p className="font-semibold">Brand</p>
-                  <select className="mt-3 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none">
-                    <option>All Brands</option>
-                    <option>Dell</option>
-                    <option>HP</option>
-                    <option>Lenovo</option>
-                    <option>Asus</option>
-                  </select>
-                </div>
-              </div>
-            </div>
-          </aside>
-
-          <section className="space-y-8">
+          <section className="min-w-0 space-y-8">
             <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
               <div className={`grid gap-6 ${gridView ? "sm:grid-cols-2 xl:grid-cols-3" : "grid-cols-1"}`}>
                 {products.map((product) => (
-                  <article key={product.id} className="group overflow-hidden rounded-3xl border border-slate-200 bg-yellow-100 shadow-sm transition hover:-translate-y-1 transition hover:border-amber-300 hover:shadow-lg">
+                  <article key={product.id} className="group overflow-hidden rounded-3xl border border-slate-200 bg-yellow-100 shadow-sm transition hover:-translate-y-1 hover:border-amber-300 hover:shadow-lg">
                     <div className="overflow-hidden rounded-3xl bg-white p-6">
                       <img src={product.image} alt={product.name} className="mx-auto h-44 w-full object-contain" />
                     </div>

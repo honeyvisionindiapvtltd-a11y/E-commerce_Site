@@ -52,7 +52,7 @@ export default function ShopByCategory() {
 
         <div
           ref={scrollRef}
-          className="flex gap-3 overflow-x-auto scroll-smooth pb-2"
+          className="flex gap-3 overflow-x-auto scroll-smooth pb-2 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
         >
           {categories.map(([name, image]) => (
             <Link

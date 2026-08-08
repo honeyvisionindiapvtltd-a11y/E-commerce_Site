@@ -1,3 +1,4 @@
+import { useNavigate } from "react-router-dom";
 import {
   Star,
   Quote,
@@ -61,6 +62,8 @@ const stats = [
 ];
 
 export default function Testimonials() {
+  const navigate = useNavigate();
+
   return (
     <section className="py-24 bg-gray-50">
 
@@ -188,11 +191,11 @@ export default function Testimonials() {
 
           <div className="flex gap-4 mt-8 lg:mt-0">
 
-            <button className="bg-yellow-500 hover:bg-yellow-600 text-black px-8 py-4 rounded-xl font-semibold">
+            <button type="button" onClick={() => navigate("/products")} className="bg-yellow-500 hover:bg-yellow-600 text-black px-8 py-4 rounded-xl font-semibold">
               Shop Now
             </button>
 
-            <button className="border border-white text-white px-8 py-4 rounded-xl hover:bg-white hover:text-[#0A1931] transition">
+            <button type="button" onClick={() => navigate("/contact")} className="border border-white text-white px-8 py-4 rounded-xl hover:bg-white hover:text-[#0A1931] transition">
               Contact Us
             </button>
 

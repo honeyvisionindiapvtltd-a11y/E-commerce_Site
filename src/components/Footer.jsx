@@ -1,3 +1,4 @@
+import { useNavigate } from "react-router-dom";
 import {
   Phone,
   Mail,
@@ -13,6 +14,16 @@ import {
 } from 'react-icons/fa'
 
 export default function Footer() {
+  const navigate = useNavigate();
+
+  const handleSubscribe = () => {
+    navigate("/contact");
+  };
+
+  const handleBrochure = () => {
+    window.open("https://www.honeyvision.in", "_blank", "noopener,noreferrer");
+  };
+
   return (
     <footer className="bg-[#06142B] text-gray-300">
 
@@ -151,7 +162,7 @@ export default function Footer() {
                 className="w-full rounded-l-lg px-4 py-3 text-black outline-none"
               />
 
-              <button className="bg-yellow-500 px-5 rounded-r-lg hover:bg-yellow-600">
+              <button type="button" onClick={handleSubscribe} className="bg-yellow-500 px-5 rounded-r-lg hover:bg-yellow-600">
 
                 <Send className="text-black"/>
 
@@ -159,7 +170,7 @@ export default function Footer() {
 
             </div>
 
-            <button className="w-full mt-6 bg-yellow-500 text-black py-3 rounded-xl font-semibold hover:bg-yellow-600">
+            <button type="button" onClick={handleBrochure} className="w-full mt-6 bg-yellow-500 text-black py-3 rounded-xl font-semibold hover:bg-yellow-600">
               Download Brochure
             </button>
 

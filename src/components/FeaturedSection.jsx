@@ -8,16 +8,16 @@ import {
 } from "lucide-react";
 
 const brands = [
-  { name: "Dell", logo: "/brands/dell.png" },
-  { name: "HP", logo: "/brands/hp.png" },
-  { name: "Lenovo", logo: "/brands/lenovo.png" },
-  { name: "ASUS", logo: "/brands/asus.png" },
-  { name: "Hikvision", logo: "/brands/hikvision.png" },
-  { name: "Dahua", logo: "/brands/dahua.png" },
-  { name: "TP-Link", logo: "/brands/tplink.png" },
-  { name: "DJI", logo: "/brands/dji.png" },
-  { name: "Samsung", logo: "/brands/samsung.png" },
-  { name: "Seagate", logo: "/brands/seagate.png" },
+  { name: "Dell", logo: "https://res.cloudinary.com/vhrkwyzs/image/upload/v1786172601/Dell_Logo_lmfwhj.png" },
+  { name: "HP", logo: "https://res.cloudinary.com/vhrkwyzs/image/upload/v1786172600/HP_LOGO_xkbqb1.png" },
+  { name: "Lenovo", logo: "https://res.cloudinary.com/vhrkwyzs/image/upload/v1786172599/Lenovo_logo__2015_onwards_z586id.png" },
+  { name: "ASUS", logo: "https://res.cloudinary.com/vhrkwyzs/image/upload/v1786172597/ASUS_Logo_pdifp0.svg" },
+  { name: "Hikvision", logo: "https://res.cloudinary.com/vhrkwyzs/image/upload/v1786172596/Hikvision_logo_joawjl.png" },
+  { name: "Dahua", logo: "https://res.cloudinary.com/vhrkwyzs/image/upload/v1786172595/Dahua_Technology_logo_veja1o.jpg" },
+  { name: "TP-Link", logo: "https://res.cloudinary.com/vhrkwyzs/image/upload/v1786172593/Tp-Link_logo_2016_tlbnnn.png" },
+  { name: "DJI", logo: "https://res.cloudinary.com/vhrkwyzs/image/upload/v1786172591/DJI_logo_s90zht.png" },
+  { name: "Samsung", logo: "https://res.cloudinary.com/vhrkwyzs/image/upload/v1786172590/Samsung_logo_nqxgxw.svg" },
+  { name: "Seagate", logo: "https://res.cloudinary.com/vhrkwyzs/image/upload/v1786172589/Seagate_logo_saaft5.svg" },
 ];
 
 const featured = [

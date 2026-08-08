@@ -1,3 +1,4 @@
+import { useNavigate } from "react-router-dom";
 import {
   CalendarDays,
   Clock3,
@@ -8,7 +9,7 @@ const blogs = [
   {
     id: 1,
     title: "How AI CCTV Cameras are Transforming Modern Security",
-    image: "/blogs/blog1.jpg",
+    image: "https://res.cloudinary.com/vhrkwyzs/image/upload/v1786173897/blog1_jetmtz.png",
     category: "AI Security",
     date: "05 Aug 2026",
     read: "6 Min Read",
@@ -16,7 +17,7 @@ const blogs = [
   {
     id: 2,
     title: "Top 10 Laptops for Business & Professional Work",
-    image: "/blogs/blog2.jpg",
+    image: "https://res.cloudinary.com/vhrkwyzs/image/upload/v1786174380/blog2_fyfiq2.png",
     category: "Laptops",
     date: "02 Aug 2026",
     read: "5 Min Read",
@@ -24,7 +25,7 @@ const blogs = [
   {
     id: 3,
     title: "Complete Guide to Enterprise Networking Solutions",
-    image: "/blogs/blog3.jpg",
+    image: "https://res.cloudinary.com/vhrkwyzs/image/upload/v1786178835/blog3_rezrfp.png",
     category: "Networking",
     date: "30 Jul 2026",
     read: "8 Min Read",
@@ -32,7 +33,7 @@ const blogs = [
   {
     id: 4,
     title: "Drone Technology for Industrial Inspection & Surveillance",
-    image: "/blogs/blog4.jpg",
+    image: "https://res.cloudinary.com/vhrkwyzs/image/upload/v1786174374/blog4_fgkwc0.png",
     category: "Drones",
     date: "28 Jul 2026",
     read: "7 Min Read",
@@ -40,6 +41,8 @@ const blogs = [
 ];
 
 export default function BlogSection() {
+  const navigate = useNavigate();
+
   return (
     <section className="py-24 bg-white">
 
@@ -61,7 +64,7 @@ export default function BlogSection() {
 
           </div>
 
-          <button className="border border-[#0A1931] px-7 py-3 rounded-xl hover:bg-[#0A1931] hover:text-white transition">
+          <button type="button" onClick={() => navigate("/blogs")} className="border border-[#0A1931] px-7 py-3 rounded-xl hover:bg-[#0A1931] hover:text-white transition">
             View All Blogs
           </button>
 
@@ -74,7 +77,7 @@ export default function BlogSection() {
           <div className="rounded-3xl overflow-hidden shadow-xl">
 
             <img
-              src="/blogs/featured.jpg"
+              src="https://res.cloudinary.com/vhrkwyzs/image/upload/v1786173653/blog-bg_xhxpvn.png"
               alt="Featured Blog"
               className="w-full h-[420px] object-cover"
             />
@@ -112,7 +115,7 @@ export default function BlogSection() {
 
             </div>
 
-            <button className="flex items-center gap-2 mt-8 text-[#0A1931] font-semibold">
+            <button type="button" onClick={() => navigate("/blogs")} className="flex items-center gap-2 mt-8 text-[#0A1931] font-semibold">
               Read Full Article
               <ArrowRight size={18}/>
             </button>
@@ -162,7 +165,7 @@ export default function BlogSection() {
 
                 </div>
 
-                <button className="mt-6 text-[#0A1931] font-semibold flex items-center gap-2">
+                <button type="button" onClick={() => navigate("/blogs")} className="mt-6 text-[#0A1931] font-semibold flex items-center gap-2">
                   Read More
                   <ArrowRight size={18}/>
                 </button>

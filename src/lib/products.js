@@ -126,6 +126,100 @@ export function recommendationsFor(productId, limit = 4) {
 
 export const categories = [...new Set(products.map((product) => product.category))];
 
+const categorySlugMap = {
+  "all-products": null,
+  "cctv-and-security": "CCTV & Security",
+  "bullet-camera": "CCTV & Security",
+  "dome-camera": "CCTV & Security",
+  "ip-camera": "CCTV & Security",
+  "ptz-camera": "CCTV & Security",
+  "wi-fi-camera": "CCTV & Security",
+  "solar-cctv": "CCTV & Security",
+  "video-doorbell": "CCTV & Security",
+  "cctv-accessories": "CCTV & Security",
+  "dvr-and-nvr": "CCTV & Security",
+  "4-channel": "CCTV & Security",
+  "8-channel": "CCTV & Security",
+  "16-channel": "CCTV & Security",
+  "32-channel": "CCTV & Security",
+  "nvr": "CCTV & Security",
+  "xvr": "CCTV & Security",
+  "poe-nvr": "CCTV & Security",
+  "computers-and-laptops": "Computers & Laptops",
+  laptops: "Computers & Laptops",
+  desktop: "Computers & Laptops",
+  "gaming-pc": "Computers & Laptops",
+  monitors: "Computers & Laptops",
+  "computer-components": "Components",
+  networking: "Networking",
+  "wi-fi-router": "Networking",
+  "network-switch": "Networking",
+  "poe-switch": "Networking",
+  "access-point": "Networking",
+  "lan-cable": "Networking",
+  "network-accessories": "Networking",
+  storage: "Storage",
+  hdd: "Storage",
+  "surveillance-hdd": "Storage",
+  ssd: "Storage",
+  "nvme-ssd": "Storage",
+  "pen-drive": "Storage",
+  "memory-card": "Storage",
+  "external-hdd": "Storage",
+  "it-accessories": "IT Accessories",
+  accessories: "IT Accessories",
+  mouse: "IT Accessories",
+  keyboard: "IT Accessories",
+  webcam: "IT Accessories",
+  headset: "IT Accessories",
+  "laptop-stand": "IT Accessories",
+  "laptop-bag": "IT Accessories",
+  "usb-hub": "IT Accessories",
+  "cables-and-connectors": "Cables & Connectors",
+  "hdmi-cable": "Cables & Connectors",
+  "usb-cable": "Cables & Connectors",
+  "lan-cable-connectors": "Cables & Connectors",
+  "cat6-cable": "Cables & Connectors",
+  "bnc-connector": "Cables & Connectors",
+  "power-cable": "Cables & Connectors",
+  "printers-and-office": "Office Equipment",
+  printers: "Office Equipment",
+  cartridges: "Office Equipment",
+  toners: "Office Equipment",
+  "barcode-scanner": "Office Equipment",
+  projector: "Office Equipment",
+  "power-backup": "Power Backup",
+  ups: "Power Backup",
+  inverter: "Power Backup",
+  battery: "Power Backup",
+  stabilizer: "Power Backup",
+  "extension-board": "Power Backup",
+  drones: "Drones & Cameras",
+  "camera-drone": "Drones & Cameras",
+  "4k-drone": "Drones & Cameras",
+  "gps-drone": "Drones & Cameras",
+  "mini-drone": "Drones & Cameras",
+  "drone-accessories": "Drones & Cameras",
+  "access-control": "Biometric & Access Control",
+  biometric: "Biometric & Access Control",
+  "face-recognition": "Biometric & Access Control",
+  rfid: "Biometric & Access Control",
+  "smart-lock": "Biometric & Access Control",
+  "access-controller": "Biometric & Access Control",
+  "safety-and-detection": "Security & Surveillance",
+  "smoke-detector": "Security & Surveillance",
+  "fire-alarm": "Security & Surveillance",
+  "motion-sensor": "Security & Surveillance",
+  "door-sensor": "Security & Surveillance",
+  "security-alarm": "Security & Surveillance",
+  "installation-and-services": "Security & Surveillance",
+  "cctv-installation": "CCTV & Security",
+  "cctv-amc": "CCTV & Security",
+  "cctv-maintenance": "CCTV & Security",
+  "network-installation": "Networking",
+  "it-support": "IT Accessories",
+};
+
 export const slugifyCategory = (category) =>
   category
     .toLowerCase()
@@ -133,8 +227,18 @@ export const slugifyCategory = (category) =>
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "");
 
-export const categoryFromSlug = (slug) =>
-  categories.find((category) => slugifyCategory(category) === slug);
+export const categoryFromSlug = (slug) => {
+  if (!slug) return null;
+  const directMatch = categorySlugMap[slug];
+  if (directMatch) return directMatch;
+  return categories.find((category) => slugifyCategory(category) === slug) || null;
+};
+
+export const matchesCategorySlug = (productCategory, slug) => {
+  if (!slug || slug === "all-products") return true;
+  const canonicalCategory = categoryFromSlug(slug);
+  return Boolean(canonicalCategory && productCategory === canonicalCategory);
+};
 
 export const money = (value) =>
   new Intl.NumberFormat("en-IN", {

@@ -1,3 +1,4 @@
+import { useNavigate } from "react-router-dom";
 import {
   ShieldCheck,
   Truck,
@@ -8,6 +9,7 @@ import {
 } from "lucide-react";
 
 export default function ServicesOffers() {
+  const navigate = useNavigate();
   const services = [
     {
       icon: <ShieldCheck size={30} />,
@@ -90,7 +92,7 @@ export default function ServicesOffers() {
               Networking Products.
             </p>
 
-            <button className="mt-8 bg-yellow-500 text-black px-6 py-3 rounded-lg font-semibold">
+            <button type="button" onClick={() => navigate("/products")} className="mt-8 bg-yellow-500 text-black px-6 py-3 rounded-lg font-semibold">
               Shop Now
             </button>
 
@@ -119,7 +121,7 @@ export default function ServicesOffers() {
               office networking solutions.
             </p>
 
-            <button className="mt-8 bg-white text-blue-700 px-6 py-3 rounded-lg font-semibold">
+            <button type="button" onClick={() => navigate("/services")} className="mt-8 bg-white text-blue-700 px-6 py-3 rounded-lg font-semibold">
               Learn More
             </button>
 
@@ -148,7 +150,7 @@ export default function ServicesOffers() {
               orders above ₹10,000.
             </p>
 
-            <button className="mt-8 bg-black text-white px-6 py-3 rounded-lg font-semibold">
+            <button type="button" onClick={() => navigator.clipboard?.writeText("HONEY10") } className="mt-8 bg-black text-white px-6 py-3 rounded-lg font-semibold">
               Copy Coupon
             </button>
 

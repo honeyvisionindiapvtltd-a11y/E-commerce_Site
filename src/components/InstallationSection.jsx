@@ -1,3 +1,4 @@
+import { useNavigate } from "react-router-dom";
 import {
   Wrench,
   ShieldCheck,
@@ -33,6 +34,7 @@ const services = [
 ];
 
 export default function InstallationSection() {
+  const navigate = useNavigate();
 
   return (
 
@@ -94,11 +96,11 @@ Remote Technical Assistance
 
 <div className="flex gap-5 mt-10">
 
-<button className="bg-[#0A1931] text-white px-8 py-4 rounded-xl hover:bg-[#112C55]">
+<button type="button" onClick={() => navigate("/installation")} className="bg-[#0A1931] text-white px-8 py-4 rounded-xl hover:bg-[#112C55]">
 Book Installation
 </button>
 
-<button className="border border-[#0A1931] px-8 py-4 rounded-xl">
+<button type="button" onClick={() => navigate("/services")} className="border border-[#0A1931] px-8 py-4 rounded-xl">
 View AMC Plans
 </button>
 
@@ -131,7 +133,7 @@ className="bg-gray-50 rounded-3xl p-7 hover:shadow-xl transition"
 {item.desc}
 </p>
 
-<button className="flex items-center gap-2 mt-6 font-semibold text-[#0A1931]">
+<button type="button" onClick={() => navigate("/services")} className="flex items-center gap-2 mt-6 font-semibold text-[#0A1931]">
 
 Learn More
 
