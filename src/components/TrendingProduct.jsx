@@ -8,7 +8,7 @@ const products = [
     oldPrice: "₹66,990",
     discount: "16% OFF",
     reviews: "128",
-    image: "/images/products/dell-laptop.png",
+    image: "https://res.cloudinary.com/vhrkwyzs/image/upload/v1786016689/Dell_Inspiron_15_Laptop_ktbhlu.webp",
   },
   {
     name: "Hikvision 2MP Dome Camera",
@@ -16,7 +16,7 @@ const products = [
     oldPrice: "₹2,599",
     discount: "23% OFF",
     reviews: "256",
-    image: "/images/products/hikvision-camera.png",
+    image: "https://res.cloudinary.com/vhrkwyzs/image/upload/v1786016690/Hikvision_2MP_Dome_Camera_es4vp9.webp",
   },
   {
     name: "TP-Link AX1500 WiFi 6 Router",
@@ -24,7 +24,7 @@ const products = [
     oldPrice: "₹3,899",
     discount: "15% OFF",
     reviews: "89",
-    image: "/images/products/tplink-router.png",
+    image: "https://res.cloudinary.com/vhrkwyzs/image/upload/v1786016691/AX1500_WiFi_6_Router_mzkv9i.webp",
   },
   {
     name: "Samsung 1TB SSD",
@@ -32,7 +32,7 @@ const products = [
     oldPrice: "₹8,799",
     discount: "20% OFF",
     reviews: "112",
-    image: "/images/products/samsung-ssd.png",
+    image: "https://res.cloudinary.com/vhrkwyzs/image/upload/v1786016688/OFFSamsung_1TB_SSD_nt0ylz.webp",
   },
   {
     name: "DJI Mini 2 Drone",
@@ -40,7 +40,7 @@ const products = [
     oldPrice: "₹33,999",
     discount: "12% OFF",
     reviews: "74",
-    image: "/images/products/dji-drone.png",
+    image: "https://res.cloudinary.com/vhrkwyzs/image/upload/v1786016688/OFFDJI_Mini_Drone_gzsppw.webp",
   },
   {
     name: "Zebronics Gaming Cabinet",
@@ -48,7 +48,7 @@ const products = [
     oldPrice: "₹2,999",
     discount: "17% OFF",
     reviews: "63",
-    image: "/images/products/gaming-cabinet.png",
+    image: "https://res.cloudinary.com/vhrkwyzs/image/upload/v1786016689/Zebronics_Gaming_Cabinet_xon4c6.webp",
   },
 ];
 

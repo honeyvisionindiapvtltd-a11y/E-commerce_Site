@@ -129,8 +129,8 @@ export default function Products() {
             <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
               <div className={`grid gap-6 ${gridView ? "sm:grid-cols-2 xl:grid-cols-3" : "grid-cols-1"}`}>
                 {products.map((product) => (
-                  <article key={product.id} className="group overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm transition hover:-translate-y-1">
-                    <div className="overflow-hidden rounded-3xl bg-slate-950 p-6">
+                  <article key={product.id} className="group overflow-hidden rounded-3xl border border-slate-200 bg-yellow-100 shadow-sm transition hover:-translate-y-1 transition hover:border-amber-300 hover:shadow-lg">
+                    <div className="overflow-hidden rounded-3xl bg-white p-6">
                       <img src={product.image} alt={product.name} className="mx-auto h-44 w-full object-contain" />
                     </div>
                     <div className="p-6">

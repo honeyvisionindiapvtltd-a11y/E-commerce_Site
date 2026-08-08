@@ -23,28 +23,28 @@ const brands = [
 const featured = [
   {
     name: "ASUS ROG Laptop",
-    image: "/featured/rog.png",
+    image: "https://res.cloudinary.com/vhrkwyzs/image/upload/v1786017606/ASUS_ROG_Laptop_wlgrgg.webp",
     price: "₹1,19,999",
     oldPrice: "₹1,34,999",
     rating: 4.9,
   },
   {
     name: "AI PTZ Camera",
-    image: "/featured/ptz.png",
+    image: "https://res.cloudinary.com/vhrkwyzs/image/upload/v1786017607/AI_PTZ_Camera_jdwn7h.webp",
     price: "₹16,999",
     oldPrice: "₹21,999",
     rating: 4.8,
   },
   {
     name: "Synology NAS",
-    image: "/featured/nas.png",
+    image: "https://res.cloudinary.com/vhrkwyzs/image/upload/v1786017607/Synology_NAS_uhhbsb.webp",
     price: "₹42,999",
     oldPrice: "₹48,999",
     rating: 4.7,
   },
   {
     name: "DJI Air Drone",
-    image: "/featured/drone.png",
+    image: "https://res.cloudinary.com/vhrkwyzs/image/upload/v1786017613/DJI_Air_Drone_pgogse.webp",
     price: "₹82,999",
     oldPrice: "₹89,999",
     rating: 4.9,

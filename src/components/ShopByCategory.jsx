@@ -4,17 +4,18 @@ import { Link } from "react-router-dom";
 import { slugifyCategory } from "../lib/products";
 
 const categories = [
-  ["Laptops", "/images/categories/laptop.png"],
-  ["Desktop PCs", "/images/categories/desktop-pc.png"],
-  ["Components", "/images/categories/components.png"],
-  ["Networking", "/images/categories/networking.png"],
-  ["CCTV & Security", "/images/categories/cctv.png"],
-  ["Drones & Cameras", "/images/categories/drone.png"],
-  ["Accessories", "/images/categories/headphones.png"],
-  ["Office Equipment", "/images/categories/printer.png"],
-  ["Power Backup", "/images/categories/power-backup.png"],
-  ["Display", "/images/categories/display.png"],
+  ["Laptops", "https://res.cloudinary.com/vhrkwyzs/image/upload/v1786010029/laptop_ktvxcs.png"],
+  ["Desktop PCs", "https://res.cloudinary.com/vhrkwyzs/image/upload/v1786010023/networking_ozm2kk.jpg"],
+  ["Components", "https://res.cloudinary.com/vhrkwyzs/image/upload/v1786010026/components_hlmuj1.jpg"],
+  ["Networking", "https://res.cloudinary.com/vhrkwyzs/image/upload/v1786010023/assesories_eizhmq.jpg"],
+  ["CCTV & Security", "https://res.cloudinary.com/vhrkwyzs/image/upload/v1786010027/cctv_y2raii.jpg"],
+  ["Drones & Cameras", "https://res.cloudinary.com/vhrkwyzs/image/upload/v1786010025/drones_lcgqbs.jpg"],
+  ["Accessories", "https://res.cloudinary.com/vhrkwyzs/image/upload/v1786012476/headphone_ami4sj.webp"],
+  ["Office Equipment", "https://res.cloudinary.com/vhrkwyzs/image/upload/v1786010025/officeeqp0.124_voj31y.jpg"],
+  ["Power Backup", "https://res.cloudinary.com/vhrkwyzs/image/upload/v1786010026/power_bank_kqypks.jpg"],
+  ["Display", "https://res.cloudinary.com/vhrkwyzs/image/upload/v1786010024/display_rar3xa.webp"],
 ];
+
 
 export default function ShopByCategory() {
   const scrollRef = useRef(null);
