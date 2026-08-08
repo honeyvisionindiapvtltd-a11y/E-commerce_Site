@@ -4,6 +4,7 @@ import {
   Clock3,
   ArrowRight,
 } from "lucide-react";
+import { Link } from "react-router-dom";
 
 const blogs = [
   {
@@ -64,9 +65,9 @@ export default function BlogSection() {
 
           </div>
 
-          <button type="button" onClick={() => navigate("/blogs")} className="border border-[#0A1931] px-7 py-3 rounded-xl hover:bg-[#0A1931] hover:text-white transition">
+          <Link to="/blogs" className="border border-[#0A1931] px-7 py-3 rounded-xl hover:bg-[#0A1931] hover:text-white transition">
             View All Blogs
-          </button>
+          </Link>
 
         </div>
 

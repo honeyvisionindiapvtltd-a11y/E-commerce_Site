@@ -2,7 +2,7 @@ import React, { useState, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useCommerce } from "../context/CommerceContext";
 import { recommendationsFor, money, bundleByProductId } from "../lib/products";
-import { Heart, Share2, Star, Minus, Plus, ShoppingCart, Truck, ShieldCheck, RotateCcw, CreditCard, ChevronRight } from "lucide-react";
+import { Heart, Share2, Star, Minus, Plus, ShoppingCart, Truck, ShieldCheck, RotateCcw, CreditCard, ChevronRight, GitCompareArrows } from "lucide-react";
 
 export default function ProductDetails() {
   const { productId } = useParams();
@@ -80,6 +80,11 @@ export default function ProductDetails() {
     window.setTimeout(() => setShareStatus(""), 2200);
   };
 
+  const handleCompare = () => {
+    if (!product) return;
+    navigate(`/compare?compare=${product.id}`);
+  };
+
   return (
     <section className="bg-[#F6F8FC] min-h-screen py-10">
       <div className="max-w-7xl mx-auto px-6">
@@ -116,20 +121,10 @@ export default function ProductDetails() {
                 >
                   <Heart size={20} />
                 </button>
-                <button
-                  type="button"
-                  aria-label="Share product"
-                  onClick={handleShare}
-                  className="absolute top-20 right-5 w-12 h-12 rounded-full bg-white shadow flex items-center justify-center hover:bg-yellow-100 transition-all duration-300 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
-                >
+                <button className="absolute top-20 right-5 w-12 h-12 rounded-full bg-white shadow flex items-center justify-center hover:bg-yellow-100 transition">
                   <Share2 size={18} />
                 </button>
-                {shareStatus ? (
-                  <div className="absolute bottom-5 left-5 rounded-full bg-slate-900/90 px-3 py-2 text-sm text-white shadow-lg">
-                    {shareStatus}
-                  </div>
-                ) : null}
-                <img src={selectedImage} alt={product?.name} className="h-[520px] object-contain" />
+                <img src={selectedImage} alt={product?.name} className="h-[520px] object-contain transition-transform duration-500 hover:scale-105" />
               </div>
             </div>
           </div>
@@ -137,13 +132,23 @@ export default function ProductDetails() {
           <div className="bg-white rounded-3xl shadow-lg p-8">
             <div className="flex items-center justify-between gap-3">
               <span className="inline-flex bg-blue-100 text-blue-700 px-4 py-2 rounded-full text-sm font-semibold">{product?.brand}</span>
-              <button
-                type="button"
-                onClick={() => product && toggleWishlist(product.id)}
-                className={`rounded-full p-3 border transition ${inWishlist ? "bg-yellow-500 text-white border-yellow-500" : "bg-white text-gray-700 hover:bg-yellow-100"}`}
-              >
-                <Heart size={18} />
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleCompare}
+                  className="rounded-full border border-slate-200 bg-white p-3 text-slate-700 transition hover:bg-yellow-100 hover:text-slate-900"
+                  aria-label={`Compare ${product?.name ?? "product"}`}
+                >
+                  <GitCompareArrows size={18} />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => product && toggleWishlist(product.id)}
+                  className={`rounded-full p-3 border transition ${inWishlist ? "bg-yellow-500 text-white border-yellow-500" : "bg-white text-gray-700 hover:bg-yellow-100"}`}
+                >
+                  <Heart size={18} />
+                </button>
+              </div>
             </div>
 
             <h1 className="text-4xl font-bold text-[#071426] mt-6 leading-tight">{product?.name}</h1>
@@ -235,7 +240,7 @@ export default function ProductDetails() {
           </div>
         </div>
 
-        <div className="mt-8 bg-gradient-to-r from-[#071426] to-[#0B315A] rounded-3xl p-8 text-white">
+        <div className="mt-8 bg-linear-to-r from-[#071426] to-[#0B315A] rounded-3xl p-8 text-white">
           <span className="bg-yellow-500 text-black px-4 py-2 rounded-full text-sm font-semibold">LIMITED OFFER</span>
           <h2 className="text-3xl font-bold mt-6">Save More with Honey Vision</h2>
           <p className="text-gray-300 mt-4 leading-8">Buy this AI Camera today and get exclusive installation discounts, free technical consultation, and special combo offers on NVRs, Hard Disks and Accessories.</p>

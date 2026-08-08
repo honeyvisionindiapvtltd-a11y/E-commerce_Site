@@ -9,6 +9,7 @@ import {
   ArrowRight,
   CheckCircle,
 } from "lucide-react";
+import { Link } from "react-router-dom";
 
 const services = [
   {
@@ -96,9 +97,9 @@ Remote Technical Assistance
 
 <div className="flex gap-5 mt-10">
 
-<button type="button" onClick={() => navigate("/installation")} className="bg-[#0A1931] text-white px-8 py-4 rounded-xl hover:bg-[#112C55]">
+<Link to="/book-installation" className="inline-flex items-center justify-center rounded-xl bg-[#0A1931] px-8 py-4 text-white hover:bg-[#112C55]">
 Book Installation
-</button>
+</Link>
 
 <button type="button" onClick={() => navigate("/services")} className="border border-[#0A1931] px-8 py-4 rounded-xl">
 View AMC Plans

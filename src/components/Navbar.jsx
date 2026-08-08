@@ -12,7 +12,7 @@ import {
   User,
   X,
 } from "lucide-react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, NavLink, useNavigate } from "react-router-dom";
 import { useCommerce } from "../context/CommerceContext";
 import { slugifyCategory } from "../lib/products";
 
@@ -112,7 +112,7 @@ export default function Navbar() {
         {/* Desktop search */}
         <form onSubmit={submitSearch} className="hidden h-12 min-w-0 flex-1 overflow-hidden rounded-lg border-2 border-yellow-400 bg-white lg:flex">
           <Link
-            to="/products"
+            to="/categories"
             className="flex min-w-44 items-center justify-between border-r border-slate-300 bg-slate-100 px-4 text-sm font-medium text-slate-700 hover:bg-slate-200"
           >
             All Categories
@@ -140,7 +140,7 @@ export default function Navbar() {
           <NavIcon icon={GitCompareArrows} label="Compare" to="/compare" />
           <NavIcon icon={Heart} label="Wishlist" to="/wishlist" count={wishlist.length} />
           <NavIcon icon={ShoppingCart} label="Cart" to="/cart" count={cart.reduce((total, item) => total + item.quantity, 0)} />
-          <NavIcon icon={User} label="Login" to="/login" />
+          <NavIcon icon={User} label="Profile" to="/profile" />
         </div>
 
         <button
@@ -177,22 +177,31 @@ export default function Navbar() {
         <div className="w-full px-3 sm:px-6">
           <ul className="hidden h-14 items-center gap-8 text-sm font-medium lg:flex">
             <li>
-              <Link
+              <NavLink
                 to="/"
-                className="inline-flex h-14 items-center border-b-2 border-yellow-400 text-yellow-400"
+                end
+                className={({ isActive }) =>
+                  isActive
+                    ? "inline-flex h-14 items-center border-b-2 border-yellow-400 text-yellow-400"
+                    : "inline-flex h-14 items-center hover:text-yellow-400"
+                }
               >
                 Home
-              </Link>
+              </NavLink>
             </li>
 
             <li className="group relative h-14">
-              <Link
+              <NavLink
                 to="/products"
-                className="flex h-14 items-center gap-1 hover:text-yellow-400"
+                className={({ isActive }) =>
+                  isActive
+                    ? "flex h-14 items-center gap-1 text-yellow-400"
+                    : "flex h-14 items-center gap-1 hover:text-yellow-400"
+                }
               >
                 Products
                 <ChevronDown size={16} />
-              </Link>
+              </NavLink>
 
               <div className="absolute left-0 top-12 z-50 hidden w-96 grid-cols-2 gap-4 rounded-lg bg-white p-5 text-slate-800 shadow-xl group-hover:grid">
                 {productLinks.map(({ label, category }) => (
@@ -209,9 +218,16 @@ export default function Navbar() {
 
             {navLinks.map(([label, path]) => (
               <li key={label}>
-                <Link to={path} className="hover:text-yellow-400">
+                <NavLink
+                  to={path}
+                  className={({ isActive }) =>
+                    isActive
+                      ? "inline-flex h-14 items-center border-b-2 border-yellow-400 text-yellow-400"
+                      : "inline-flex h-14 items-center hover:text-yellow-400"
+                  }
+                >
                   {label}
-                </Link>
+                </NavLink>
               </li>
             ))}
           </ul>
@@ -219,28 +235,46 @@ export default function Navbar() {
           {/* Mobile navigation */}
           {menuOpen && (
             <div className="space-y-4 border-t border-white/10 py-5 lg:hidden">
-              <Link to="/" className="block text-yellow-400">
+              <NavLink
+                to="/"
+                end
+                className={({ isActive }) =>
+                  isActive ? "block text-yellow-400" : "block hover:text-yellow-400"
+                }
+              >
                 Home
-              </Link>
+              </NavLink>
 
-              <Link to="/products" className="block hover:text-yellow-400">
+              <NavLink
+                to="/products"
+                className={({ isActive }) =>
+                  isActive ? "block text-yellow-400" : "block hover:text-yellow-400"
+                }
+              >
                 Products
-              </Link>
+              </NavLink>
 
-              <Link to="/blogs" className="block hover:text-yellow-400">
+              <NavLink
+                to="/blogs"
+                className={({ isActive }) =>
+                  isActive ? "block text-yellow-400" : "block hover:text-yellow-400"
+                }
+              >
                 Blogs
-              </Link>
+              </NavLink>
 
               {navLinks
                 .filter(([label]) => label !== "Blogs")
                 .map(([label, path]) => (
-                  <Link
+                  <NavLink
                     key={label}
                     to={path}
-                    className="block hover:text-yellow-400"
+                    className={({ isActive }) =>
+                      isActive ? "block text-yellow-400" : "block hover:text-yellow-400"
+                    }
                   >
                     {label}
-                  </Link>
+                  </NavLink>
                 ))}
 
               <div className="flex gap-5 border-t border-white/10 pt-4">
@@ -252,8 +286,8 @@ export default function Navbar() {
                   Cart
                 </Link>
 
-                <Link to="/login" className="hover:text-yellow-400">
-                  Login
+                <Link to="/profile" className="hover:text-yellow-400">
+                  Profile
                 </Link>
               </div>
             </div>

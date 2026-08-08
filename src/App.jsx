@@ -18,14 +18,22 @@ import Cart from './pages/Cart.jsx'
 import AITools from './pages/AITools.jsx'
 import Wishlist from './pages/Wishlist.jsx'
 import Checkout from './pages/Checkout.jsx'
+import Orders from './pages/Orders.jsx'
 import OrderTracking from './pages/OrderTracking.jsx'
+import Addresses from './pages/Addresses.jsx'
+import PaymentMethods from './pages/PaymentMethods.jsx'
+import Notifications from './pages/Notifications.jsx'
+import AccountSettings from './pages/AccountSettings.jsx'
 import DealerLocator from './pages/DealerLocator.jsx'
 import Support from './pages/Support.jsx'
 import Compare from './pages/Compare.jsx'
 import Login from './pages/Login.jsx'
+import Profile from './pages/Profile.jsx'
+import EditProfile from './pages/EditProfile.jsx'
 import Delivery from './pages/Delivery.jsx'
 import Installation from './pages/Installation.jsx'
 import RequestDemo from './pages/RequestDemo.jsx'
+import BookInstallation from './pages/BookInstallation.jsx'
 import GetStarted from './pages/GetStarted.jsx'
 import NotFound from './pages/NotFound.jsx'
 import Register from './pages/Register.jsx'
@@ -53,6 +61,11 @@ function App() {
           <Route path="/cart" element={<Cart />} />
           <Route path="/ai-tools" element={<AITools />} />
           <Route path="/wishlist" element={<Wishlist />} />
+          <Route path="/orders" element={<Orders />} />
+          <Route path="/addresses" element={<Addresses />} />
+          <Route path="/payment-methods" element={<PaymentMethods />} />
+          <Route path="/notifications" element={<Notifications />} />
+          <Route path="/account-settings" element={<AccountSettings />} />
           <Route path="/checkout" element={<Checkout />} />
           <Route path="/order-tracking" element={<OrderTracking />} />
           <Route path="/track-order" element={<OrderTracking />} />
@@ -60,9 +73,12 @@ function App() {
           <Route path="/support" element={<Support />} />
           <Route path="/compare" element={<Compare />} />
           <Route path="/login" element={<Login />} />
+          <Route path="/profile" element={<Profile />} />
+          <Route path="/edit-profile" element={<EditProfile />} />
           <Route path="/delivery" element={<Delivery />} />
           <Route path="/installation" element={<Installation />} />
           <Route path="/request-demo" element={<RequestDemo />} />
+          <Route path="/book-installation" element={<BookInstallation />} />
           <Route path="/get-started" element={<GetStarted />} />
           <Route path="/register" element={<Register />} />
           <Route path="*" element={<NotFound />} />

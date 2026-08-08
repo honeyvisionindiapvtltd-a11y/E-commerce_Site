@@ -1,3 +1,5 @@
+import { Link } from 'react-router-dom'
+import { ArrowRight } from 'lucide-react'
 import PageShell from '../components/PageShell.jsx'
 
 function Services() {
@@ -11,6 +13,13 @@ function Services() {
         <div className="info-card">
           <h2>Installation booking</h2>
           <p>Schedule certified installers and track your installation progress online.</p>
+          <Link
+            to="/book-installation"
+            className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-amber-400 hover:text-white"
+          >
+            Book Installation
+            <ArrowRight size={16} />
+          </Link>
         </div>
         <div className="info-card">
           <h2>AMC plans</h2>

@@ -5,6 +5,7 @@ import {
   ShieldCheck,
   Truck,
 } from "lucide-react";
+import { Link } from "react-router-dom";
 
 import heroImage from "../assets/hero.jpeg";
 
@@ -70,20 +71,20 @@ export default function Hero() {
           </div>
 
           <div className="mt-10 flex flex-wrap items-center gap-4">
-            <button className="rounded-lg bg-amber-500 px-8 py-3.5 text-sm font-semibold text-slate-950 transition hover:bg-amber-400">
+            <Link to="/products" className="rounded-lg bg-amber-500 px-8 py-3.5 text-sm font-semibold text-slate-950 transition hover:bg-amber-400">
               Shop Now
-            </button>
+            </Link>
 
-            <button className="rounded-lg border border-white/40 px-8 py-3.5 text-sm font-semibold text-white transition hover:border-amber-400 hover:text-amber-300">
+            <Link to="/solutions" className="rounded-lg border border-white/40 px-8 py-3.5 text-sm font-semibold text-white transition hover:border-amber-400 hover:text-amber-300">
               Explore Solutions
-            </button>
+            </Link>
 
-            <button className="flex items-center gap-3 px-2 py-2 text-sm font-medium text-white transition hover:text-amber-300">
+            <Link to="/contact" className="flex items-center gap-3 px-2 py-2 text-sm font-medium text-white transition hover:text-amber-300">
               <span className="grid h-10 w-10 place-items-center rounded-full border border-white/40">
                 <Play size={17} fill="currentColor" />
               </span>
               Watch Video
-            </button>
+            </Link>
           </div>
         </div>
       </div>

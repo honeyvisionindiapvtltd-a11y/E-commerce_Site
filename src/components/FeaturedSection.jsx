@@ -6,6 +6,9 @@ import {
   Eye,
   Star,
 } from "lucide-react";
+import { Link } from "react-router-dom";
+import { useCommerce } from "../context/CommerceContext";
+import { money, products } from "../lib/products";
 
 const brands = [
   { name: "Dell", logo: "https://res.cloudinary.com/vhrkwyzs/image/upload/v1786172601/Dell_Logo_lmfwhj.png" },
@@ -21,37 +24,18 @@ const brands = [
 ];
 
 const featured = [
-  {
-    name: "ASUS ROG Laptop",
-    image: "https://res.cloudinary.com/vhrkwyzs/image/upload/v1786017606/ASUS_ROG_Laptop_wlgrgg.webp",
-    price: "₹1,19,999",
-    oldPrice: "₹1,34,999",
-    rating: 4.9,
-  },
-  {
-    name: "AI PTZ Camera",
-    image: "https://res.cloudinary.com/vhrkwyzs/image/upload/v1786017607/AI_PTZ_Camera_jdwn7h.webp",
-    price: "₹16,999",
-    oldPrice: "₹21,999",
-    rating: 4.8,
-  },
-  {
-    name: "Synology NAS",
-    image: "https://res.cloudinary.com/vhrkwyzs/image/upload/v1786017607/Synology_NAS_uhhbsb.webp",
-    price: "₹42,999",
-    oldPrice: "₹48,999",
-    rating: 4.7,
-  },
-  {
-    name: "DJI Air Drone",
-    image: "https://res.cloudinary.com/vhrkwyzs/image/upload/v1786017613/DJI_Air_Drone_pgogse.webp",
-    price: "₹82,999",
-    oldPrice: "₹89,999",
-    rating: 4.9,
-  },
+  "dell-inspiron-15-laptop",
+  "dji-mini-4k-drone",
+  "tp-link-archer-ax55-router",
+  "dahua-4mp-ai-dome-camera",
 ];
 
 export default function FeaturedSection() {
+  const { addToCart, toggleWishlist, wishlist } = useCommerce();
+  const productsToShow = featured
+    .map((id) => products.find((product) => product.id === id))
+    .filter(Boolean);
+
   return (
     <section className="py-20 bg-gray-50">
 
@@ -73,10 +57,10 @@ export default function FeaturedSection() {
 
           </div>
 
-          <button className="flex items-center gap-2 font-semibold">
+          <Link to="/products" className="flex items-center gap-2 font-semibold text-slate-900 hover:text-amber-600">
             View All
-            <ChevronRight size={18}/>
-          </button>
+            <ChevronRight size={18} />
+          </Link>
 
         </div>
 
@@ -145,69 +129,82 @@ export default function FeaturedSection() {
 
         <div className="grid lg:grid-cols-4 md:grid-cols-2 gap-8 mt-16">
 
-          {featured.map((item, index) => (
+          {productsToShow.map((item) => {
+            const isWishlisted = wishlist.includes(item.id);
 
-            <div
-              key={index}
-              className="bg-white rounded-3xl overflow-hidden shadow hover:shadow-2xl transition"
-            >
+            return (
+              <div
+                key={item.id}
+                className="bg-white rounded-3xl overflow-hidden shadow hover:shadow-2xl transition"
+              >
 
-              <div className="relative bg-gray-100 p-8">
+                <div className="relative bg-gray-100 p-8">
 
-                <button className="absolute top-4 right-4 bg-white p-2 rounded-full shadow">
-                  <Heart size={18}/>
-                </button>
-
-                <img
-                  src={item.image}
-                  className="h-56 mx-auto object-contain"
-                  alt={item.name}
-                />
-
-              </div>
-
-              <div className="p-6">
-
-                <div className="flex text-yellow-500 items-center gap-1">
-                  <Star fill="currentColor" size={16}/>
-                  {item.rating}
-                </div>
-
-                <h3 className="font-bold text-lg mt-3">
-                  {item.name}
-                </h3>
-
-                <div className="flex gap-3 mt-4 items-center">
-
-                  <span className="text-2xl font-bold text-[#0A1931]">
-                    {item.price}
-                  </span>
-
-                  <span className="line-through text-gray-400">
-                    {item.oldPrice}
-                  </span>
-
-                </div>
-
-                <div className="grid grid-cols-2 gap-3 mt-6">
-
-                  <button className="bg-[#0A1931] text-white py-3 rounded-xl flex justify-center gap-2 items-center">
-                    <ShoppingCart size={18}/>
-                    Cart
+                  <button
+                    type="button"
+                    onClick={() => toggleWishlist(item.id)}
+                    className={`absolute top-4 right-4 rounded-full p-2 shadow ${isWishlisted ? "bg-red-50 text-red-500" : "bg-white text-slate-500"}`}
+                    aria-label={`Toggle wishlist for ${item.name}`}
+                  >
+                    <Heart size={18} fill={isWishlisted ? "currentColor" : "none"} />
                   </button>
 
-                  <button className="border py-3 rounded-xl flex justify-center gap-2 items-center">
-                    <Eye size={18}/>
-                    View
-                  </button>
+                  <Link to={`/products/${item.id}`}>
+                    <img
+                      src={item.image}
+                      className="h-56 mx-auto object-contain"
+                      alt={item.name}
+                    />
+                  </Link>
+
+                </div>
+
+                <div className="p-6">
+
+                  <div className="flex text-yellow-500 items-center gap-1">
+                    <Star fill="currentColor" size={16} />
+                    {item.rating}
+                  </div>
+
+                  <Link to={`/products/${item.id}`} className="block font-bold text-lg mt-3 text-slate-900 hover:text-amber-600">
+                    {item.name}
+                  </Link>
+
+                  <div className="flex gap-3 mt-4 items-center">
+
+                    <span className="text-2xl font-bold text-[#0A1931]">
+                      {money(item.price)}
+                    </span>
+
+                    <span className="line-through text-gray-400">
+                      {money(item.mrp)}
+                    </span>
+
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3 mt-6">
+
+                    <button
+                      type="button"
+                      onClick={() => addToCart(item.id)}
+                      className="bg-[#0A1931] text-white py-3 rounded-xl flex justify-center gap-2 items-center"
+                    >
+                      <ShoppingCart size={18} />
+                      Cart
+                    </button>
+
+                    <Link to={`/products/${item.id}`} className="border py-3 rounded-xl flex justify-center gap-2 items-center text-slate-900 hover:border-amber-300 hover:text-amber-600">
+                      <Eye size={18} />
+                      View
+                    </Link>
+
+                  </div>
 
                 </div>
 
               </div>
-
-            </div>
-
-          ))}
+            );
+          })}
 
         </div>
 
