@@ -1,16 +1,52 @@
 import { Link, useParams, useNavigate } from "react-router-dom";
 import { ChevronRight, LayoutGrid, List } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useCommerce } from "../context/CommerceContext";
-import { products as allProducts, categoryFromSlug, slugifyCategory } from "../lib/products";
+import { money } from "../lib/products";
 
 export default function Category() {
   const { categorySlug } = useParams();
   const navigate = useNavigate();
   const [gridView, setGridView] = useState(true);
+  const [products, setProducts] = useState([]);
+  const [categoryName, setCategoryName] = useState("Category");
   const { wishlist, toggleWishlist } = useCommerce();
-  const categoryName = categoryFromSlug(categorySlug || "") || "Category";
-  const products = allProducts.filter((product) => slugifyCategory(product.category) === categorySlug);
+
+  useEffect(() => {
+    let ignore = false;
+
+    const loadCategoryData = async () => {
+      try {
+        const [productsResponse, categoriesResponse] = await Promise.all([
+          fetch(`/api/products?category=${encodeURIComponent(categorySlug || "")}&limit=200`),
+          fetch("/api/categories/tree"),
+        ]);
+
+        if (!productsResponse.ok) throw new Error("Unable to load category products");
+
+        const productsData = await productsResponse.json();
+        const categoriesData = await categoriesResponse.json();
+        const categoryList = Array.isArray(categoriesData.categories) ? categoriesData.categories : [];
+        const foundCategory = categoryList.find((item) => item.slug === categorySlug);
+
+        if (!ignore) {
+          setCategoryName(foundCategory?.name || categorySlug || "Category");
+          setProducts(Array.isArray(productsData.products) ? productsData.products : []);
+        }
+      } catch {
+        if (!ignore) {
+          setCategoryName(categorySlug || "Category");
+          setProducts([]);
+        }
+      }
+    };
+
+    loadCategoryData();
+
+    return () => {
+      ignore = true;
+    };
+  }, [categorySlug]);
 
   if (!categoryName || !products.length) {
     return (
@@ -83,30 +119,30 @@ export default function Category() {
         <div className="grid gap-8">
           <div className={`grid gap-6 ${gridView ? "sm:grid-cols-2 xl:grid-cols-3" : "grid-cols-1"}`}>
             {products.map((product) => (
-              <article key={product.id} className="group overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm transition hover:-translate-y-1">
+              <article key={product._id || product.id || product.slug} className="group overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm transition hover:-translate-y-1">
                 <div className="overflow-hidden rounded-3xl bg-slate-950 p-6">
-                  <img src={product.image} alt={product.name} className="mx-auto h-44 w-full object-contain" />
+                  <img src={product.thumbnail || product.image || product.images?.[0]} alt={product.name} className="mx-auto h-44 w-full object-contain" />
                 </div>
                 <div className="p-6">
-                  <span className="text-sm uppercase tracking-[0.2em] text-amber-500">{product.category}</span>
+                  <span className="text-sm uppercase tracking-[0.2em] text-amber-500">{product.category?.name || product.category || "General"}</span>
                   <h3 className="mt-3 text-xl font-semibold text-slate-950">{product.name}</h3>
                   <p className="mt-2 text-sm text-slate-600">{product.brand}</p>
                   <div className="mt-3 flex items-center gap-3">
-                    <span className="text-2xl font-bold text-slate-950">₹{product.price.toLocaleString()}</span>
-                    {product.mrp && (
-                      <span className="text-sm line-through text-slate-400">₹{product.mrp.toLocaleString()}</span>
+                    <span className="text-2xl font-bold text-slate-950">{money(product.price ?? 0)}</span>
+                    {product.mrp && Number(product.mrp) > Number(product.price ?? 0) && (
+                      <span className="text-sm line-through text-slate-400">{money(product.mrp)}</span>
                     )}
                   </div>
                   <div className="mt-5 flex flex-wrap items-center gap-3">
-                    <Link to={`/products/${product.id}`} className="rounded-2xl bg-amber-500 px-4 py-3 text-sm font-semibold text-slate-950 transition hover:bg-amber-400">
+                    <Link to={`/products/${product._id || product.id || product.slug}`} className="rounded-2xl bg-amber-500 px-4 py-3 text-sm font-semibold text-slate-950 transition hover:bg-amber-400">
                       View
                     </Link>
                     <button
                       type="button"
-                      onClick={() => toggleWishlist(product.id)}
+                      onClick={() => toggleWishlist(product._id || product.id || product.slug)}
                       className="rounded-2xl border border-slate-200 px-4 py-3 text-sm font-semibold text-slate-600 transition hover:bg-slate-100"
                     >
-                      {wishlist.includes(product.id) ? "Remove" : "Wishlist"}
+                      {wishlist.includes(product._id || product.id || product.slug) ? "Remove" : "Wishlist"}
                     </button>
                   </div>
                 </div>

@@ -1,22 +1,11 @@
 import { Heart, Star, ShoppingCart } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useCommerce } from "../context/CommerceContext";
-import { money, products } from "../lib/products";
-
-const trendingIds = [
-  "dell-inspiron-15-laptop",
-  "hikvision-8-channel-nvr",
-  "tp-link-archer-ax55-router",
-  "dji-mini-4k-drone",
-  "seagate-1tb-portable-hdd",
-  "wd-purple-2tb-hdd",
-];
+import { money } from "../lib/products";
 
 export default function TrendingProducts() {
-  const { addToCart, toggleWishlist, wishlist } = useCommerce();
-  const trendingProducts = trendingIds
-    .map((id) => products.find((product) => product.id === id))
-    .filter(Boolean);
+  const { addToCart, toggleWishlist, wishlist, products } = useCommerce();
+  const trendingProducts = products.slice(0, 6);
 
   return (
     <section className="w-full px-3 py-6 sm:px-6">
