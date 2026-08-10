@@ -8,7 +8,7 @@ import {
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useCommerce } from "../context/CommerceContext";
-import { money, products } from "../lib/products";
+import { money } from "../lib/products";
 
 const brands = [
   { name: "Dell", logo: "https://res.cloudinary.com/vhrkwyzs/image/upload/v1786172601/Dell_Logo_lmfwhj.png" },
@@ -23,18 +23,9 @@ const brands = [
   { name: "Seagate", logo: "https://res.cloudinary.com/vhrkwyzs/image/upload/v1786172589/Seagate_logo_saaft5.svg" },
 ];
 
-const featured = [
-  "dell-inspiron-15-laptop",
-  "dji-mini-4k-drone",
-  "tp-link-archer-ax55-router",
-  "dahua-4mp-ai-dome-camera",
-];
-
 export default function FeaturedSection() {
-  const { addToCart, toggleWishlist, wishlist } = useCommerce();
-  const productsToShow = featured
-    .map((id) => products.find((product) => product.id === id))
-    .filter(Boolean);
+  const { addToCart, toggleWishlist, wishlist, products } = useCommerce();
+  const productsToShow = products.slice(0, 4);
 
   return (
     <section className="py-20 bg-gray-50">

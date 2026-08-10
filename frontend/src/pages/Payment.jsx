@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useCommerce } from "../context/CommerceContext";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 
 import {
   ShoppingCart,
@@ -29,6 +29,7 @@ import {
 const Payment = () => {
   const { cart, products, profile, addresses, user, placeOrder } = useCommerce();
   const location = useLocation();
+  const navigate = useNavigate();
   const checkoutState = location.state || {};
   const orderIdFromState = checkoutState.orderId;
 
@@ -73,10 +74,15 @@ const Payment = () => {
     })
     .filter(Boolean);
 
+  const missingCartItems = cart
+    .filter((item) => !products.some((product) => product.id === item.productId))
+    .map((item) => item.productId);
+
+  const hasMissingProducts = missingCartItems.length > 0;
   const checkoutItems = preservedItems || currentCheckoutItems;
 
   const subtotal = checkoutItems.reduce(
-    (total, item) => total + item.product.price * item.quantity,
+    (total, item) => total + (item.product?.price || 0) * item.quantity,
     0
   );
 
@@ -96,10 +102,18 @@ const Payment = () => {
     );
   }
 
-
-  /* =========================================================
-     PAYMENT METHODS
-  ========================================================= */
+    if (hasMissingProducts) {
+      return (
+        <main className="min-h-screen bg-[#f8fafc] p-10 text-center">
+          <h1 className="text-3xl font-extrabold text-[#071426]">Cart item unavailable</h1>
+          <p className="mt-4 text-gray-600">Some items in your cart are no longer available or could not be matched to the current product catalog.</p>
+          <pre className="mx-auto mt-4 max-w-xl rounded-xl bg-white p-4 text-left text-sm text-red-600">Missing product IDs:
+            {missingCartItems.join(", ")}
+          </pre>
+              <Link to="/cart" className="mt-6 inline-block rounded-xl bg-[#061a36] px-6 py-3 text-white transition hover:bg-[#fbb900] hover:text-[#071426]">Review Cart</Link>
+        </main>
+      );
+    }
 
   const paymentMethods = [
     {

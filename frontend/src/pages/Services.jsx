@@ -1,4 +1,5 @@
 import React from "react";
+import { Link } from "react-router-dom";
 import {
   Monitor,
   Wrench,
@@ -36,6 +37,7 @@ import {
   ArrowRight,
 } from "lucide-react";
 
+import { services as serviceItems } from "../lib/serviceData";
 import serviceBanner from "../assets/service-banner.jpeg";
 
 
@@ -448,17 +450,18 @@ const Services = () => {
 
         <div className="mt-12 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-5">
 
-          {services.map((service) => {
+          {serviceItems.map((service) => {
 
             const Icon = service.icon;
 
             return (
 
               <ServiceCard
-                key={service.title}
+                key={service.slug}
                 icon={Icon}
                 title={service.title}
                 description={service.description}
+                to={`/services/${service.slug}`}
               />
 
             );
@@ -1012,11 +1015,15 @@ const ServiceCard = ({
   icon: Icon,
   title,
   description,
+  to,
 }) => {
 
   return (
 
-    <div className="group flex min-h-[265px] flex-col rounded-xl border border-gray-200 bg-white p-6 text-center transition duration-300 hover:-translate-y-1 hover:border-[#fbb900] hover:shadow-lg">
+    <Link
+      to={to}
+      className="group flex min-h-[265px] flex-col rounded-xl border border-gray-200 bg-white p-6 text-center transition duration-300 hover:-translate-y-1 hover:border-[#fbb900] hover:shadow-lg"
+    >
 
       <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-[#eef5fa] transition group-hover:bg-[#fff4d0]">
 
@@ -1039,7 +1046,7 @@ const ServiceCard = ({
       </p>
 
 
-      <button className="mt-5 inline-flex items-center justify-center gap-2 text-xs font-bold text-[#1457a6]">
+      <div className="mt-5 inline-flex items-center justify-center gap-2 text-xs font-bold text-[#1457a6]">
 
         Learn More
 
@@ -1048,9 +1055,9 @@ const ServiceCard = ({
           className="transition group-hover:translate-x-1"
         />
 
-      </button>
+      </div>
 
-    </div>
+    </Link>
 
   );
 };

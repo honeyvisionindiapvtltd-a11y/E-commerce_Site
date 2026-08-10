@@ -17,6 +17,7 @@ import { useCommerce } from "../context/CommerceContext";
 import { slugifyCategory } from "../lib/products";
 
 import logo from "../assets/logo.png";
+import MegaMenu from "./MegaMenu";
 
 const navLinks = [
   ["Services", "/services"],
@@ -203,16 +204,8 @@ export default function Navbar() {
                 <ChevronDown size={16} />
               </NavLink>
 
-              <div className="absolute left-0 top-12 z-50 hidden w-96 grid-cols-2 gap-4 rounded-lg bg-white p-5 text-slate-800 shadow-xl group-hover:grid">
-                {productLinks.map(({ label, category }) => (
-                  <Link
-                    key={label}
-                    to={`/products?category=${slugifyCategory(category)}`}
-                    className="hover:text-yellow-500"
-                  >
-                    {label}
-                  </Link>
-                ))}
+              <div className="absolute left-0 top-12 z-50 hidden w-[900px] gap-4 rounded-lg bg-white p-2 text-slate-800 shadow-xl group-hover:block">
+                <MegaMenu />
               </div>
             </li>
 
