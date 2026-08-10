@@ -16,7 +16,8 @@ const latestArticles = [
     title: "Cloud Solutions for Modern Businesses",
     date: "May 18, 2024",
     readTime: "4 Min Read",
-    image: "/images/blogs/cloud-solutions.jpg",
+    image:
+      "https://res.cloudinary.com/vhrkwyzs/image/upload/v1786174380/blog2_fyfiq2.png",
     link: "/blogs/cloud-solutions-modern-businesses",
   },
   {
@@ -24,7 +25,8 @@ const latestArticles = [
     title: "5G & Beyond: The Future of Connectivity",
     date: "May 16, 2024",
     readTime: "5 Min Read",
-    image: "/images/blogs/5g-connectivity.jpg",
+    image:
+      "https://res.cloudinary.com/vhrkwyzs/image/upload/v1786173897/blog1_jetmtz.png",
     link: "/blogs/5g-future-connectivity",
   },
   {
@@ -32,7 +34,8 @@ const latestArticles = [
     title: "Drones in Industry: Applications & Use Cases",
     date: "May 14, 2024",
     readTime: "6 Min Read",
-    image: "/images/blogs/drone-industry.jpg",
+    image:
+      "https://res.cloudinary.com/vhrkwyzs/image/upload/v1786174374/blog4_fgkwc0.png",
     link: "/blogs/drones-in-industry",
   },
   {
@@ -40,7 +43,8 @@ const latestArticles = [
     title: "Cyber Security Best Practices for Enterprises",
     date: "May 12, 2024",
     readTime: "6 Min Read",
-    image: "/images/blogs/cyber-security.jpg",
+    image:
+      "https://res.cloudinary.com/vhrkwyzs/image/upload/v1786178835/blog3_rezrfp.png",
     link: "/blogs/cyber-security-best-practices",
   },
 ];
@@ -84,15 +88,20 @@ export default function Blog() {
 
       {/* Hero */}
       <section className="relative min-h-[260px] overflow-hidden text-white sm:min-h-[340px]">
-        <img
-          src="/images/blogs/blog-hero.jpg"
-          alt="Honey Vision technology blog"
-          className="absolute inset-0 h-full w-full object-cover"
-        />
+        {/* Hero Image */}
+        <div className="pointer-events-none absolute inset-y-0 right-0 z-[1] flex w-[48%] items-center justify-end sm:w-[50%] lg:w-[52%]">
+          <img
+            src="https://res.cloudinary.com/vhrkwyzs/image/upload/v1786344410/blog-hero_tzpjd0.png"
+            alt="Honey Vision technology blog"
+            className="h-full w-full object-contain object-right drop-shadow-[0_30px_60px_rgba(0,0,0,.35)]"
+          />
+        </div>
 
-        <div className="absolute inset-0 bg-gradient-to-r from-[#031426]/95 via-[#031426]/75 to-[#031426]/35" />
+        {/* Background Overlay */}
+        <div className="absolute inset-0 z-[2] bg-gradient-to-r from-[#031426]/95 via-[#031426]/75 to-[#031426]/35" />
 
-        <div className="relative mx-auto max-w-7xl px-3 py-12 sm:px-6 lg:py-16">
+        {/* Hero Content */}
+        <div className="relative z-[3] mx-auto max-w-7xl px-3 py-12 sm:px-6 lg:py-16">
           <span className="inline-block rounded-full border border-amber-400 px-4 py-1.5 text-xs font-semibold text-amber-400">
             OUR BLOG
           </span>
@@ -119,11 +128,13 @@ export default function Blog() {
             </h2>
 
             <article className="mt-4 grid overflow-hidden rounded-xl bg-white shadow-md md:grid-cols-[38%_1fr]">
-              <img
-                src="/images/blogs/ai-surveillance-featured.jpg"
-                alt="AI surveillance camera"
-                className="h-55 w-full object-cover md:h-full"
-              />
+              <div className="relative h-[260px] w-full overflow-hidden md:h-full">
+                <img
+                  src="https://res.cloudinary.com/vhrkwyzs/image/upload/v1786173897/blog1_jetmtz.png"
+                  alt="AI surveillance camera"
+                  className="absolute inset-0 h-full w-full object-cover"
+                />
+              </div>
 
               <div className="p-5 sm:p-6">
                 <span className="rounded-md bg-amber-400 px-2 py-1 text-[10px] font-bold text-slate-950">
@@ -150,8 +161,8 @@ export default function Blog() {
 
                 <p className="mt-4 text-sm leading-6 text-slate-600">
                   Explore how AI-powered surveillance systems are transforming
-                  security operations with real-time analytics, object detection,
-                  and intelligent alerts.
+                  security operations with real-time analytics, object
+                  detection, and intelligent alerts.
                 </p>
 
                 <Link
@@ -216,7 +227,9 @@ export default function Blog() {
                 {categories.map(([name, count, Icon]) => (
                   <Link
                     key={name}
-                    to={`/blogs/category/${name.toLowerCase().replaceAll(" ", "-")}`}
+                    to={`/blogs/category/${name
+                      .toLowerCase()
+                      .replaceAll(" ", "-")}`}
                     className="flex items-center justify-between text-sm text-slate-600 hover:text-amber-600"
                   >
                     <span className="flex items-center gap-2">
@@ -286,6 +299,7 @@ export default function Blog() {
 
             <div>
               <h2 className="font-bold">Stay Updated with Honey Vision</h2>
+
               <p className="mt-1 text-sm text-slate-300">
                 Get the latest updates, insights, and offers to your inbox.
               </p>
@@ -309,6 +323,7 @@ export default function Blog() {
 
           <div className="flex items-center gap-3">
             <span className="mr-2 text-sm font-semibold">Follow Us</span>
+
             <SocialIcon label="f" />
             <SocialIcon label="in" />
             <SocialIcon label="◎" />
@@ -322,13 +337,15 @@ export default function Blog() {
 
 function ArticleCard({ article }) {
   return (
-    <article className="overflow-hidden rounded-xl bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-lg">
+    <article className="overflow-hidden rounded-xl bg-white shadow-sm">
       <Link to={article.link}>
-        <img
-          src={article.image}
-          alt={article.title}
-          className="h-32 w-full object-cover"
-        />
+        <div className="h-40 w-full overflow-hidden">
+          <img
+            src={article.image}
+            alt={article.title}
+            className="h-full w-full object-cover transition-transform duration-300 hover:scale-105"
+          />
+        </div>
 
         <div className="p-4">
           <p className="text-[10px] font-bold text-amber-600">
@@ -358,7 +375,11 @@ function ArticleCard({ article }) {
 
 function SocialIcon({ label }) {
   return (
-    <button className="grid h-9 w-9 place-items-center rounded-full border border-white/40 text-sm font-bold hover:border-amber-400 hover:text-amber-400">
+    <button
+      type="button"
+      className="grid h-9 w-9 place-items-center rounded-full border border-white/40 text-sm font-bold hover:border-amber-400 hover:text-amber-400"
+      aria-label={label}
+    >
       {label}
     </button>
   );

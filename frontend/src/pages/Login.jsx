@@ -3,7 +3,7 @@ import { Eye, EyeOff, Mail, Lock } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { useCommerce } from "../context/CommerceContext";
 
-import LoginImage from "../assets/login.png";
+const LoginImage = "https://res.cloudinary.com/vhrkwyzs/image/upload/v1786189628/login_odyhdp.png";
 
 export default function Login() {
   const [showPassword, setShowPassword] = useState(false);

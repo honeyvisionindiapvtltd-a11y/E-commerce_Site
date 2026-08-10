@@ -34,9 +34,12 @@ import Profile from './pages/Profile.jsx'
 import EditProfile from './pages/EditProfile.jsx'
 import Delivery from './pages/Delivery.jsx'
 import Installation from './pages/Installation.jsx'
+import InstallationSuccess from './pages/InstallationSuccess.jsx'
+import InstallationHistory from './pages/InstallationHistory.jsx'
 import AMC from "./pages/AMC";
 import RequestDemo from './pages/RequestDemo.jsx'
 import GetStarted from './pages/GetStarted.jsx'
+import ServiceDetail from './pages/ServiceDetail.jsx'
 import NotFound from './pages/NotFound.jsx'
 import Register from './pages/Register.jsx'
 import './App.css'
@@ -87,6 +90,9 @@ function App() {
           <Route path="/edit-profile" element={<EditProfile />} />
           <Route path="/delivery" element={<Delivery />} />
           <Route path="/installation" element={<Installation />} />
+          <Route path="/installation/success" element={<InstallationSuccess />} />
+          <Route path="/installation/history" element={<InstallationHistory />} />
+          <Route path="/services/:serviceSlug" element={<ServiceDetail />} />
           <Route path="/amc" element={<AMC />} />
           <Route path="/request-demo" element={<RequestDemo />} />
           <Route path="/get-started" element={<GetStarted />} />

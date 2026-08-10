@@ -14,7 +14,7 @@ import {
   Pencil,
 } from "lucide-react";
 
-import ContactHero from "../assets/contact.png";
+const ContactHero = "https://res.cloudinary.com/vhrkwyzs/image/upload/v1786189628/contact_ptyzsi.png";
 
 export default function Contact() {
   return (

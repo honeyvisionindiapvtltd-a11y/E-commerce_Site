@@ -1,7 +1,6 @@
 import React, { useState, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { useCommerce } from "../context/CommerceContext";
-import { recommendationsFor, money, bundleByProductId } from "../lib/products";
+import { useCommerce } from "../context/CommerceContext";import DeliveryChecker from "../components/DeliveryChecker.jsx";import { recommendationsFor, money, bundleByProductId } from "../lib/products";
 import { Heart, Share2, Star, Minus, Plus, ShoppingCart, Truck, ShieldCheck, RotateCcw, CreditCard, ChevronRight, GitCompareArrows } from "lucide-react";
 
 export default function ProductDetails() {
@@ -202,6 +201,10 @@ export default function ProductDetails() {
               <button onClick={handleBuyNow} className="bg-yellow-500 hover:bg-yellow-400 rounded-xl py-4 text-lg font-bold text-black transition">
                 Buy Now
               </button>
+            </div>
+
+            <div className="mt-10">
+              <DeliveryChecker productId={product?.id} />
             </div>
           </div>
         </div>

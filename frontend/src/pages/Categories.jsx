@@ -3,16 +3,16 @@ import { ChevronRight } from "lucide-react";
 import { slugifyCategory } from "../lib/products";
 
 const categoryTiles = [
-  ["Laptops", "/images/categories/laptop.png"],
-  ["Desktop PCs", "/images/categories/desktop-pc.png"],
-  ["Components", "/images/categories/components.png"],
-  ["Networking", "/images/categories/networking.png"],
-  ["CCTV & Security", "/images/categories/cctv.png"],
-  ["Drones & Cameras", "/images/categories/drone.png"],
-  ["Accessories", "/images/categories/headphones.png"],
-  ["Office Equipment", "/images/categories/printer.png"],
-  ["Power Backup", "/images/categories/power-backup.png"],
-  ["Display", "/images/categories/display.png"],
+  ["Laptops", "https://res.cloudinary.com/vhrkwyzs/image/upload/v1786010029/laptop_ktvxcs.png"],
+  ["Desktop PCs", "https://res.cloudinary.com/vhrkwyzs/image/upload/v1786010023/networking_ozm2kk.jpg"],
+  ["Components", "https://res.cloudinary.com/vhrkwyzs/image/upload/v1786010026/components_hlmuj1.jpg"],
+  ["Networking", "https://res.cloudinary.com/vhrkwyzs/image/upload/v1786010023/assesories_eizhmq.jpg"],
+  ["CCTV & Security", "https://res.cloudinary.com/vhrkwyzs/image/upload/v1786010027/cctv_y2raii.jpg"],
+  ["Drones & Cameras", "https://res.cloudinary.com/vhrkwyzs/image/upload/v1786250199/drone_and_camers_cxwmhx.png"],
+  ["Accessories", "https://res.cloudinary.com/vhrkwyzs/image/upload/v1786012476/headphone_ami4sj.webp"],
+  ["Office Equipment", "https://res.cloudinary.com/vhrkwyzs/image/upload/v1786010025/officeeqp0.124_voj31y.jpg"],
+  ["Power Backup", "https://res.cloudinary.com/vhrkwyzs/image/upload/v1786010026/power_bank_kqypks.jpg"],
+  ["Display", "https://res.cloudinary.com/vhrkwyzs/image/upload/v1786010024/display_rar3xa.webp"],
 ];
 
 export default function Categories() {
@@ -41,13 +41,13 @@ export default function Categories() {
             <Link
               key={name}
               to={`/products?category=${slugifyCategory(name)}`}
-              className="group overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-lg"
+              className="group overflow-hidden rounded-3xl border border-slate-200 bg-amber-300 shadow-sm transition hover:-translate-y-1 hover:shadow-lg"
             >
-              <div className="overflow-hidden bg-slate-950 p-6">
+              <div className="overflow-hidden bg-white p-6">
                 <img
                   src={image}
                   alt={name}
-                  className="h-40 w-full object-contain transition duration-300 group-hover:scale-105"
+                  className="h-60 w-full object-contain transition duration-300 group-hover:scale-105"
                 />
               </div>
               <div className="p-6">

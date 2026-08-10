@@ -101,7 +101,12 @@ function readStore() {
     isLoggedIn: false,
     user: null,
     authToken: null,
-    deliveryPin: "751001",
+    deliveryLocation: {
+      pincode: '751001',
+      city: 'Bhubaneswar',
+      state: 'Odisha',
+    },
+    deliveryPin: '751001',
     profile: defaultProfile,
     addresses: defaultAddresses,
     paymentMethods: defaultPaymentMethods,
@@ -169,6 +174,7 @@ export function CommerceProvider({ children }) {
   const paymentMethods = store.paymentMethods || defaultPaymentMethods;
   const notifications = store.notifications || defaultNotifications;
   const accountSettings = store.accountSettings || defaultAccountSettings;
+  const deliveryLocation = store.deliveryLocation || fallback.deliveryLocation;
 
   const requestJson = async (path, options = {}) => {
     const headers = {
@@ -192,6 +198,39 @@ export function CommerceProvider({ children }) {
     }
 
     return data;
+  };
+
+  const checkDeliveryByPincode = async ({ pincode, productId = null }) => {
+    const normalizedPin = String(pincode || "").replace(/\s+/g, "").replace(/\D/g, "").slice(0, 6);
+    const url = `/delivery/check/${encodeURIComponent(normalizedPin)}` + (productId ? `?productId=${encodeURIComponent(productId)}` : "");
+    const response = await requestJson(url, { method: "GET" });
+
+    if (response.success) {
+      const location = response.location || {};
+      update({
+        deliveryPin: location.pincode || normalizedPin,
+        deliveryLocation: { ...deliveryLocation, ...location },
+      });
+    }
+
+    return response;
+  };
+
+  const checkDeliveryByLocation = async ({ latitude, longitude, productId = null }) => {
+    const response = await requestJson("/location/check", {
+      method: "POST",
+      body: JSON.stringify({ latitude, longitude, productId }),
+    });
+
+    if (response.success) {
+      const location = response.location || {};
+      update({
+        deliveryPin: location.pincode,
+        deliveryLocation: { ...deliveryLocation, ...location },
+      });
+    }
+
+    return response;
   };
 
   const update = (next) => setStore((current) => {
@@ -527,8 +566,12 @@ export function CommerceProvider({ children }) {
     paymentMethods,
     notifications,
     accountSettings,
-    deliveryPin: store.deliveryPin || "751001",
-    setDeliveryPin: (deliveryPin) => update({ deliveryPin }),
+    deliveryLocation,
+    deliveryPin: deliveryLocation?.pincode || store.deliveryPin || "751001",
+    setDeliveryPin: (deliveryPin) => update({ deliveryPin, deliveryLocation: { ...deliveryLocation, pincode: deliveryPin } }),
+    setDeliveryLocation: (deliveryLocation) => update({ deliveryLocation, deliveryPin: deliveryLocation?.pincode || store.deliveryPin || "751001" }),
+    checkDeliveryByPincode,
+    checkDeliveryByLocation,
     addToCart,
     setQuantity,
     removeFromCart: (productId) => setQuantity(productId, 0),

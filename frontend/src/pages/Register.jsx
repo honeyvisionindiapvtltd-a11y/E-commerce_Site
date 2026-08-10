@@ -12,7 +12,7 @@ import {
 import { Link, useNavigate } from "react-router-dom";
 import { useCommerce } from "../context/CommerceContext";
 
-import RegisterImage from "../assets/register.png";
+const RegisterImage = "https://res.cloudinary.com/vhrkwyzs/image/upload/v1786189630/register_gbw9qh.png";
 
 export default function Register() {
 

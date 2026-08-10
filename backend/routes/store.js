@@ -1,8 +1,12 @@
 import { Router } from 'express';
+import { getDB } from '../db.js';
+import { findDeliveryDocument, getDeliveryCollection } from '../services/deliveryService.js';
+import { normalizePincode, isValidPincode } from '../middleware/validation.js';
 
 const router = Router();
-const orders = [];
-const installations = [];
+
+const getOrdersCollection = () => getDB().collection('orders');
+const getInstallationsCollection = () => getDB().collection('installations');
 
 router.get('/products', (_req, res) => {
   res.json([
@@ -30,14 +34,42 @@ router.get('/products', (_req, res) => {
   ]);
 });
 
-router.get('/orders', (req, res) => {
+router.get('/orders', async (req, res) => {
   const { userId } = req.query;
-  const filtered = userId ? orders.filter((order) => String(order.userId) === String(userId)) : orders;
-  res.json(filtered);
+  const filter = {};
+  if (userId) {
+    filter.userId = String(userId);
+  }
+
+  const orders = await getOrdersCollection().find(filter).sort({ createdAt: -1 }).toArray();
+  res.json(orders);
 });
 
-router.post('/orders', (req, res) => {
-  const { userId = null, items = [], address = {}, paymentMethod = 'cod', installationSlot = null } = req.body;
+router.post('/orders', async (req, res) => {
+  const { userId = null, items = [], shippingAddress = null, address = null, paymentMethod = 'cod', installationSlot = null } = req.body;
+  const orderAddress = shippingAddress || address || {};
+  const normalizedPin = normalizePincode(orderAddress.pin || orderAddress.pincode || '');
+
+  if (!isValidPincode(normalizedPin)) {
+    return res.status(400).json({ success: false, message: 'Please provide a valid 6-digit PIN code for shipping.' });
+  }
+
+  const itemProductIds = Array.isArray(items) ? items.map((item) => item.productId).filter(Boolean) : [];
+  const deliveryResults = await Promise.all(
+    itemProductIds.map((productId) => findDeliveryDocument(normalizedPin, productId))
+  );
+
+  const nonServiceable = deliveryResults.some((doc) => !doc || !doc.serviceable || !doc.active);
+  if (nonServiceable) {
+    return res.status(400).json({ success: false, message: 'Delivery is not available for one or more items in your cart at the provided PIN code.' });
+  }
+
+  const deliveryDocument = deliveryResults.find((doc) => doc && doc.serviceable && doc.active) || (await findDeliveryDocument(normalizedPin));
+  const deliveryCharge = deliveryResults.reduce((maxCharge, doc) => Math.max(maxCharge, Number(doc?.deliveryCharge || 0)), 0);
+  const estimatedDeliveryDays = Array.from(
+    new Set(deliveryResults.filter((doc) => doc?.estimatedDeliveryDays).map((doc) => doc.estimatedDeliveryDays))
+  ).join(', ') || deliveryDocument?.estimatedDeliveryDays || '2-5 days';
+
   const subtotal = items.reduce((sum, item) => sum + (item.price || 0) * (item.quantity || 1), 0);
   const shipping = subtotal >= 999 ? 0 : 99;
   const installationFee = items.filter((item) => item.installation).length * 499;
@@ -48,7 +80,22 @@ router.post('/orders', (req, res) => {
     status: paymentMethod === 'cod' ? 'Order placed' : 'Payment pending',
     paymentMethod,
     paymentStatus: paymentMethod === 'cod' ? 'Pay on delivery' : 'Awaiting payment gateway',
-    address,
+    shippingAddress: {
+      name: orderAddress.name || '',
+      phone: orderAddress.phone || '',
+      addressLine1: orderAddress.line1 || orderAddress.address || '',
+      addressLine2: orderAddress.line2 || '',
+      city: orderAddress.city || '',
+      state: orderAddress.state || '',
+      pincode: normalizedPin,
+      country: orderAddress.country || 'India',
+    },
+    delivery: {
+      serviceable: true,
+      estimatedDeliveryDays: deliveryDocument.estimatedDeliveryDays || '2-5 days',
+      deliveryCharge: Number(deliveryDocument.deliveryCharge || 0),
+      codAvailable: Boolean(deliveryDocument.codAvailable),
+    },
     installationSlot,
     items,
     subtotal,
@@ -57,17 +104,22 @@ router.post('/orders', (req, res) => {
     total: subtotal + shipping + installationFee,
   };
 
-  orders.unshift(order);
+  await getOrdersCollection().insertOne(order);
   res.status(201).json(order);
 });
 
-router.get('/installations', (req, res) => {
+router.get('/installations', async (req, res) => {
   const { userId } = req.query;
-  const filtered = userId ? installations.filter((booking) => String(booking.userId) === String(userId)) : installations;
-  res.json(filtered);
+  const filter = {};
+  if (userId) {
+    filter.userId = String(userId);
+  }
+
+  const installations = await getInstallationsCollection().find(filter).sort({ createdAt: -1 }).toArray();
+  res.json(installations);
 });
 
-router.post('/installations', (req, res) => {
+router.post('/installations', async (req, res) => {
   const booking = {
     id: `INSTALL-${Date.now().toString().slice(-6)}`,
     userId: req.body.userId || null,
@@ -76,7 +128,7 @@ router.post('/installations', (req, res) => {
     ...req.body,
   };
 
-  installations.unshift(booking);
+  await getInstallationsCollection().insertOne(booking);
   res.status(201).json(booking);
 });
 

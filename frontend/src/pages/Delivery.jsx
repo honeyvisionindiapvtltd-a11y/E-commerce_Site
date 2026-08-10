@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import DeliveryChecker from "../components/DeliveryChecker.jsx";
 import {
   Truck,
   ShieldCheck,
@@ -18,8 +19,8 @@ import {
   CircleCheck,
 } from "lucide-react";
 
-import deliveryTruck from "../assets/delivery-truck.png";
-import deliveryBox from "../assets/delivery-box.jpeg";
+const deliveryTruck = "https://res.cloudinary.com/vhrkwyzs/image/upload/v1786343326/delivery_in8izl.png"
+const deliveryBox = "https://res.cloudinary.com/vhrkwyzs/image/upload/v1786343327/pakage_xfplmv.png"
 
 
 const Delivery = () => {

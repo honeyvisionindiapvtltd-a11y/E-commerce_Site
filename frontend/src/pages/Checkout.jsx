@@ -5,10 +5,11 @@ import { useCommerce } from "../context/CommerceContext";
 import { money } from "../lib/products";
 
 export default function Checkout() {
-  const { cart, products, placeOrder, deliveryPin, setDeliveryPin, profile, addresses, user } = useCommerce();
+  const { cart, products, placeOrder, deliveryPin, setDeliveryPin, checkDeliveryByPincode, profile, addresses, user } = useCommerce();
   const navigate = useNavigate();
   const [paymentMethod, setPaymentMethod] = useState("cod");
   const [slot, setSlot] = useState("Tomorrow, 10:00 AM - 1:00 PM");
+  const [locationError, setLocationError] = useState("");
   const userAddresses = user?.id ? addresses.filter((addr) => addr.userId === user.id) : [];
   const defaultAddress = userAddresses.find((addr) => addr.isDefault) || userAddresses[0] || {};
   const [address, setAddress] = useState({
@@ -24,11 +25,24 @@ export default function Checkout() {
   const shipping = subtotal >= 999 ? 0 : 99;
   const valid = address.name && address.phone.length >= 10 && address.line1 && address.pin.length === 6;
 
-  const submit = (event) => {
+  const submit = async (event) => {
     event.preventDefault();
     if (!valid || !items.length) return;
-    setDeliveryPin(address.pin);
-    navigate('/payment', { state: { address, slot } });
+
+    setLocationError("");
+    try {
+      const result = await checkDeliveryByPincode({ pincode: address.pin });
+
+      if (!result.serviceable) {
+        setLocationError('Delivery is not available to this PIN code. Please update the address or check availability.');
+        return;
+      }
+
+      setDeliveryPin(address.pin);
+      navigate('/payment', { state: { address, slot } });
+    } catch (error) {
+      setLocationError(error.message || 'Unable to verify delivery availability. Please try again.');
+    }
   };
 
   if (!items.length) return <main className="min-h-screen bg-slate-50 p-12 text-center"><h1 className="text-2xl font-bold">Your cart is empty</h1><Link to="/products" className="mt-4 inline-block text-amber-600">Shop products</Link></main>;

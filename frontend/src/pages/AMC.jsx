@@ -22,8 +22,8 @@ import {
   Activity,
 } from "lucide-react";
 
-import amcTechnician from "../assets/amc_technician.png";
-import amcSystem from "../assets/amc_system.png";
+const amcTechnician = "https://res.cloudinary.com/vhrkwyzs/image/upload/v1786345305/amc_technician_pqc5jh.png";
+const amcSystem = "https://res.cloudinary.com/vhrkwyzs/image/upload/v1786345296/amc_system_bxlib3.png";
 
 const AMC = () => {
   const navigate = useNavigate();

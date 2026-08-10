@@ -213,7 +213,7 @@ export default function AiTools() {
 
           <div className="relative">
             <img
-              src="/images/ai/ai-hero.png"
+              src="https://res.cloudinary.com/vhrkwyzs/image/upload/v1786345411/Ai_zmtvl8.png"
               alt="AI-powered surveillance tools"
               className="mx-auto w-full max-w-xl object-contain"
             />

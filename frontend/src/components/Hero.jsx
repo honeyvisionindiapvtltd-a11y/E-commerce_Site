@@ -7,7 +7,7 @@ import {
 } from "lucide-react";
 import { Link } from "react-router-dom";
 
-import heroImage from "../assets/hero.jpeg";
+const heroImage = "https://res.cloudinary.com/vhrkwyzs/image/upload/v1786269627/hero_dgn7no.jpg";
 
 export default function Hero() {
   return (
