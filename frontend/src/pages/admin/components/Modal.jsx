@@ -1,13 +1,17 @@
+import React from 'react'
 
-import { X } from "lucide-react";
-export default function Modal({open,title,onClose,children,wide=false}) {
-  if(!open) return null;
-  return <div className="fixed inset-0 z-[100] grid place-items-center bg-black/50 p-4">
-    <div className={`w-full ${wide?"max-w-3xl":"max-w-lg"} max-h-[90vh] overflow-y-auto rounded-2xl bg-white shadow-2xl`}>
-      <div className="sticky top-0 flex items-center justify-between border-b bg-white px-5 py-4">
-        <h2 className="text-sm font-bold">{title}</h2><button onClick={onClose} className="rounded-lg p-2 hover:bg-slate-100"><X size={17}/></button>
+export default function Modal({ open = false, title = '', onClose = () => {}, children }) {
+  if (!open) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+      <div className="w-full max-w-2xl rounded bg-white p-5 shadow-lg">
+        <div className="mb-4 flex items-center justify-between">
+          <h3 className="text-sm font-bold">{title}</h3>
+          <button onClick={onClose} className="text-slate-500">Close</button>
+        </div>
+        <div>{children}</div>
       </div>
-      <div className="p-5">{children}</div>
     </div>
-  </div>
+  );
 }

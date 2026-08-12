@@ -1,7 +1,14 @@
+import React from 'react'
 
-export default function PageHeader({title, description, action, children}) {
-  return <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-    <div><h1 className="text-xl font-bold">{title}</h1>{description && <p className="mt-1 text-xs text-slate-500">{description}</p>}</div>
-    <div className="flex gap-2">{children}{action}</div>
-  </div>
+export default function PageHeader({ title, description, action = null }) {
+  return (
+    <div className="mb-4 flex items-center justify-between">
+      <div>
+        <h1 className="text-lg font-bold">{title}</h1>
+        {description ? <p className="text-xs text-slate-500">{description}</p> : null}
+      </div>
+
+      {action ? <div className="shrink-0">{action}</div> : null}
+    </div>
+  );
 }
