@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useState } from "react";
+import { computeTotals } from "../lib/orderTotals";
 import { products as fallbackProducts } from "../lib/products";
 
 const CommerceContext = createContext(null);
@@ -107,6 +108,7 @@ function readStore() {
       state: 'Odisha',
     },
     deliveryPin: '751001',
+    couponApplied: false,
     profile: defaultProfile,
     addresses: defaultAddresses,
     paymentMethods: defaultPaymentMethods,
@@ -144,6 +146,7 @@ function readStore() {
       user: parsed.user || null,
       authToken: parsed.authToken || null,
       deliveryPin: parsed.deliveryPin || "751001",
+      couponApplied: parsed.couponApplied !== undefined ? Boolean(parsed.couponApplied) : fallback.couponApplied,
       profile,
       addresses: userState?.addresses ?? storedAddresses,
       paymentMethods: Array.isArray(parsed.paymentMethods) ? parsed.paymentMethods : defaultPaymentMethods,
@@ -232,6 +235,10 @@ export function CommerceProvider({ children }) {
   const notifications = store.notifications || defaultNotifications;
   const accountSettings = store.accountSettings || defaultAccountSettings;
   const deliveryLocation = store.deliveryLocation || fallback.deliveryLocation;
+  const couponApplied = Boolean(store.couponApplied);
+
+  const setCouponApplied = (value) => update({ couponApplied: Boolean(value) });
+  const setDeliveryPin = (pin) => update({ deliveryPin: String(pin || "").replace(/\D/g, "").slice(0, 6) });
 
   const requestJson = async (path, options = {}) => {
     const headers = {
@@ -327,6 +334,12 @@ export function CommerceProvider({ children }) {
     });
   };
 
+  const removeFromCart = (productId) => {
+    update({
+      cart: cart.filter((item) => item.productId !== productId),
+    });
+  };
+
   const toggleWishlist = (productId) => {
     update({
       wishlist: wishlist.includes(productId) ? wishlist.filter((id) => id !== productId) : [...wishlist, productId],
@@ -344,10 +357,12 @@ export function CommerceProvider({ children }) {
     update({ cart: nextCart, wishlist: wishlist.filter((id) => !ids.has(id)) });
   };
 
-  const placeOrder = async ({ address, paymentMethod, installationSlot }) => {
+  const placeOrder = async ({ address, paymentMethod, installationSlot, secureShipping = false }) => {
     const items = cart
       .map((item) => ({ ...item, product: catalogProducts.find((product) => product.id === item.productId) }))
       .filter((item) => item.product);
+
+    const totals = computeTotals(items, { coupon: couponApplied, secureShipping });
 
     const orderPayload = {
       userId: user?.id || null,
@@ -355,6 +370,13 @@ export function CommerceProvider({ children }) {
       address,
       paymentMethod,
       installationSlot,
+      couponApplied,
+      subtotal: totals.subtotal,
+      shipping: totals.shipping,
+      installationFee: totals.installationFee,
+      discount: totals.discount,
+      insurance: totals.insurance,
+      total: totals.total,
     };
 
     const data = authToken
@@ -368,13 +390,6 @@ export function CommerceProvider({ children }) {
           createdAt: new Date().toISOString(),
           status: paymentMethod === "cod" ? "Order placed" : "Payment pending",
           paymentStatus: paymentMethod === "cod" ? "Pay on delivery" : "Awaiting payment gateway",
-          subtotal: items.reduce((total, item) => total + item.product.price * item.quantity, 0),
-          shipping: items.reduce((total, item) => total + item.product.price * item.quantity, 0) >= 999 ? 0 : 99,
-          installationFee: items.filter((item) => item.installation).length * 499,
-          total:
-            items.reduce((total, item) => total + item.product.price * item.quantity, 0) +
-            (items.reduce((total, item) => total + item.product.price * item.quantity, 0) >= 999 ? 0 : 99) +
-            items.filter((item) => item.installation).length * 499,
         };
 
     update({ orders: [data, ...orders], cart: [] });
@@ -623,21 +638,20 @@ export function CommerceProvider({ children }) {
     paymentMethods,
     notifications,
     accountSettings,
+    couponApplied,
     deliveryLocation,
     deliveryPin: deliveryLocation?.pincode || store.deliveryPin || "751001",
-    setDeliveryPin: (deliveryPin) => update({ deliveryPin, deliveryLocation: { ...deliveryLocation, pincode: deliveryPin } }),
-    setDeliveryLocation: (deliveryLocation) => update({ deliveryLocation, deliveryPin: deliveryLocation?.pincode || store.deliveryPin || "751001" }),
-    checkDeliveryByPincode,
-    checkDeliveryByLocation,
-    addToCart,
-    setQuantity,
-    removeFromCart: (productId) => setQuantity(productId, 0),
-    toggleWishlist,
-    moveWishlistToCart,
-    clearWishlist,
-    login,
+    setCouponApplied,
+    setDeliveryPin,
     register,
     logout,
+    addToCart,
+    setQuantity,
+    removeFromCart,
+    toggleWishlist,
+    moveWishlistToCart,
+    checkDeliveryByPincode,
+    checkDeliveryByLocation,
     addInstallationBooking,
     placeOrder,
     updateProfile,

@@ -1,7 +1,9 @@
 import { X } from 'lucide-react';
 import { money } from '../lib/products';
+import { useCommerce } from '../context/CommerceContext';
 
 export default function QuickView({ product, onClose }) {
+  const { addToCart } = useCommerce();
   if (!product) return null;
 
   return (
@@ -28,8 +30,8 @@ export default function QuickView({ product, onClose }) {
             </div>
 
             <div className="mt-4 flex gap-3">
-              <button className="rounded-2xl bg-amber-500 px-4 py-2 font-semibold">Add to cart</button>
-              <button className="rounded-2xl border border-slate-200 px-4 py-2">View details</button>
+              <button type="button" onClick={() => addToCart(product.id)} className="rounded-2xl bg-amber-500 px-4 py-2 font-semibold">Add to cart</button>
+              <button type="button" className="rounded-2xl border border-slate-200 px-4 py-2">View details</button>
             </div>
           </div>
         </div>

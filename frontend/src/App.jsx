@@ -23,6 +23,7 @@ import Orders from './pages/Orders.jsx'
 import OrderTracking from './pages/OrderTracking.jsx'
 import Addresses from './pages/Addresses.jsx'
 import Payment from './pages/Payment.jsx'
+import PaymentSuccess from './pages/PaymentSuccess.jsx'
 import Notifications from './pages/Notifications.jsx'
 import AccountSettings from './pages/AccountSettings.jsx'
 import DealerLocator from './pages/DealerLocator.jsx'
@@ -75,6 +76,7 @@ function App() {
           <Route path="/orders" element={<Orders />} />
           <Route path="/addresses" element={<Addresses />} />
           <Route path="/payment" element={<Payment />} />
+          <Route path="/payment/success" element={<PaymentSuccess />} />
           <Route path="/payment-methods" element={<Payment />} />
           <Route path="/notifications" element={<Notifications />} />
           <Route path="/account-settings" element={<AccountSettings />} />

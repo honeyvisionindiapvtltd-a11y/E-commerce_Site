@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { getDB } from '../db.js';
-import { findDeliveryDocument, getDeliveryCollection } from '../services/deliveryService.js';
+import { findDeliveryDocument } from '../services/deliveryService.js';
 import { normalizePincode, isValidPincode } from '../middleware/validation.js';
 
 const router = Router();
@@ -46,7 +46,7 @@ router.get('/orders', async (req, res) => {
 });
 
 router.post('/orders', async (req, res) => {
-  const { userId = null, items = [], shippingAddress = null, address = null, paymentMethod = 'cod', installationSlot = null } = req.body;
+  const { userId = null, items = [], shippingAddress = null, address = null, paymentMethod = 'cod', installationSlot = null, secureShipping = false, couponApplied = false } = req.body;
   const orderAddress = shippingAddress || address || {};
   const normalizedPin = normalizePincode(orderAddress.pin || orderAddress.pincode || '');
 
@@ -59,20 +59,27 @@ router.post('/orders', async (req, res) => {
     itemProductIds.map((productId) => findDeliveryDocument(normalizedPin, productId))
   );
 
-  const nonServiceable = deliveryResults.some((doc) => !doc || !doc.serviceable || !doc.active);
-  if (nonServiceable) {
-    return res.status(400).json({ success: false, message: 'Delivery is not available for one or more items in your cart at the provided PIN code.' });
-  }
-
   const deliveryDocument = deliveryResults.find((doc) => doc && doc.serviceable && doc.active) || (await findDeliveryDocument(normalizedPin));
+  const serviceable = Boolean(deliveryDocument?.serviceable && deliveryDocument?.active);
   const deliveryCharge = deliveryResults.reduce((maxCharge, doc) => Math.max(maxCharge, Number(doc?.deliveryCharge || 0)), 0);
   const estimatedDeliveryDays = Array.from(
     new Set(deliveryResults.filter((doc) => doc?.estimatedDeliveryDays).map((doc) => doc.estimatedDeliveryDays))
   ).join(', ') || deliveryDocument?.estimatedDeliveryDays || '2-5 days';
 
-  const subtotal = items.reduce((sum, item) => sum + (item.price || 0) * (item.quantity || 1), 0);
-  const shipping = subtotal >= 999 ? 0 : 99;
-  const installationFee = items.filter((item) => item.installation).length * 499;
+  // allow client to pass computed totals (from frontend) to keep UI and order values consistent
+  const clientSubtotal = Number(req.body.subtotal ?? NaN);
+  const clientShipping = Number(req.body.shipping ?? NaN);
+  const clientInstallationFee = Number(req.body.installationFee ?? NaN);
+  const clientDiscount = Number(req.body.discount ?? NaN);
+  const clientInsurance = Number(req.body.insurance ?? NaN);
+  const clientTotal = Number(req.body.total ?? NaN);
+
+  const subtotal = Number.isFinite(clientSubtotal) ? clientSubtotal : items.reduce((sum, item) => sum + (item.price || 0) * (item.quantity || 1), 0);
+  const installationFee = Number.isFinite(clientInstallationFee) ? clientInstallationFee : items.filter((item) => item.installation).length * 499;
+  const shipping = Number.isFinite(clientShipping) ? clientShipping : (subtotal >= 999 ? 0 : 99);
+  const discount = Number.isFinite(clientDiscount) ? clientDiscount : 0;
+  const insurance = Number.isFinite(clientInsurance) ? clientInsurance : 0;
+
   const order = {
     id: `HV${Date.now().toString().slice(-8)}`,
     userId,
@@ -91,17 +98,21 @@ router.post('/orders', async (req, res) => {
       country: orderAddress.country || 'India',
     },
     delivery: {
-      serviceable: true,
-      estimatedDeliveryDays: deliveryDocument.estimatedDeliveryDays || '2-5 days',
-      deliveryCharge: Number(deliveryDocument.deliveryCharge || 0),
-      codAvailable: Boolean(deliveryDocument.codAvailable),
+      serviceable,
+      estimatedDeliveryDays: deliveryDocument?.estimatedDeliveryDays || '2-5 days',
+      deliveryCharge: Number(deliveryDocument?.deliveryCharge || 0),
+      codAvailable: Boolean(deliveryDocument?.codAvailable),
     },
     installationSlot,
     items,
     subtotal,
     shipping,
     installationFee,
-    total: subtotal + shipping + installationFee,
+    discount,
+    insurance,
+    couponApplied,
+    secureShipping,
+    total: Number.isFinite(clientTotal) ? clientTotal : subtotal + shipping + installationFee + insurance - discount,
   };
 
   await getOrdersCollection().insertOne(order);

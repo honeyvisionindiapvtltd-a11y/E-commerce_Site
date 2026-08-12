@@ -12,21 +12,17 @@ import {
   Truck,
   Wrench,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { Link } from "react-router-dom";
 import ProductCard from "../components/ProductCard";
 import { useCommerce } from "../context/CommerceContext";
 import { money, recommendationsFor } from "../lib/products";
+import { computeTotals } from "../lib/orderTotals";
 
 export default function Cart() {
-  const { cart, products, setQuantity, removeFromCart, addToCart } = useCommerce();
-  const [couponApplied, setCouponApplied] = useState(true);
+  const { cart, products, setQuantity, removeFromCart, addToCart, couponApplied, setCouponApplied } = useCommerce();
   const items = cart.map((item) => ({ ...item, product: products.find((product) => product.id === item.productId) })).filter((item) => item.product);
-  const subtotal = items.reduce((total, item) => total + item.product.price * item.quantity, 0);
-  const installation = items.filter((item) => item.installation).length * 499;
-  const shipping = subtotal >= 999 || !items.length ? 0 : 99;
-  const discount = couponApplied ? Math.round(subtotal * 0.1) : 0;
-  const total = subtotal + installation + shipping - discount;
+  const { subtotal, installationFee: installation, shipping, discount, insurance, total } = computeTotals(items, { coupon: couponApplied, secureShipping: false });
   const suggestions = useMemo(() => {
     const ids = new Set(items.map((item) => item.productId));
     return [...new Map(items.flatMap((item) => recommendationsFor(item.productId)).filter((product) => !ids.has(product.id)).map((product) => [product.id, product])).values()].slice(0, 4);

@@ -1,60 +1,51 @@
-import { getDeliveryCollection } from '../models/DeliveryLocation.js';
 import { normalizePincode, isValidPincode } from '../middleware/validation.js';
 
-function buildResponse(deliveryDocument, location) {
-  const serviceable = Boolean(deliveryDocument?.serviceable && deliveryDocument?.active);
+function buildDefaultResponse(pincode) {
+  const normalized = normalizePincode(pincode);
   return {
-    serviceable,
+    serviceable: true,
     location: {
-      pincode: location.pincode,
-      city: location.city || deliveryDocument?.city || '',
-      state: location.state || deliveryDocument?.state || '',
-      country: location.country || deliveryDocument?.country || 'India',
+      pincode: normalized,
+      city: '',
+      state: '',
+      country: 'India',
     },
-    delivery: serviceable
-      ? {
-          estimatedDeliveryDays: deliveryDocument.estimatedDeliveryDays || '2-5 days',
-          deliveryCharge: Number(deliveryDocument.deliveryCharge || 0),
-          codAvailable: Boolean(deliveryDocument.codAvailable),
-        }
-      : null,
+    delivery: {
+      estimatedDeliveryDays: '2-5 days',
+      deliveryCharge: 0,
+      codAvailable: true,
+    },
   };
 }
 
-export async function findDeliveryDocument(pincode, productId) {
+export async function findDeliveryDocument(pincode, _productId) {
   const normalized = normalizePincode(pincode);
-  if (!isValidPincode(normalized)) {
-    return null;
-  }
+  if (!isValidPincode(normalized)) return null;
 
-  const collection = getDeliveryCollection();
-  if (productId) {
-    const productEntry = await collection.findOne({ pincode: normalized, productId });
-    if (productEntry) {
-      return productEntry;
-    }
-  }
-
-  return collection.findOne({ pincode: normalized, productId: { $exists: false } });
+  // DB-backed delivery documents removed — return a sensible default
+  return {
+    pincode: normalized,
+    city: '',
+    state: '',
+    country: 'India',
+    serviceable: true,
+    active: true,
+    estimatedDeliveryDays: '2-5 days',
+    deliveryCharge: 0,
+    codAvailable: true,
+  };
 }
 
-export async function verifyDeliveryByPincode(pincode, productId) {
+export async function verifyDeliveryByPincode(pincode, _productId) {
   const normalized = normalizePincode(pincode);
   if (!isValidPincode(normalized)) {
     return { serviceable: false, location: { pincode: normalized, city: '', state: '', country: 'India' }, delivery: null };
   }
 
-  const deliveryDocument = await findDeliveryDocument(normalized, productId);
-  return buildResponse(deliveryDocument, { pincode: normalized, city: deliveryDocument?.city || '', state: deliveryDocument?.state || '', country: deliveryDocument?.country || 'India' });
+  return buildDefaultResponse(normalized);
 }
 
 export async function ensureDeliveryIndexes() {
-  const collection = getDeliveryCollection();
-  await collection.createIndex(
-    { pincode: 1, productId: 1 },
-    {
-      unique: true,
-      partialFilterExpression: { pincode: { $exists: true } },
-    }
-  );
+  // No-op: delivery collection usage removed for simpler local setups
+  return;
 }

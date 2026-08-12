@@ -38,7 +38,7 @@ import {
 } from "lucide-react";
 
 import { services as serviceItems } from "../lib/serviceData";
-import serviceBanner from "../assets/service-banner.jpeg";
+const serviceBanner = "https://res.cloudinary.com/vhrkwyzs/image/upload/v1786346316/service-banner_w3ruih.jpg";
 
 
 const Services = () => {

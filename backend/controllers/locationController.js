@@ -1,5 +1,5 @@
 import { reverseGeocodeCoordinates } from '../services/geocodingService.js';
-import { isValidLatitude, isValidLongitude, parseLatitude, normalizePincode, isValidPincode } from '../middleware/validation.js';
+import { isValidLatitude, isValidLongitude, parseLatitude, parseLongitude, normalizePincode, isValidPincode } from '../middleware/validation.js';
 import { verifyDeliveryByPincode, findDeliveryDocument } from '../services/deliveryService.js';
 
 export async function checkLocation(req, res) {

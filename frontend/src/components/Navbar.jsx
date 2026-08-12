@@ -16,12 +16,13 @@ import { Link, NavLink, useNavigate } from "react-router-dom";
 import { useCommerce } from "../context/CommerceContext";
 import { slugifyCategory } from "../lib/products";
 
-import logo from "../assets/logo.png";
+const logo = "https://res.cloudinary.com/vhrkwyzs/image/upload/v1786269504/logo.png_tun5nq.png";
 import MegaMenu from "./MegaMenu";
 
 const navLinks = [
   ["Services", "/services"],
   ["AI Tools", "/ai-tools"],
+  ["Checkout", "/checkout"],
   ["Categories", "/categories"],
   ["Blogs", "/blogs"],
   ["Compare", "/compare"],
