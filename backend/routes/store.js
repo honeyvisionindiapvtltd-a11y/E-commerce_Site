@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { getDB } from '../db.js';
-import { findDeliveryDocument, getDeliveryCollection } from '../services/deliveryService.js';
+import { findDeliveryDocument } from '../services/deliveryService.js';
 import { normalizePincode, isValidPincode } from '../middleware/validation.js';
 
 const router = Router();

@@ -7,6 +7,7 @@ import storeRoutes from './routes/store.js';
 import locationRoutes from './routes/location.js';
 import { connectDB } from './db.js';
 import { ensureDeliveryIndexes } from './services/deliveryService.js';
+import { seedAdmin } from './scripts/seedAdmin.js';
 
 dotenv.config();
 
@@ -24,6 +25,11 @@ const startServer = async () => {
   try {
     await connectDB();
     await ensureDeliveryIndexes();
+
+    if (process.env.ADMIN_EMAIL && process.env.ADMIN_PASSWORD) {
+      await seedAdmin();
+    }
+
     app.listen(PORT, () => {
       console.log(`HoneyVision API listening on http://localhost:${PORT}`);
     });

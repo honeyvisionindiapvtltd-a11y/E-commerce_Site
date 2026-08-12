@@ -4,9 +4,12 @@
   "type": "module",
   "scripts": {
     "dev": "node index.js",
-    "start": "node index.js"
+    "start": "node index.js",
+    "seed-admin": "node scripts/seedAdmin.js",
+    "hash-passwords": "node scripts/hashPasswords.js"
   },
   "dependencies": {
+    "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
     "dotenv": "^16.4.1",
     "express": "^4.21.2",
