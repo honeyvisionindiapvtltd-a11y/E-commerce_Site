@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState } from "react";
-import { products } from "../lib/products";
+import { products as fallbackProducts } from "../lib/products";
 
 const CommerceContext = createContext(null);
 const storageKey = "honey-vision-commerce";
@@ -155,12 +155,69 @@ function readStore() {
   }
 }
 
+const normalizeProduct = (product) => {
+  const category = product.category && typeof product.category === "object" ? product.category.name : product.category || "General";
+  const subCategory = product.subCategory && typeof product.subCategory === "object" ? product.subCategory.name : product.subCategory || "";
+
+  return {
+    id: product._id || product.id || product.slug || `${category}-${product.name}`,
+    name: product.name || "Product",
+    category,
+    subCategory,
+    brand: product.brand || "HoneyVision",
+    price: Number(product.price ?? product.salePrice ?? 0),
+    mrp: Number(product.mrp ?? product.originalPrice ?? product.price ?? 0),
+    rating: Number(product.rating ?? product.averageRating ?? 4.5),
+    reviews: Number(product.reviewCount ?? product.reviews ?? 0),
+    stock: Number(product.stock ?? 0),
+    delivery: product.delivery || "Delivery available",
+    image: product.thumbnail || product.image || product.images?.[0] || "https://res.cloudinary.com/vhrkwyzs/image/upload/v1786010029/laptop_ktvxcs.png",
+    description: product.shortDescription || product.description || "",
+    features: Array.isArray(product.features) ? product.features : [],
+    installationEligible: Boolean(product.installationEligible),
+  };
+};
+
 export function CommerceProvider({ children }) {
   const [store, setStore] = useState(readStore);
+  const [catalogProducts, setCatalogProducts] = useState(fallbackProducts);
 
   useEffect(() => {
     localStorage.setItem(storageKey, JSON.stringify(store));
   }, [store]);
+
+  useEffect(() => {
+    let ignore = false;
+
+    const loadProducts = async () => {
+      try {
+        const response = await fetch(`${API_BASE}/products?limit=200`);
+        if (!response.ok) throw new Error("Failed to fetch products");
+
+        const data = await response.json();
+        const apiProducts = Array.isArray(data.products)
+          ? data.products
+          : Array.isArray(data.items)
+            ? data.items
+            : Array.isArray(data.data)
+              ? data.data
+              : fallbackProducts;
+
+        if (!ignore) {
+          setCatalogProducts(apiProducts.map(normalizeProduct));
+        }
+      } catch {
+        if (!ignore) {
+          setCatalogProducts(fallbackProducts);
+        }
+      }
+    };
+
+    loadProducts();
+    return () => {
+      ignore = true;
+    };
+  }, []);
 
   const cart = store.cart || [];
   const wishlist = store.wishlist || [];
@@ -289,7 +346,7 @@ export function CommerceProvider({ children }) {
 
   const placeOrder = async ({ address, paymentMethod, installationSlot }) => {
     const items = cart
-      .map((item) => ({ ...item, product: products.find((product) => product.id === item.productId) }))
+      .map((item) => ({ ...item, product: catalogProducts.find((product) => product.id === item.productId) }))
       .filter((item) => item.product);
 
     const orderPayload = {
@@ -341,7 +398,7 @@ export function CommerceProvider({ children }) {
         isLoggedIn: true,
         user: data.user,
         authToken: data.token,
-        profile: { ...profile, ...data.profile },
+        profile: sanitizeProfile(data.profile || {}),
         cart: userState.cart || current.cart || [],
         wishlist: userState.wishlist || current.wishlist || [],
         orders: userState.orders || current.orders || [],
@@ -379,7 +436,7 @@ export function CommerceProvider({ children }) {
         isLoggedIn: true,
         user: data.user,
         authToken: data.token,
-        profile: { ...profile, ...data.profile },
+        profile: sanitizeProfile(data.profile || {}),
         cart: userState.cart || current.cart || [],
         wishlist: userState.wishlist || current.wishlist || [],
         orders: userState.orders || current.orders || [],
@@ -407,7 +464,7 @@ export function CommerceProvider({ children }) {
     update({
       isLoggedIn: true,
       user: data.user,
-      profile: { ...profile, ...data.profile },
+      profile: sanitizeProfile(data.profile || {}),
     });
     return data;
   };
@@ -553,7 +610,7 @@ export function CommerceProvider({ children }) {
   };
 
   const value = {
-    products,
+    products: catalogProducts,
     cart,
     wishlist,
     orders,

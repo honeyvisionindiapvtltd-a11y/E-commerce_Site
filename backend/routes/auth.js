@@ -1,144 +1,109 @@
 import { Router } from 'express';
-import bcrypt from 'bcryptjs';
+import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
-import { getDB } from '../db.js';
+import User from '../models/User.js';
 
 const router = Router();
-
-const getUsersCollection = () => getDB().collection('users');
-const getTokensCollection = () => getDB().collection('tokens');
+const jwtSecret = process.env.JWT_SECRET || 'honeyvision-default-secret';
+const jwtExpiresIn = '7d';
 
 const getSafeUser = (user) => ({
-  id: user.id,
+  id: user._id?.toString(),
   name: user.name,
   email: user.email,
   phone: user.phone,
   interest: user.interest,
   role: user.role || 'customer',
+  status: user.status || 'Active',
+  emailVerified: user.emailVerified,
 });
 
 const getProfile = (user) => ({
   ...(user.profile || {}),
-  memberSince: user.profile?.memberSince || '2026',
+  memberSince: user.profile?.memberSince || new Date().getFullYear().toString(),
 });
 
-function verifyLegacyPassword(user, password) {
-  if (!user.passwordHash || !user.passwordSalt) {
-    return false;
-  }
+const signToken = (user) => jwt.sign({ userId: user._id?.toString() }, jwtSecret, { expiresIn: jwtExpiresIn });
 
-  const salt = user.passwordSalt;
-  const normalizedHash = String(user.passwordHash).toLowerCase();
-  const candidates = [];
-
-  try {
-    candidates.push(
-      crypto.pbkdf2Sync(password, salt, 100000, 64, 'sha512').toString('hex'),
-    );
-    candidates.push(
-      crypto.pbkdf2Sync(password, salt, 100000, 64, 'sha256').toString('hex'),
-    );
-    candidates.push(
-      crypto.pbkdf2Sync(password, salt, 50000, 64, 'sha512').toString('hex'),
-    );
-    candidates.push(
-      crypto.pbkdf2Sync(password, salt, 200000, 64, 'sha512').toString('hex'),
-    );
-  } catch (error) {
-    // ignore invalid legacy PBKDF2 parameters
-  }
-
-  candidates.push(crypto.createHash('sha256').update(password + salt).digest('hex'));
-  candidates.push(crypto.createHash('sha256').update(salt + password).digest('hex'));
-  candidates.push(crypto.createHash('sha512').update(password + salt).digest('hex'));
-  candidates.push(crypto.createHash('sha512').update(salt + password).digest('hex'));
-
-  return candidates.some((candidate) => candidate === normalizedHash);
-}
+const sendEmailToken = (email, subject, token) => {
+  console.log(`Email to ${email}: ${subject} - token=${token}`);
+};
 
 const authMiddleware = async (req, res, next) => {
   const authHeader = req.headers.authorization || '';
-  const [, token] = authHeader.split(' ');
+  const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
 
   if (!token) {
-    return res.status(401).json({ message: 'Unauthorized. Missing or invalid token.' });
+    return res.status(401).json({ message: 'Unauthorized. Missing token.' });
   }
 
-  const tokenDoc = await getTokensCollection().findOne({ token });
-  if (!tokenDoc) {
-    return res.status(401).json({ message: 'Unauthorized. Missing or invalid token.' });
+  try {
+    const payload = jwt.verify(token, jwtSecret);
+    const user = await User.findById(payload.userId).exec();
+    if (!user) {
+      throw new Error('User not found');
+    }
+    req.user = user;
+    next();
+  } catch (error) {
+    return res.status(401).json({ message: 'Unauthorized. Invalid token.' });
   }
-
-  const user = await getUsersCollection().findOne({ id: tokenDoc.userId });
-  if (!user) {
-    return res.status(401).json({ message: 'Unauthorized. User not found.' });
-  }
-
-  req.user = user;
-  next();
 };
+
+const createAuthResponse = (user) => ({
+  user: getSafeUser(user),
+  profile: getProfile(user),
+  token: signToken(user),
+});
 
 const requireAdmin = (req, res, next) => {
   if (!req.user || req.user.role !== 'admin') {
     return res.status(403).json({ message: 'Forbidden. Admins only.' });
   }
+
   next();
 };
 
 router.post('/register', async (req, res) => {
-  const { name, email, password, phone, interest, role } = req.body || {};
+  const { name, email, password, phone, interest, role, adminSecret } = req.body || {};
 
   if (!name || !email || !password || !phone) {
     return res.status(400).json({ message: 'Name, email, password and phone are required.' });
   }
 
-  const normalizedEmail = email.toLowerCase();
-  const existing = await getUsersCollection().findOne({ email: normalizedEmail });
+  const normalizedEmail = String(email).toLowerCase();
+  const existing = await User.findOne({ email: normalizedEmail }).exec();
   if (existing) {
     return res.status(409).json({ message: 'User already exists.' });
   }
 
-  const hashedPassword = await bcrypt.hash(password, 10);
-  const id = `user-${Date.now()}`;
-  const token = `token-${id}`;
-  const normalizedRole = role === 'admin' && req.body.adminSecret === process.env.ADMIN_SECRET ? 'admin' : 'customer';
-  const user = {
-    id,
+  const normalizedRole = role === 'admin' && adminSecret === process.env.ADMIN_SECRET ? 'admin' : 'customer';
+
+  const user = new User({
     name,
     email: normalizedEmail,
     phone,
     interest: interest || 'AI Cameras',
     role: normalizedRole,
-    password: hashedPassword,
-    token,
+    status: 'Active',
     profile: {
       fullName: name,
       email: normalizedEmail,
       phone,
-      alternatePhone: '',
-      dateOfBirth: '',
-      gender: '',
-      location: '',
-      address: '',
-      city: '',
-      state: '',
-      pinCode: '',
       country: 'India',
-      emergencyContact: '',
-      bio: '',
-      memberSince: '2026',
+      memberSince: new Date().getFullYear().toString(),
     },
-  };
+  });
 
-  await Promise.all([
-    getUsersCollection().insertOne(user),
-    getTokensCollection().insertOne({ token, userId: id }),
-  ]);
+  user.setPassword(password);
+  const verificationToken = user.generateEmailVerificationToken();
+  await user.save();
+
+  sendEmailToken(user.email, 'Verify Your Email', verificationToken);
 
   res.status(201).json({
-    user: getSafeUser(user),
-    profile: getProfile(user),
-    token,
+    ...createAuthResponse(user),
+    verificationToken,
   });
 });
 
@@ -149,72 +114,98 @@ router.post('/login', async (req, res) => {
     return res.status(400).json({ message: 'Email and password are required.' });
   }
 
-  const normalizedEmail = email.toLowerCase();
-  const user = await getUsersCollection().findOne({ email: normalizedEmail });
+  const normalizedEmail = String(email).toLowerCase();
+  const user = await User.findOne({ email: normalizedEmail }).exec();
+
+  if (!user || !user.validatePassword(password)) {
+    return res.status(401).json({ message: 'Invalid email or password.' });
+  }
+
+  res.json(createAuthResponse(user));
+});
+
+router.post('/verify-email', async (req, res) => {
+  const { email, token } = req.body || {};
+
+  if (!email || !token) {
+    return res.status(400).json({ message: 'Email and token are required.' });
+  }
+
+  const user = await User.findOne({ email: String(email).toLowerCase(), emailVerificationToken: token }).exec();
   if (!user) {
-    return res.status(401).json({ message: 'Invalid email or password.' });
+    return res.status(400).json({ message: 'Invalid verification token.' });
   }
 
-  const isBcryptHash = typeof user.password === 'string' && /^\$2[ayb]\$/.test(user.password);
-  let passwordMatches = false;
+  user.emailVerified = true;
+  user.emailVerificationToken = '';
+  await user.save();
 
-  if (user.password) {
-    if (isBcryptHash) {
-      passwordMatches = await bcrypt.compare(password, user.password);
-    } else {
-      passwordMatches = password === user.password;
-    }
+  res.json({ message: 'Email verified successfully.' });
+});
+
+router.post('/request-email-verification', async (req, res) => {
+  const { email } = req.body || {};
+
+  if (!email) {
+    return res.status(400).json({ message: 'Email is required.' });
   }
 
-  if (!passwordMatches && user.passwordHash && user.passwordSalt) {
-    passwordMatches = verifyLegacyPassword(user, password);
+  const user = await User.findOne({ email: String(email).toLowerCase() }).exec();
+  if (!user) {
+    return res.status(404).json({ message: 'User not found.' });
   }
 
-  if (!passwordMatches) {
-    return res.status(401).json({ message: 'Invalid email or password.' });
+  const verificationToken = user.generateEmailVerificationToken();
+  await user.save();
+
+  sendEmailToken(user.email, 'Verify Your Email', verificationToken);
+
+  res.json({ message: 'Verification token generated.', verificationToken });
+});
+
+router.post('/request-password-reset', async (req, res) => {
+  const { email } = req.body || {};
+
+  if (!email) {
+    return res.status(400).json({ message: 'Email is required.' });
   }
 
-  if (!isBcryptHash && user.password) {
-    const hashedPassword = await bcrypt.hash(password, 10);
-    await getUsersCollection().updateOne({ id: user.id }, { $set: { password: hashedPassword } });
+  const user = await User.findOne({ email: String(email).toLowerCase() }).exec();
+  if (!user) {
+    return res.status(404).json({ message: 'User not found.' });
   }
 
-  if (!(user.password || isBcryptHash) && user.passwordHash && user.passwordSalt) {
-    const hashedPassword = await bcrypt.hash(password, 10);
-    await getUsersCollection().updateOne(
-      { id: user.id },
-      {
-        $set: {
-          password: hashedPassword,
-        },
-        $unset: {
-          passwordHash: '',
-          passwordSalt: '',
-        },
-      }
-    );
+  const resetToken = user.generatePasswordResetToken();
+  await user.save();
+
+  sendEmailToken(user.email, 'Password Reset', resetToken);
+
+  res.json({ message: 'Password reset token generated.', resetToken });
+});
+
+router.post('/reset-password', async (req, res) => {
+  const { email, token, newPassword } = req.body || {};
+
+  if (!email || !token || !newPassword) {
+    return res.status(400).json({ message: 'Email, token, and new password are required.' });
   }
 
-  const token = user.token || `token-${user.id}`;
-  await getUsersCollection().updateOne({ id: user.id }, { $set: { token } });
-  await getTokensCollection().updateOne(
-    { userId: user.id },
-    { $set: { token, userId: user.id } },
-    { upsert: true },
-  );
+  const user = await User.findOne({ email: String(email).toLowerCase(), passwordResetToken: token }).exec();
+  if (!user || !user.passwordResetExpires || user.passwordResetExpires < new Date()) {
+    return res.status(400).json({ message: 'Invalid or expired password reset token.' });
+  }
 
-  res.json({
-    user: getSafeUser({ ...user, token }),
-    profile: getProfile(user),
-    token,
-  });
+  user.setPassword(newPassword);
+  user.clearPasswordResetToken();
+  await user.save();
+
+  res.json({ message: 'Password reset successfully.' });
 });
 
 router.get('/profile', authMiddleware, (req, res) => {
-  const user = req.user;
   res.json({
-    user: getSafeUser(user),
-    profile: getProfile(user),
+    user: getSafeUser(req.user),
+    profile: getProfile(req.user),
   });
 });
 
@@ -229,24 +220,19 @@ router.post('/admin/create', async (req, res) => {
     return res.status(400).json({ message: 'Name, email, password and phone are required to create an admin.' });
   }
 
-  const normalizedEmail = email.toLowerCase();
-  const existing = await getUsersCollection().findOne({ email: normalizedEmail });
+  const normalizedEmail = String(email).toLowerCase();
+  const existing = await User.findOne({ email: normalizedEmail }).exec();
   if (existing) {
     return res.status(409).json({ message: 'Admin user already exists.' });
   }
 
-  const id = `admin-${Date.now()}`;
-  const token = `token-${id}`;
-  const hashedPassword = await bcrypt.hash(password, 10);
-  const user = {
-    id,
+  const user = new User({
     name,
     email: normalizedEmail,
     phone,
     interest: interest || 'Admin',
     role: 'admin',
-    password: hashedPassword,
-    token,
+    status: 'Active',
     profile: {
       fullName: name,
       email: normalizedEmail,
@@ -264,18 +250,12 @@ router.post('/admin/create', async (req, res) => {
       bio: '',
       memberSince: '2026',
     },
-  };
-
-  await Promise.all([
-    getUsersCollection().insertOne(user),
-    getTokensCollection().insertOne({ token, userId: id }),
-  ]);
-
-  res.status(201).json({
-    user: getSafeUser(user),
-    profile: getProfile(user),
-    token,
   });
+
+  user.setPassword(password);
+  await user.save();
+
+  res.status(201).json(createAuthResponse(user));
 });
 
 router.get('/admin', authMiddleware, requireAdmin, (req, res) => {
@@ -286,13 +266,10 @@ router.get('/admin', authMiddleware, requireAdmin, (req, res) => {
 });
 
 router.get('/customers', authMiddleware, requireAdmin, async (req, res) => {
-  const users = await getUsersCollection()
-    .find({ role: { $ne: 'admin' } })
-    .sort({ _id: -1 })
-    .toArray();
+  const users = await User.find({ role: { $ne: 'admin' } }).sort({ createdAt: -1 }).exec();
 
   const customers = users.map((user) => ({
-    id: user.id,
+    id: user._id.toString(),
     name: user.name || user.profile?.fullName || 'Unknown Customer',
     email: user.email,
     phone: user.phone || '',
@@ -313,10 +290,10 @@ router.put('/customers/:id/status', authMiddleware, requireAdmin, async (req, re
     return res.status(400).json({ message: 'Invalid customer status.' });
   }
 
-  const result = await getUsersCollection().updateOne({ id: req.params.id }, { $set: { status } });
+  const updatedUser = await User.findByIdAndUpdate(req.params.id, { status }, { new: true }).exec();
 
   res.json({
-    success: result.modifiedCount > 0 || result.matchedCount > 0,
+    success: !!updatedUser,
     status,
   });
 });
@@ -325,27 +302,25 @@ router.put('/profile', authMiddleware, async (req, res) => {
   const user = req.user;
   const body = req.body || {};
 
-  const updatedUser = {
-    ...user,
-    name: body.fullName || body.name || user.name,
-    email: body.email ? body.email.toLowerCase() : user.email,
-    phone: body.phone || user.phone,
-    interest: body.interest || user.interest,
-    profile: {
-      ...user.profile,
-      ...body,
-      fullName: body.fullName || user.name,
-      email: body.email ? body.email.toLowerCase() : user.email,
-      phone: body.phone || user.phone,
-      memberSince: user.profile?.memberSince || '2026',
-    },
+  user.name = body.fullName || body.name || user.name;
+  user.email = body.email ? String(body.email).toLowerCase() : user.email;
+  user.phone = body.phone || user.phone;
+  user.interest = body.interest || user.interest;
+
+  user.profile = {
+    ...(user.profile || {}),
+    ...body,
+    fullName: user.name,
+    email: user.email,
+    phone: user.phone,
+    memberSince: user.profile?.memberSince || new Date().getFullYear().toString(),
   };
 
-  await getUsersCollection().updateOne({ id: user.id }, { $set: updatedUser });
+  await user.save();
 
   res.json({
-    user: getSafeUser(updatedUser),
-    profile: getProfile(updatedUser),
+    user: getSafeUser(user),
+    profile: getProfile(user),
   });
 });
 
