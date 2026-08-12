@@ -1,47 +1,97 @@
+const tryJson = async (res) => {
+  try {
+    return await res.json();
+  } catch {
+    return null;
+  }
+};
 
-import { loadAdminData, saveAdminData } from "./adminData";
+const storageKey = (resource) => `admin.${resource}`;
 
-const wait = (ms=100) => new Promise(resolve => setTimeout(resolve, ms));
-
-export async function adminGet(key) {
-  await wait();
-  return loadAdminData()[key];
+export async function adminList(resource) {
+  try {
+    const res = await fetch(`/api/${resource}`);
+    if (!res.ok) throw new Error('network');
+    const body = await tryJson(res);
+    if (Array.isArray(body)) return body;
+    if (body == null) return [];
+    // common shapes: { customers: [...] } or { data: [...] } or { items: [...] }
+    const candidates = Object.values(body).find((v) => Array.isArray(v));
+    if (candidates) return candidates;
+    return [];
+  } catch (err) {
+    const raw = localStorage.getItem(storageKey(resource));
+    return raw ? JSON.parse(raw) : [];
+  }
 }
 
-export async function adminList(key) {
-  return adminGet(key);
+export async function adminGet(resource) {
+  // Try backend first
+  try {
+    const res = await fetch(`/api/${resource}`);
+    if (res.ok) return await tryJson(res);
+  } catch {}
+
+  const raw = localStorage.getItem(storageKey(resource));
+  return raw ? JSON.parse(raw) : null;
 }
 
-export async function adminCreate(key, item) {
-  const data = loadAdminData();
-  const newItem = { id: `${key.slice(0,2)}_${Date.now()}`, ...item };
-  data[key] = [newItem, ...(data[key] || [])];
-  saveAdminData(data);
-  return newItem;
+export async function adminCreate(resource, payload = {}) {
+  try {
+    const endpoint = resource === 'admins' ? '/api/auth/admin/create' : `/api/${resource}`;
+    const res = await fetch(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+    if (!res.ok) throw new Error('create-failed');
+    return await tryJson(res);
+  } catch (err) {
+    // fallback: store locally
+    const existing = JSON.parse(localStorage.getItem(storageKey(resource)) || '[]');
+    const item = { id: `local-${Date.now()}`, ...payload };
+    localStorage.setItem(storageKey(resource), JSON.stringify([item, ...existing]));
+    return item;
+  }
 }
 
-export async function adminUpdate(key, id, patch) {
-  const data = loadAdminData();
-  data[key] = (data[key] || []).map(item => item.id === id ? {...item, ...patch} : item);
-  saveAdminData(data);
-  return data[key].find(item => item.id === id);
+export async function adminUpdate(resource, id, payload = {}) {
+  try {
+    const res = await fetch(`/api/${resource}/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+    if (!res.ok) throw new Error('update-failed');
+    return await tryJson(res);
+  } catch (err) {
+    const rows = JSON.parse(localStorage.getItem(storageKey(resource)) || '[]');
+    const updated = rows.map((r) => (String(r.id) === String(id) ? { ...r, ...payload } : r));
+    localStorage.setItem(storageKey(resource), JSON.stringify(updated));
+    return updated.find((r) => String(r.id) === String(id));
+  }
 }
 
-export async function adminDelete(key, id) {
-  const data = loadAdminData();
-  data[key] = (data[key] || []).filter(item => item.id !== id);
-  saveAdminData(data);
-  return true;
+export async function adminDelete(resource, id) {
+  try {
+    const res = await fetch(`/api/${resource}/${id}`, { method: 'DELETE' });
+    if (!res.ok) throw new Error('delete-failed');
+    return await tryJson(res);
+  } catch (err) {
+    const rows = JSON.parse(localStorage.getItem(storageKey(resource)) || '[]');
+    const updated = rows.filter((r) => String(r.id) !== String(id));
+    localStorage.setItem(storageKey(resource), JSON.stringify(updated));
+    return { success: true };
+  }
 }
 
-export async function adminUpdateSettings(patch) {
-  const data = loadAdminData();
-  data.settings = {...data.settings, ...patch};
-  saveAdminData(data);
-  return data.settings;
+export async function adminUpdateSettings(settings) {
+  try {
+    const res = await fetch('/api/settings', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(settings) });
+    if (res.ok) return await tryJson(res);
+  } catch {}
+
+  localStorage.setItem(storageKey('settings'), JSON.stringify(settings));
+  return settings;
 }
 
-/*
-Replace this localStorage implementation with fetch/axios calls
-when your Flask/FastAPI/Node backend is ready.
-*/
+export default {
+  adminList,
+  adminGet,
+  adminCreate,
+  adminUpdate,
+  adminDelete,
+  adminUpdateSettings,
+};
