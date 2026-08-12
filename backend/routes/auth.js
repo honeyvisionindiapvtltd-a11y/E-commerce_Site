@@ -13,6 +13,8 @@ const getSafeUser = (user) => ({
   email: user.email,
   phone: user.phone,
   interest: user.interest,
+  role: user.role || 'customer',
+  status: user.status || 'Active',
   emailVerified: user.emailVerified,
 });
 
@@ -23,9 +25,13 @@ const getProfile = (user) => ({
 
 const signToken = (user) => jwt.sign({ userId: user._id?.toString() }, jwtSecret, { expiresIn: jwtExpiresIn });
 
+const sendEmailToken = (email, subject, token) => {
+  console.log(`Email to ${email}: ${subject} - token=${token}`);
+};
+
 const authMiddleware = async (req, res, next) => {
   const authHeader = req.headers.authorization || '';
-  const [, token] = authHeader.split(' ');
+  const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
 
   if (!token) {
     return res.status(401).json({ message: 'Unauthorized. Missing token.' });
@@ -50,30 +56,39 @@ const createAuthResponse = (user) => ({
   token: signToken(user),
 });
 
-const sendEmailToken = (email, subject, token) => {
-  console.log(`Email to ${email}: ${subject} - token=${token}`);
+const requireAdmin = (req, res, next) => {
+  if (!req.user || req.user.role !== 'admin') {
+    return res.status(403).json({ message: 'Forbidden. Admins only.' });
+  }
+
+  next();
 };
 
 router.post('/register', async (req, res) => {
-  const { name, email, password, phone, interest } = req.body || {};
+  const { name, email, password, phone, interest, role, adminSecret } = req.body || {};
 
   if (!name || !email || !password || !phone) {
     return res.status(400).json({ message: 'Name, email, password and phone are required.' });
   }
 
-  const existing = await User.findOne({ email: email.toLowerCase() }).exec();
+  const normalizedEmail = String(email).toLowerCase();
+  const existing = await User.findOne({ email: normalizedEmail }).exec();
   if (existing) {
     return res.status(409).json({ message: 'User already exists.' });
   }
 
+  const normalizedRole = role === 'admin' && adminSecret === process.env.ADMIN_SECRET ? 'admin' : 'customer';
+
   const user = new User({
     name,
-    email: email.toLowerCase(),
+    email: normalizedEmail,
     phone,
     interest: interest || 'AI Cameras',
+    role: normalizedRole,
+    status: 'Active',
     profile: {
       fullName: name,
-      email: email.toLowerCase(),
+      email: normalizedEmail,
       phone,
       country: 'India',
       memberSince: new Date().getFullYear().toString(),
@@ -99,7 +114,9 @@ router.post('/login', async (req, res) => {
     return res.status(400).json({ message: 'Email and password are required.' });
   }
 
-  const user = await User.findOne({ email: email.toLowerCase() }).exec();
+  const normalizedEmail = String(email).toLowerCase();
+  const user = await User.findOne({ email: normalizedEmail }).exec();
+
   if (!user || !user.validatePassword(password)) {
     return res.status(401).json({ message: 'Invalid email or password.' });
   }
@@ -114,7 +131,7 @@ router.post('/verify-email', async (req, res) => {
     return res.status(400).json({ message: 'Email and token are required.' });
   }
 
-  const user = await User.findOne({ email: email.toLowerCase(), emailVerificationToken: token }).exec();
+  const user = await User.findOne({ email: String(email).toLowerCase(), emailVerificationToken: token }).exec();
   if (!user) {
     return res.status(400).json({ message: 'Invalid verification token.' });
   }
@@ -133,7 +150,7 @@ router.post('/request-email-verification', async (req, res) => {
     return res.status(400).json({ message: 'Email is required.' });
   }
 
-  const user = await User.findOne({ email: email.toLowerCase() }).exec();
+  const user = await User.findOne({ email: String(email).toLowerCase() }).exec();
   if (!user) {
     return res.status(404).json({ message: 'User not found.' });
   }
@@ -153,7 +170,7 @@ router.post('/request-password-reset', async (req, res) => {
     return res.status(400).json({ message: 'Email is required.' });
   }
 
-  const user = await User.findOne({ email: email.toLowerCase() }).exec();
+  const user = await User.findOne({ email: String(email).toLowerCase() }).exec();
   if (!user) {
     return res.status(404).json({ message: 'User not found.' });
   }
@@ -173,7 +190,7 @@ router.post('/reset-password', async (req, res) => {
     return res.status(400).json({ message: 'Email, token, and new password are required.' });
   }
 
-  const user = await User.findOne({ email: email.toLowerCase(), passwordResetToken: token }).exec();
+  const user = await User.findOne({ email: String(email).toLowerCase(), passwordResetToken: token }).exec();
   if (!user || !user.passwordResetExpires || user.passwordResetExpires < new Date()) {
     return res.status(400).json({ message: 'Invalid or expired password reset token.' });
   }
@@ -186,10 +203,98 @@ router.post('/reset-password', async (req, res) => {
 });
 
 router.get('/profile', authMiddleware, (req, res) => {
-  const user = req.user;
   res.json({
-    user: getSafeUser(user),
-    profile: getProfile(user),
+    user: getSafeUser(req.user),
+    profile: getProfile(req.user),
+  });
+});
+
+router.post('/admin/create', async (req, res) => {
+  const { name, email, password, phone, interest, adminSecret } = req.body || {};
+
+  if (adminSecret !== process.env.ADMIN_SECRET) {
+    return res.status(403).json({ message: 'Forbidden. Invalid admin secret.' });
+  }
+
+  if (!name || !email || !password || !phone) {
+    return res.status(400).json({ message: 'Name, email, password and phone are required to create an admin.' });
+  }
+
+  const normalizedEmail = String(email).toLowerCase();
+  const existing = await User.findOne({ email: normalizedEmail }).exec();
+  if (existing) {
+    return res.status(409).json({ message: 'Admin user already exists.' });
+  }
+
+  const user = new User({
+    name,
+    email: normalizedEmail,
+    phone,
+    interest: interest || 'Admin',
+    role: 'admin',
+    status: 'Active',
+    profile: {
+      fullName: name,
+      email: normalizedEmail,
+      phone,
+      alternatePhone: '',
+      dateOfBirth: '',
+      gender: '',
+      location: '',
+      address: '',
+      city: '',
+      state: '',
+      pinCode: '',
+      country: 'India',
+      emergencyContact: '',
+      bio: '',
+      memberSince: '2026',
+    },
+  });
+
+  user.setPassword(password);
+  await user.save();
+
+  res.status(201).json(createAuthResponse(user));
+});
+
+router.get('/admin', authMiddleware, requireAdmin, (req, res) => {
+  res.json({
+    message: 'Admin access granted.',
+    user: getSafeUser(req.user),
+  });
+});
+
+router.get('/customers', authMiddleware, requireAdmin, async (req, res) => {
+  const users = await User.find({ role: { $ne: 'admin' } }).sort({ createdAt: -1 }).exec();
+
+  const customers = users.map((user) => ({
+    id: user._id.toString(),
+    name: user.name || user.profile?.fullName || 'Unknown Customer',
+    email: user.email,
+    phone: user.phone || '',
+    orders: Number(user.orders || 0),
+    spent: Number(user.spent || 0),
+    status: user.status || 'Active',
+    joined: user.profile?.memberSince || user.createdAt || '2026',
+  }));
+
+  res.json({ customers });
+});
+
+router.put('/customers/:id/status', authMiddleware, requireAdmin, async (req, res) => {
+  const allowedStatuses = ['Active', 'Blocked'];
+  const { status } = req.body || {};
+
+  if (!allowedStatuses.includes(status)) {
+    return res.status(400).json({ message: 'Invalid customer status.' });
+  }
+
+  const updatedUser = await User.findByIdAndUpdate(req.params.id, { status }, { new: true }).exec();
+
+  res.json({
+    success: !!updatedUser,
+    status,
   });
 });
 
@@ -198,12 +303,12 @@ router.put('/profile', authMiddleware, async (req, res) => {
   const body = req.body || {};
 
   user.name = body.fullName || body.name || user.name;
-  user.email = body.email ? body.email.toLowerCase() : user.email;
+  user.email = body.email ? String(body.email).toLowerCase() : user.email;
   user.phone = body.phone || user.phone;
   user.interest = body.interest || user.interest;
 
   user.profile = {
-    ...user.profile,
+    ...(user.profile || {}),
     ...body,
     fullName: user.name,
     email: user.email,
@@ -214,8 +319,8 @@ router.put('/profile', authMiddleware, async (req, res) => {
   await user.save();
 
   res.json({
-    user: getSafeUser(updatedUser),
-    profile: getProfile(updatedUser),
+    user: getSafeUser(user),
+    profile: getProfile(user),
   });
 });
 

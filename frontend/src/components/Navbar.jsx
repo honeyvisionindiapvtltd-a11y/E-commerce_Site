@@ -4,6 +4,7 @@ import {
   GitCompareArrows,
   Headphones,
   Heart,
+  LayoutDashboard,
   MapPin,
   Menu,
   Search,
@@ -47,7 +48,7 @@ export default function Navbar() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [query, setQuery] = useState("");
   const navigate = useNavigate();
-  const { cart, wishlist, deliveryPin, isLoggedIn } = useCommerce();
+  const { cart, wishlist, deliveryPin, isLoggedIn, user } = useCommerce();
   const submitSearch = (event) => {
     event.preventDefault();
     navigate(`/products?q=${encodeURIComponent(query)}`);
@@ -142,7 +143,11 @@ export default function Navbar() {
           <NavIcon icon={GitCompareArrows} label="Compare" to="/compare" />
           <NavIcon icon={Heart} label="Wishlist" to="/wishlist" count={wishlist.length} />
           <NavIcon icon={ShoppingCart} label="Cart" to="/cart" count={cart.reduce((total, item) => total + item.quantity, 0)} />
-          <NavIcon icon={User} label={isLoggedIn ? "Profile" : "Login"} to={isLoggedIn ? "/profile" : "/login"} />
+          <NavIcon
+            icon={isLoggedIn && user?.role === 'admin' ? LayoutDashboard : User}
+            label={isLoggedIn && user?.role === 'admin' ? 'Admin' : isLoggedIn ? 'Profile' : 'Login'}
+            to={isLoggedIn && user?.role === 'admin' ? '/admin/dashboard' : isLoggedIn ? '/profile' : '/login'}
+          />
         </div>
 
         <button
@@ -280,8 +285,11 @@ export default function Navbar() {
                   Cart
                 </Link>
 
-                <Link to={isLoggedIn ? "/profile" : "/login"} className="hover:text-yellow-400">
-                  {isLoggedIn ? "Profile" : "Login"}
+                <Link
+                  to={isLoggedIn && user?.role === 'admin' ? '/admin/dashboard' : isLoggedIn ? '/profile' : '/login'}
+                  className="hover:text-yellow-400"
+                >
+                  {isLoggedIn && user?.role === 'admin' ? 'Admin' : isLoggedIn ? 'Profile' : 'Login'}
                 </Link>
               </div>
             </div>

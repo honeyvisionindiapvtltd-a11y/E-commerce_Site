@@ -14,6 +14,8 @@ import productRoutes from './routes/productRoutes.js';
 import locationRoutes from './routes/location.js';
 import paymentRoutes from './routes/payment.js';
 import { handleWebhook } from './controllers/paymentController.js';
+import { ensureDeliveryIndexes } from './services/deliveryService.js';
+import { seedAdmin } from './scripts/seedAdmin.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -23,7 +25,7 @@ dotenv.config({ path: path.resolve(__dirname, './.env') });
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-const connectMongoose = async () => {
+const connectDatabase = async () => {
   try {
     await mongoose.connect(dbConfig.mongoUri, { serverSelectionTimeoutMS: 15000 });
     console.log('MongoDB connected');
@@ -43,24 +45,44 @@ app.use('/api', healthRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/categories', categoryRoutes);
 app.use('/api/products', productRoutes);
-// Mount generic store routes after specific API routes to avoid path collisions
 app.use('/api', storeRoutes);
 app.use('/api', locationRoutes);
 app.use('/api/payments', paymentRoutes);
 
-// Attempt to connect to databases, but do not crash the server if unavailable
-try {
-  await connectMongoose();
-} catch (err) {
-  console.warn('Warning: Mongoose connection failed, continuing without MongoDB (mongoose).', err.message);
-}
+// Start server with robust DB/connect logic
+const startServer = async () => {
+  try {
+    // connect mongoose (for models)
+    await connectDatabase();
+  } catch (err) {
+    console.warn('Warning: Mongoose connection failed, continuing without Mongoose.', err.message);
+  }
 
-try {
-  await connectMongoClient();
-} catch (err) {
-  console.warn('Warning: MongoClient connection failed or MONGODB_URI not set, continuing without MongoDB (native client).', err.message);
-}
+  try {
+    // connect native MongoDB client if available
+    await connectMongoClient();
+  } catch (err) {
+    console.warn('Warning: MongoClient connection failed or MONGODB_URI not set, continuing without native client.', err.message);
+  }
 
-app.listen(PORT, () => {
-  console.log(`HoneyVision API listening on http://localhost:${PORT}`);
-});
+  try {
+    // ensure indexes used by delivery service (no-op if not configured)
+    await ensureDeliveryIndexes();
+  } catch (err) {
+    console.warn('Warning: ensureDeliveryIndexes failed or not configured.', err.message);
+  }
+
+  try {
+    if (process.env.ADMIN_EMAIL && process.env.ADMIN_PASSWORD) {
+      await seedAdmin();
+    }
+  } catch (err) {
+    console.warn('Warning: seedAdmin failed.', err.message);
+  }
+
+  app.listen(PORT, () => {
+    console.log(`HoneyVision API listening on http://localhost:${PORT}`);
+  });
+};
+
+startServer();

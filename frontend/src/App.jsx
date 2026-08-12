@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
-import { Routes, Route, useLocation } from 'react-router-dom'
+import { Routes, Route, useLocation, Navigate } from 'react-router-dom'
+import { useCommerce } from './context/CommerceContext.jsx'
 import Navbar from './components/Navbar.jsx'
 import Footer from './components/Footer.jsx'
 import Home from './Home.jsx'
@@ -43,10 +44,14 @@ import GetStarted from './pages/GetStarted.jsx'
 import ServiceDetail from './pages/ServiceDetail.jsx'
 import NotFound from './pages/NotFound.jsx'
 import Register from './pages/Register.jsx'
+import AdminDashboard from "./pages/admin/AdminDashboard";
+import AdminRoutes from "./pages/admin/AdminRoutes.jsx";
 import './App.css'
 
 function App() {
   const location = useLocation();
+  const { isLoggedIn, user } = useCommerce();
+  const isAdminRoute = location.pathname.startsWith('/admin');
 
   useEffect(() => {
     window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
@@ -54,7 +59,7 @@ function App() {
 
   return (
     <div className="app-shell">
-      <Navbar />
+      {!isAdminRoute && <Navbar />}
       <div className="page-content">
         <Routes>
           <Route path="/" element={<Home />} />
@@ -62,6 +67,16 @@ function App() {
           <Route path="/products" element={<Products />} />
           <Route path="/products/category/:categorySlug" element={<Category />} />
           <Route path="/products/:productId" element={<ProductDetails />} />
+          <Route
+            path="/admin/*"
+            element={
+              isLoggedIn && user?.role === 'admin' ? (
+                <AdminRoutes />
+              ) : (
+                <Navigate to="/login" replace />
+              )
+            }
+          />
           <Route path="/categories" element={<Categories />} />
           <Route path="/solutions" element={<Solutions />} />
           <Route path="/technology" element={<Technology />} />
@@ -102,7 +117,7 @@ function App() {
           <Route path="*" element={<NotFound />} />
         </Routes>
       </div>
-      <Footer />
+      {!isAdminRoute && <Footer />}
     </div>
   )
 }

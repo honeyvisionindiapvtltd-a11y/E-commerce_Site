@@ -38,7 +38,7 @@ export default function Footer() {
           <div>
 
             <img
-              src="/logo.png"
+              src="https://res.cloudinary.com/vhrkwyzs/image/upload/v1786269504/logo.png_tun5nq.png"
               alt="Honey Vision"
               className="h-14"
             />

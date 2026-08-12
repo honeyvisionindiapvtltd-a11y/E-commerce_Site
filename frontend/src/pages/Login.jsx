@@ -24,8 +24,12 @@ export default function Login() {
     try {
       setLoading(true);
       setError("");
-      await login(email.trim(), password);
-      navigate("/profile");
+      const user = await login(email.trim(), password);
+      if (user?.role === 'admin') {
+        navigate('/admin/dashboard');
+      } else {
+        navigate('/profile');
+      }
     } catch (err) {
       setError(err.message || "Login failed.");
     } finally {
