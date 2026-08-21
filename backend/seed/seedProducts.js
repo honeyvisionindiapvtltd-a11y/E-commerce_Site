@@ -7,85 +7,49 @@ import { productData } from './productData.js';
 
 dotenv.config();
 
-const categorySlugAliases = {
-  'cctv-surveillance': 'cctv-surveillance',
-  'ip-cameras': 'cctv-surveillance',
-  'storage': 'storage-hard-drives',
-  'fiber-optics': 'cabling-accessories',
-  'video-conferencing': 'video-conferencing',
-  'access-control': 'access-control',
-  dvr: 'dvr-nvr-recording',
-  nvr: 'dvr-nvr-recording',
-  networking: 'networking-products',
-  routers: 'networking-products',
-  'wifi-wireless': 'networking-products',
-  computers: 'computers-laptops',
-  laptops: 'computers-laptops',
-  'monitors-displays': 'computers-laptops',
-  'digital-signage': 'led-displays-signage',
-  'ups-power': 'ups-power-solutions',
-  'smart-home-iot': 'smart-home-automation',
-  'video-door-phone': 'video-door-phones',
-  'time-attendance': 'access-control',
-  'intrusion-alarm': 'alarm-safety-systems',
-  'fire-alarm': 'alarm-safety-systems',
-  'audio-systems': 'audio-visual',
-  projectors: 'office-equipment',
-  'cables-accessories': 'cabling-accessories',
-  'smart-agriculture': 'smart-agriculture',
-  'ai-software': 'cloud-software',
-  servers: 'servers-data-center',
-  drones: 'drones-accessories',
-  'ups-power-solutions': 'ups-power-solutions',
+const slugify = (value = '') =>
+  String(value)
+    .toLowerCase()
+    .trim()
+    .replace(/&/g, 'and')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+
+const readCatalogProducts = async () => {
+  // All external JSON data has been extracted and stored in productData.js
+  if (Array.isArray(productData) && productData.length) {
+    console.log(`✅ Loaded ${productData.length} products from productData.js`);
+    return productData;
+  }
+
+  throw new Error('No product data found in productData.js');
 };
 
-const subCategorySlugAliases = {
-  'ai-ip-cameras': 'ip-cameras',
-  'ip-bullet-cameras': 'bullet-cameras',
-  'ip-dome-cameras': 'dome-cameras',
-  'four-channel-dvr': 'dvr',
-  '4-channel-dvr': 'dvr',
-  '8-channel-dvr': 'dvr',
-  '16-channel-dvr': 'dvr',
-  '8-channel-nvr': 'nvr',
-  '16-channel-nvr': 'nvr',
-  '32-channel-nvr': 'nvr',
-  'surveillance-hard-drives': 'surveillance-hdd',
-  'biometric-access-control': 'biometric-access-controllers',
-  'face-attendance': 'face-recognition-attendance',
-  'face-recognition': 'face-recognition-attendance',
-  'smart-video-door-phone': 'smart-video-doorbells',
-  'wireless-alarm': 'wireless-alarm-systems',
-  'motion-sensors': 'pir-motion-sensors',
-  'door-sensors': 'door-magnetic-sensors',
-  'wifi-routers': 'routers',
-  '4g-routers': 'routers',
-  'wifi-access-points': 'wi-fi-access-points',
-  'outdoor-access-points': 'outdoor-wi-fi',
-  'fiber-cables': 'fiber-optic-cable',
-  'network-cables': 'cat6-network-cable',
-  'usb-accessories': 'usb-cables',
-  'sfp-modules': 'fiber-optic-cable',
-  'desktop-computers': 'business-desktops',
-  'mini-pc': 'mini-pcs',
-  'professional-monitors': 'computer-monitors',
-  'digital-signage': 'digital-signage-displays',
-  'business-projectors': 'office-projectors',
-  '4k-projectors': 'office-projectors',
-  amplifiers: 'power-amplifiers',
-  microphones: 'wireless-microphones',
-  'conference-cameras': 'conference-cameras',
-  'conference-bars': 'conference-bars',
-  'cctv-power-supplies': 'power-distribution-units',
-  'smart-locks': 'smart-door-locks',
-  'smart-sensors': 'smart-motion-sensors',
-  'video-analytics': 'ai-video-analytics-software',
-  'cloud-vms': 'video-management-software',
-  'vehicle-detection': 'ai-video-analytics-software',
+const createUniqueSlug = async (baseValue = 'product') => {
+  const base = slugify(baseValue) || 'product';
+  let candidate = base;
+  let counter = 2;
+
+  while (await Product.exists({ slug: candidate })) {
+    candidate = `${base}-${counter}`;
+    counter += 1;
+  }
+
+  return candidate;
 };
 
-const resolveCategorySlug = (rawSlug) => categorySlugAliases[rawSlug] || rawSlug;
-const resolveSubCategorySlug = (rawSlug) => subCategorySlugAliases[rawSlug] || rawSlug;
+const createUniqueSku = async (baseValue = 'HV-PROD') => {
+  const base = String(baseValue || 'HV-PROD').trim() || 'HV-PROD';
+  let candidate = base;
+  let counter = 2;
+
+  while (await Product.exists({ sku: candidate })) {
+    candidate = `${base}-${counter}`;
+    counter += 1;
+  }
+
+  return candidate;
+};
 
 const connectDB = async () => {
   try {
@@ -100,88 +64,94 @@ const connectDB = async () => {
 const seedProducts = async () => {
   try {
     await connectDB();
-    console.log('Starting product seed...');
+    console.log('🌱 Starting product seed from productData.js...');
+
+    const catalogProducts = await readCatalogProducts();
+    if (!catalogProducts.length) {
+      throw new Error('No products found in product catalog');
+    }
+
+    await Product.deleteMany({});
+    console.log('🗑️  Old products removed');
 
     let created = 0;
     let skipped = 0;
 
-    for (const data of productData) {
-      const targetCategorySlug = resolveCategorySlug(data.categorySlug);
+    for (const product of catalogProducts) {
+      const categorySlug = product.categorySlug || '';
+      const subCategorySlug = product.subCategorySlug || '';
+
+      // Find category by slug
       const category = await Category.findOne({
-        slug: targetCategorySlug,
+        slug: categorySlug,
         parentCategory: null,
       });
 
       if (!category) {
-        console.log(`Category not found: ${data.categorySlug} -> ${targetCategorySlug}`);
-        skipped++;
+        console.log(`⚠️  Category not found: ${categorySlug}`);
+        skipped += 1;
         continue;
       }
 
       let subCategory = null;
-
-      if (data.subCategorySlug) {
-        const targetSubCategorySlug = resolveSubCategorySlug(data.subCategorySlug);
-
+      if (subCategorySlug) {
         subCategory = await Category.findOne({
-          slug: targetSubCategorySlug,
+          slug: subCategorySlug,
           parentCategory: category._id,
         });
-
-        if (!subCategory) {
-          subCategory = await Category.findOne({
-            slug: { $regex: targetSubCategorySlug.replace(/-/g, '.*'), $options: 'i' },
-            parentCategory: category._id,
-          });
-        }
-
-        if (!subCategory) {
-          console.log(`Subcategory not found: ${data.subCategorySlug} -> ${targetSubCategorySlug} (continuing without subcategory)`);
-        }
       }
 
-      const existingProduct = await Product.findOne({ sku: data.sku });
-      if (existingProduct) {
-        console.log(`Already exists: ${data.name}`);
-        skipped++;
-        continue;
-      }
+      const productName = product.name || 'Untitled Product';
+      const price = Number(product.price ?? 0);
+      const mrp = Number(product.mrp ?? product.price ?? 0);
+      const stock = Number(product.stock ?? 0);
+      const discountPercentage = mrp > 0 && price > 0 ? Math.round(((mrp - price) / mrp) * 100) : 0;
 
-      let discountPercentage = 0;
-      if (data.mrp && data.price) {
-        discountPercentage = Math.round(((data.mrp - data.price) / data.mrp) * 100);
-      }
+      const sku = product.sku || `HV-${created + 1}`;
+      const slug = product.slug || slugify(product.name || `product-${created + 1}`);
 
       await Product.create({
-        ...data,
+        name: productName,
+        slug: await createUniqueSlug(slug),
+        sku: await createUniqueSku(sku),
+        brand: product.brand || 'HoneyVision',
         category: category._id,
         subCategory: subCategory ? subCategory._id : null,
+        shortDescription: product.shortDescription || product.name,
+        description: product.shortDescription || product.name,
+        price,
+        mrp,
         discountPercentage,
-        featured: false,
-        bestSeller: false,
-        newArrival: true,
+        stock,
+        lowStockThreshold: 5,
+        images: Array.isArray(product.images) && product.images.length
+          ? product.images
+          : product.src || product.image
+            ? [product.src || product.image]
+            : [],
+        thumbnail: product.src || product.image || '',
+        specifications: product.specifications || {},
+        warranty: product.warranty || 'Verify with supplier',
+        tags: Array.isArray(product.tags) ? product.tags : [product.brand].filter(Boolean),
+        featured: Boolean(product.featured),
+        bestSeller: Boolean(product.bestSeller),
+        newArrival: Boolean(product.newArrival),
         recommended: false,
-        isActive: true,
-        images: data.images || [data.thumbnail || data.image || ''],
-        thumbnail: data.thumbnail || data.image || '',
-        rating: data.rating || 4.5,
-        reviewCount: data.reviewCount || 0,
-        shortDescription: data.shortDescription || data.description || '',
-        description: data.description || data.shortDescription || '',
+        isActive: product.status !== 'inactive',
       });
 
-      created++;
-      console.log(`Created: ${data.name}`);
+      created += 1;
+      if (created % 20 === 0) console.log(`  ✓ ${created} products created...`);
     }
 
-    console.log('--------------------------------');
-    console.log(`Products created: ${created}`);
-    console.log(`Products skipped: ${skipped}`);
-    console.log('--------------------------------');
+    console.log('\n================================');
+    console.log(`✅ Products created: ${created}`);
+    console.log(`⏭️  Products skipped: ${skipped}`);
+    console.log('================================\n');
 
     process.exit(0);
   } catch (error) {
-    console.error('Product seed error:', error);
+    console.error('❌ Product seed error:', error);
     process.exit(1);
   }
 };

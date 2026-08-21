@@ -6,36 +6,12 @@ import Toolbar from "../components/Toolbar";
 import Table from "../components/Table";
 import Modal from "../components/Modal";
 import { Field, inputClass } from "../components/FormField";
-import { categories as projectCategories, products as projectProducts } from "../../../lib/products";
-
-const createProjectCategoryRows = () => {
-  const counts = projectProducts.reduce((acc, product) => {
-    acc[product.category] = (acc[product.category] || 0) + 1;
-    return acc;
-  }, {});
-
-  return projectCategories.map((category, index) => ({
-    id: `cat-${index + 1}`,
-    name: category,
-    slug: category.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, ""),
-    products: counts[category] || 0,
-    status: "Active",
-  }));
-};
-
-const mergeCategoryRows = (storedRows = []) => {
-  const rows = createProjectCategoryRows();
-  const map = new Map();
-
-  rows.forEach((row) => map.set(row.id, row));
-  storedRows.forEach((row) => {
-    if (row?.id) {
-      map.set(row.id, { ...map.get(row.id), ...row });
-    }
-  });
-
-  return Array.from(map.values());
-};
+const normalizeCategory = (category) => ({
+  ...category,
+  id: category._id || category.id,
+  products: Number(category.productCount ?? category.products ?? 0),
+  status: category.isActive === false ? "Inactive" : "Active",
+});
 
 const createBlankCategory = () => ({
   name: "",
@@ -45,7 +21,7 @@ const createBlankCategory = () => ({
 });
 
 export default function Categories() {
-  const [rows, setRows] = useState(createProjectCategoryRows());
+  const [rows, setRows] = useState([]);
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
   const [edit, setEdit] = useState(null);
@@ -53,7 +29,7 @@ export default function Categories() {
 
   const refreshRows = async () => {
     const data = await adminList("categories");
-    setRows(mergeCategoryRows(Array.isArray(data) ? data : []));
+    setRows((Array.isArray(data) ? data : []).map(normalizeCategory));
   };
 
   useEffect(() => {
@@ -61,7 +37,7 @@ export default function Categories() {
 
     const loadRows = async () => {
       const data = await adminList("categories");
-      if (active) setRows(mergeCategoryRows(Array.isArray(data) ? data : []));
+      if (active) setRows((Array.isArray(data) ? data : []).map(normalizeCategory));
     };
 
     loadRows();
@@ -90,11 +66,13 @@ export default function Categories() {
     event.preventDefault();
 
     const payload = {
-      ...form,
       name: form.name.trim(),
       slug: form.slug.trim(),
-      products: Number(form.products || 0),
-      status: form.status || "Active",
+      isActive: form.status === "Active",
+      sortOrder: Number(form.sortOrder || 0),
+      description: form.description || "",
+      image: form.image || "",
+      icon: form.icon || "",
     };
 
     if (!payload.name || !payload.slug) return;

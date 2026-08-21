@@ -1,1 +1,48 @@
 @import "tailwindcss";
+
+.brand-marquee {
+	margin-top: 0;
+	overflow-x: auto;
+	overflow-y: hidden;
+	overscroll-behavior-x: contain;
+	touch-action: pan-y;
+	scrollbar-width: none;
+	mask-image: linear-gradient(to right, transparent, black 5%, black 95%, transparent);
+}
+
+.brand-marquee::-webkit-scrollbar {
+	display: none;
+}
+
+.brand-marquee-track {
+	display: flex;
+	width: max-content;
+	gap: 1.25rem;
+	animation: brand-marquee-scroll 32s linear infinite;
+}
+
+.brand-marquee:hover .brand-marquee-track,
+.brand-marquee:focus-within .brand-marquee-track {
+	animation-play-state: paused;
+}
+
+.brand-marquee-card {
+	flex: 0 0 8.5rem;
+	min-height: 7rem;
+}
+
+@keyframes brand-marquee-scroll {
+	from {
+		transform: translateX(0);
+	}
+
+	to {
+		transform: translateX(calc(-50% - 0.625rem));
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.brand-marquee-track {
+		animation: none;
+	}
+}

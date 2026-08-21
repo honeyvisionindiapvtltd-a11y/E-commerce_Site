@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import { computeTotals } from "../lib/orderTotals";
-import { products as fallbackProducts } from "../lib/products";
+import { categoryImageFor } from "../lib/products";
 
 const CommerceContext = createContext(null);
 const storageKey = "honey-vision-commerce";
@@ -174,7 +174,9 @@ const normalizeProduct = (product) => {
     reviews: Number(product.reviewCount ?? product.reviews ?? 0),
     stock: Number(product.stock ?? 0),
     delivery: product.delivery || "Delivery available",
-    image: product.thumbnail || product.image || product.images?.[0] || "https://res.cloudinary.com/vhrkwyzs/image/upload/v1786010029/laptop_ktvxcs.png",
+    image: [product.src, product.thumbnail, product.image, product.images?.[0]].find(
+      (value) => typeof value === "string" && value.trim() && !value.startsWith("/images/products/")
+    ) || categoryImageFor(category),
     description: product.shortDescription || product.description || "",
     features: Array.isArray(product.features) ? product.features : [],
     installationEligible: Boolean(product.installationEligible),
@@ -183,7 +185,7 @@ const normalizeProduct = (product) => {
 
 export function CommerceProvider({ children }) {
   const [store, setStore] = useState(readStore);
-  const [catalogProducts, setCatalogProducts] = useState(fallbackProducts);
+  const [catalogProducts, setCatalogProducts] = useState([]);
 
   useEffect(() => {
     localStorage.setItem(storageKey, JSON.stringify(store));
@@ -194,7 +196,7 @@ export function CommerceProvider({ children }) {
 
     const loadProducts = async () => {
       try {
-        const response = await fetch(`${API_BASE}/products?limit=200`);
+        const response = await fetch(`${API_BASE}/products?limit=1000`);
         if (!response.ok) throw new Error("Failed to fetch products");
 
         const data = await response.json();
@@ -204,14 +206,14 @@ export function CommerceProvider({ children }) {
             ? data.items
             : Array.isArray(data.data)
               ? data.data
-              : fallbackProducts;
+              : [];
 
         if (!ignore) {
           setCatalogProducts(apiProducts.map(normalizeProduct));
         }
       } catch {
         if (!ignore) {
-          setCatalogProducts(fallbackProducts);
+          setCatalogProducts([]);
         }
       }
     };
@@ -234,7 +236,11 @@ export function CommerceProvider({ children }) {
   const paymentMethods = store.paymentMethods || defaultPaymentMethods;
   const notifications = store.notifications || defaultNotifications;
   const accountSettings = store.accountSettings || defaultAccountSettings;
-  const deliveryLocation = store.deliveryLocation || fallback.deliveryLocation;
+  const deliveryLocation = store.deliveryLocation || {
+    pincode: "751001",
+    city: "Bhubaneswar",
+    state: "Odisha",
+  };
   const couponApplied = Boolean(store.couponApplied);
 
   const setCouponApplied = (value) => update({ couponApplied: Boolean(value) });
@@ -379,18 +385,10 @@ export function CommerceProvider({ children }) {
       total: totals.total,
     };
 
-    const data = authToken
-      ? await requestJson("/orders", {
-          method: "POST",
-          body: JSON.stringify(orderPayload),
-        })
-      : {
-          ...orderPayload,
-          id: `HV${Date.now().toString().slice(-8)}`,
-          createdAt: new Date().toISOString(),
-          status: paymentMethod === "cod" ? "Order placed" : "Payment pending",
-          paymentStatus: paymentMethod === "cod" ? "Pay on delivery" : "Awaiting payment gateway",
-        };
+    const data = await requestJson("/orders", {
+      method: "POST",
+      body: JSON.stringify(orderPayload),
+    });
 
     update({ orders: [data, ...orders], cart: [] });
     return data;
@@ -436,6 +434,15 @@ export function CommerceProvider({ children }) {
     return data.user;
   };
 
+  const loginWithGoogle = async (credential) => {
+    const data = await requestJson("/auth/google", {
+      method: "POST",
+      body: JSON.stringify({ credential }),
+    });
+    setStore((current) => ({ ...current, isLoggedIn: true, user: data.user, authToken: data.token, profile: sanitizeProfile(data.profile || {}) }));
+    return data.user;
+  };
+
   const register = async (payload) => {
     const data = await requestJson("/auth/register", {
       method: "POST",
@@ -472,6 +479,24 @@ export function CommerceProvider({ children }) {
     });
 
     return data.user;
+  };
+
+  const requestPasswordReset = async (email) => {
+    const data = await requestJson("/auth/request-password-reset", {
+      method: "POST",
+      body: JSON.stringify({ email }),
+    });
+
+    return data;
+  };
+
+  const resetPassword = async ({ email, token, newPassword }) => {
+    const data = await requestJson("/auth/reset-password", {
+      method: "POST",
+      body: JSON.stringify({ email, token, newPassword }),
+    });
+
+    return data;
   };
 
   const fetchProfile = async () => {
@@ -644,6 +669,10 @@ export function CommerceProvider({ children }) {
     setCouponApplied,
     setDeliveryPin,
     register,
+    login,
+    loginWithGoogle,
+    requestPasswordReset,
+    resetPassword,
     logout,
     addToCart,
     setQuantity,

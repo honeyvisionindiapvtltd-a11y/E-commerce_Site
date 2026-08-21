@@ -1,3 +1,4 @@
+import { useRef, useState } from "react";
 import {
   Clock3,
   ChevronRight,
@@ -8,24 +9,48 @@ import {
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useCommerce } from "../context/CommerceContext";
-import { money } from "../lib/products";
+import { money, normalizeProduct } from "../lib/products";
 
-const brands = [
-  { name: "Dell", logo: "https://res.cloudinary.com/vhrkwyzs/image/upload/v1786172601/Dell_Logo_lmfwhj.png" },
-  { name: "HP", logo: "https://res.cloudinary.com/vhrkwyzs/image/upload/v1786172600/HP_LOGO_xkbqb1.png" },
-  { name: "Lenovo", logo: "https://res.cloudinary.com/vhrkwyzs/image/upload/v1786172599/Lenovo_logo__2015_onwards_z586id.png" },
-  { name: "ASUS", logo: "https://res.cloudinary.com/vhrkwyzs/image/upload/v1786172597/ASUS_Logo_pdifp0.svg" },
-  { name: "Hikvision", logo: "https://res.cloudinary.com/vhrkwyzs/image/upload/v1786172596/Hikvision_logo_joawjl.png" },
-  { name: "Dahua", logo: "https://res.cloudinary.com/vhrkwyzs/image/upload/v1786172595/Dahua_Technology_logo_veja1o.jpg" },
-  { name: "TP-Link", logo: "https://res.cloudinary.com/vhrkwyzs/image/upload/v1786172593/Tp-Link_logo_2016_tlbnnn.png" },
-  { name: "DJI", logo: "https://res.cloudinary.com/vhrkwyzs/image/upload/v1786172591/DJI_logo_s90zht.png" },
-  { name: "Samsung", logo: "https://res.cloudinary.com/vhrkwyzs/image/upload/v1786172590/Samsung_logo_nqxgxw.svg" },
-  { name: "Seagate", logo: "https://res.cloudinary.com/vhrkwyzs/image/upload/v1786172589/Seagate_logo_saaft5.svg" },
-];
+const brandLogos = {
+  "CP Plus": "https://res.cloudinary.com/vhrkwyzs/image/upload/v1786172596/Hikvision_logo_joawjl.png",
+  Dahua: "https://res.cloudinary.com/vhrkwyzs/image/upload/v1786172595/Dahua_Technology_logo_veja1o.jpg",
+  "D-Link": "https://res.cloudinary.com/vhrkwyzs/image/upload/v1786172593/Tp-Link_logo_2016_tlbnnn.png",
+  Hikvision: "https://res.cloudinary.com/vhrkwyzs/image/upload/v1786172596/Hikvision_logo_joawjl.png",
+  HP: "https://res.cloudinary.com/vhrkwyzs/image/upload/v1786172600/HP_LOGO_xkbqb1.png",
+  "TP-Link": "https://res.cloudinary.com/vhrkwyzs/image/upload/v1786172593/Tp-Link_logo_2016_tlbnnn.png",
+};
 
 export default function FeaturedSection() {
   const { addToCart, toggleWishlist, wishlist, products } = useCommerce();
-  const productsToShow = products.slice(0, 4);
+  const brandRailRef = useRef(null);
+  const [draggingBrands, setDraggingBrands] = useState(false);
+  const dragState = useRef({ active: false, startX: 0, startScroll: 0 });
+  const brands = [...new Set(products.map((product) => product.brand).filter(Boolean))].map((name) => ({
+    name,
+    logo: brandLogos[name] || "https://res.cloudinary.com/vhrkwyzs/image/upload/v1786172600/HP_LOGO_xkbqb1.png",
+  }));
+  const productsToShow = products.slice(0, 4).map(normalizeProduct);
+
+  const scrollBrands = (direction) => {
+    brandRailRef.current?.scrollBy({ left: direction * 260, behavior: "smooth" });
+  };
+
+  const startBrandDrag = (event) => {
+    if (!brandRailRef.current) return;
+    dragState.current = { active: true, startX: event.clientX, startScroll: brandRailRef.current.scrollLeft };
+    setDraggingBrands(true);
+    brandRailRef.current.setPointerCapture?.(event.pointerId);
+  };
+
+  const moveBrandDrag = (event) => {
+    if (!dragState.current.active || !brandRailRef.current) return;
+    brandRailRef.current.scrollLeft = dragState.current.startScroll - (event.clientX - dragState.current.startX);
+  };
+
+  const stopBrandDrag = () => {
+    dragState.current.active = false;
+    setDraggingBrands(false);
+  };
 
   return (
     <section className="py-20 bg-gray-50">
@@ -57,23 +82,39 @@ export default function FeaturedSection() {
 
         {/* Brands */}
 
-        <div className="grid lg:grid-cols-10 md:grid-cols-5 grid-cols-2 gap-5 mt-10">
-
-          {brands.map((brand, index) => (
-
-            <div
-              key={index}
-              className="bg-white rounded-2xl p-6 shadow hover:shadow-xl transition flex items-center justify-center"
-            >
-              <img
-                src={brand.logo}
-                alt={brand.name}
-                className="h-10 object-contain"
-              />
-            </div>
-
-          ))}
-
+        <div className="relative mt-10" aria-label="Shop products by brand">
+          <button type="button" onClick={() => scrollBrands(-1)} aria-label="Scroll brands left" className="absolute left-2 top-1/2 z-10 grid h-9 w-9 -translate-y-1/2 place-items-center rounded-full bg-white text-slate-700 shadow-md transition hover:bg-amber-400 hover:text-slate-950">
+            <ChevronRight size={18} className="rotate-180" />
+          </button>
+          <button type="button" onClick={() => scrollBrands(1)} aria-label="Scroll brands right" className="absolute right-2 top-1/2 z-10 grid h-9 w-9 -translate-y-1/2 place-items-center rounded-full bg-white text-slate-700 shadow-md transition hover:bg-amber-400 hover:text-slate-950">
+            <ChevronRight size={18} />
+          </button>
+          <div
+            ref={brandRailRef}
+            className={`brand-marquee mt-10 ${draggingBrands ? "cursor-grabbing" : "cursor-grab"}`}
+            onPointerDown={startBrandDrag}
+            onPointerMove={moveBrandDrag}
+            onPointerUp={stopBrandDrag}
+            onPointerCancel={stopBrandDrag}
+            onPointerLeave={stopBrandDrag}
+          >
+          <div className="brand-marquee-track">
+            {[...brands, ...brands].map((brand, index) => (
+              <Link
+                key={`${brand.name}-${index}`}
+                to={`/products?brand=${encodeURIComponent(brand.name)}`}
+                aria-label={`Shop ${brand.name} products`}
+                className="brand-marquee-card bg-white rounded-2xl p-6 shadow hover:shadow-xl transition flex items-center justify-center"
+              >
+                <img
+                  src={brand.logo}
+                  alt={brand.name}
+                  className="h-10 object-contain"
+                />
+              </Link>
+            ))}
+          </div>
+          </div>
         </div>
 
         {/* Flash Sale */}

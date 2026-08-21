@@ -8,6 +8,7 @@ const __dirname = path.dirname(__filename);
 dotenv.config({ path: path.resolve(__dirname, '../.env') });
 
 const defaultDatabase = 'honeyvision';
+const defaultLocalUri = `mongodb://127.0.0.1:27017/${defaultDatabase}`;
 
 const appendDefaultDatabase = (uri, database) => {
   if (!uri) return uri;
@@ -27,8 +28,23 @@ const appendDefaultDatabase = (uri, database) => {
   return uri;
 };
 
-const rawUri = process.env.MONGO_URI || process.env.MONGODB_URI || `mongodb://127.0.0.1:27017/${defaultDatabase}`;
-const mongoUri = appendDefaultDatabase(rawUri.trim(), defaultDatabase);
+const resolveMongoUri = () => {
+  const directUri = process.env.MONGODB_DIRECT_URI;
+  if (directUri && directUri.trim()) return directUri.trim();
+
+  const remoteUri = process.env.MONGO_URI || process.env.MONGODB_URI;
+  if (remoteUri && remoteUri.trim()) {
+    const uri = remoteUri.trim();
+    if (/localhost|127\.0\.0\.1/.test(uri)) return uri;
+    if (!/mongodb\.(net|com)|mongodb\+srv/i.test(uri)) return uri;
+    return defaultLocalUri;
+  }
+
+  return defaultLocalUri;
+};
+
+const rawUri = resolveMongoUri();
+const mongoUri = appendDefaultDatabase(rawUri, defaultDatabase);
 
 const dbConfig = {
   mongoUri,

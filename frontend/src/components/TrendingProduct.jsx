@@ -1,11 +1,11 @@
 import { Heart, Star, ShoppingCart } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useCommerce } from "../context/CommerceContext";
-import { money } from "../lib/products";
+import { money, normalizeProduct } from "../lib/products";
 
 export default function TrendingProducts() {
   const { addToCart, toggleWishlist, wishlist, products } = useCommerce();
-  const trendingProducts = products.slice(0, 6);
+  const trendingProducts = products.slice(0, 6).map(normalizeProduct);
 
   return (
     <section className="w-full px-3 py-6 sm:px-6">

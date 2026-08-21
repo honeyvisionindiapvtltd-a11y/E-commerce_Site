@@ -1,4 +1,5 @@
 import { Lock, ShieldCheck, UserCog, BellRing } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { useCommerce } from "../context/CommerceContext";
 
 const iconMap = {
@@ -9,7 +10,17 @@ const iconMap = {
 };
 
 export default function AccountSettings() {
+  const navigate = useNavigate();
   const { accountSettings, toggleAccountSetting } = useCommerce();
+
+  const handlePrimaryAction = (item) => {
+    if (item.id === 3) {
+      navigate("/forgot-password");
+      return;
+    }
+
+    toggleAccountSetting(item.id);
+  };
 
   return (
     <main className="min-h-screen bg-[#F5F7FA] py-10">
@@ -31,8 +42,12 @@ export default function AccountSettings() {
                 <p className="mt-2 text-sm leading-6 text-slate-500">{item.description}</p>
 
                 <div className="mt-5 flex items-center justify-between gap-3">
-                  <button type="button" className="rounded-xl border border-gray-200 px-4 py-2.5 font-semibold text-[#071426] transition hover:border-[#F4B400] hover:bg-[#FFF9E8]">
-                    Manage
+                  <button
+                    type="button"
+                    onClick={() => handlePrimaryAction(item)}
+                    className="rounded-xl border border-gray-200 px-4 py-2.5 font-semibold text-[#071426] transition hover:border-[#F4B400] hover:bg-[#FFF9E8]"
+                  >
+                    {item.id === 3 ? "Forgot Password" : "Manage"}
                   </button>
 
                   <button

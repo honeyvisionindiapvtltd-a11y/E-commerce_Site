@@ -27,7 +27,7 @@ export default function ProductCard({ product, onQuickView = () => {} }) {
       </div>
 
       <div className="p-4">
-        <p className="text-xs font-semibold uppercase tracking-wide text-amber-600">{product.category}</p>
+        <p className="text-xs font-semibold uppercase tracking-wide text-amber-600">{product.category?.name || product.categoryName || product.category || "General"}</p>
         <h3 className="mt-2 min-h-12 font-bold leading-6 text-slate-900 group-hover:text-amber-600">{product.name}</h3>
 
         <div className="mt-3 flex items-center gap-2 text-sm">

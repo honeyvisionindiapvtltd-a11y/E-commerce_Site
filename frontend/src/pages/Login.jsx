@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Eye, EyeOff, Mail, Lock } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { useCommerce } from "../context/CommerceContext";
@@ -12,7 +12,8 @@ export default function Login() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
-  const { login } = useCommerce();
+  const { login, loginWithGoogle } = useCommerce();
+  const googleButtonRef = useRef(null);
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -36,6 +37,39 @@ export default function Login() {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+    if (!clientId || !googleButtonRef.current) return undefined;
+    const renderGoogleButton = () => {
+      if (!window.google?.accounts?.id || !googleButtonRef.current) return;
+      if (!window.__honeyVisionGoogleInitialized) {
+        window.google.accounts.id.initialize({
+          client_id: clientId,
+          callback: async ({ credential }) => {
+            try {
+              setLoading(true); setError("");
+              const user = await loginWithGoogle(credential);
+              navigate(user?.role === "admin" ? "/admin/dashboard" : "/profile");
+            } catch (googleError) { setError(googleError.message || "Google login failed."); }
+            finally { setLoading(false); }
+          },
+        });
+        window.__honeyVisionGoogleInitialized = true;
+      }
+      googleButtonRef.current.innerHTML = "";
+      window.google.accounts.id.renderButton(googleButtonRef.current, { theme: "outline", size: "large", width: 400, text: "continue_with" });
+    };
+    const script = document.querySelector('script[src="https://accounts.google.com/gsi/client"]');
+    if (script) renderGoogleButton();
+    else {
+      const googleScript = document.createElement("script");
+      googleScript.src = "https://accounts.google.com/gsi/client";
+      googleScript.async = true; googleScript.defer = true; googleScript.onload = renderGoogleButton;
+      document.head.appendChild(googleScript);
+    }
+    return undefined;
+  }, [loginWithGoogle, navigate]);
 
   return (
     <section className="min-h-screen bg-gradient-to-br from-[#071426] via-[#0B315A] to-[#102D4E] flex items-center justify-center p-8">
@@ -256,17 +290,11 @@ export default function Login() {
 
               {/* Google Login */}
 
-              <button className="w-full border border-gray-300 hover:border-yellow-500 hover:bg-yellow-50 transition rounded-xl py-4 flex items-center justify-center gap-3 font-semibold">
-
-                <img
-                  src="https://www.svgrepo.com/show/475656/google-color.svg"
-                  alt="Google"
-                  className="w-6 h-6"
-                />
-
-                Continue with Google
-
-              </button>
+              {import.meta.env.VITE_GOOGLE_CLIENT_ID ? (
+                <div ref={googleButtonRef} className="flex min-h-11 justify-center" />
+              ) : (
+                <button type="button" disabled className="w-full rounded-xl border border-gray-300 py-4 font-semibold text-gray-400">Google login is not configured</button>
+              )}
 
               {/* Register */}
 

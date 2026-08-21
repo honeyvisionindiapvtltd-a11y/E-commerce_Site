@@ -116,8 +116,18 @@ export const createRazorpayOrder = async (req, res) => {
       return res.status(500).json({ error: 'Razorpay keys not configured on server' });
     }
 
+    const numericAmount = Number(amount || 0);
+
+    if (!Number.isFinite(numericAmount) || numericAmount <= 0) {
+      return res.status(400).json({ error: 'Order amount must be greater than zero.' });
+    }
+
+    if (numericAmount < 10000) {
+      return res.status(400).json({ error: 'Razorpay minimum order amount is ₹100. Please add more items or choose another payment method.' });
+    }
+
     const options = {
-      amount: Number(amount) || 0,
+      amount: numericAmount,
       currency: (currency || 'INR').toUpperCase(),
       receipt: orderId || `rcpt_${Date.now()}`,
       payment_capture: 1,

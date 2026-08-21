@@ -1,51 +1,51 @@
 ﻿import { useEffect, useState } from "react";
 import { ArrowDownToLine, ArrowUpFromLine } from "lucide-react";
-import { adminList, adminUpdate } from "../api";
+import { adminListProducts, adminUpdate } from "../api";
 import PageHeader from "../components/PageHeader";
 import Toolbar from "../components/Toolbar";
 import Table from "../components/Table";
 import Modal from "../components/Modal";
 import { Field, inputClass } from "../components/FormField";
-import { products as projectProducts } from "../../../lib/products";
-
-const projectInventoryRows = projectProducts.map((product) => ({
-  id: product.id,
-  name: product.name,
-  sku: String(product.id || "").toUpperCase().replace(/-/g, " "),
-  category: product.category,
+const normalizeInventoryRow = (product) => ({
+  ...product,
+  id: product._id || product.id,
+  sku: product.sku || String(product._id || product.id || "").toUpperCase(),
+  category: product.category?.name || product.category || "Uncategorized",
   stock: Number(product.stock || 0),
-  status: "Active",
-}));
-
-const mergeInventoryRows = (storedRows = []) => {
-  const map = new Map();
-
-  projectInventoryRows.forEach((product) => map.set(product.id, product));
-  (Array.isArray(storedRows) ? storedRows : []).forEach((product) => {
-    if (product?.id) {
-      map.set(product.id, { ...map.get(product.id), ...product });
-    }
-  });
-
-  return Array.from(map.values());
-};
+});
 
 export default function Inventory() {
-  const [rows, setRows] = useState(projectInventoryRows);
+  const [rows, setRows] = useState([]);
   const [query, setQuery] = useState("");
   const [item, setItem] = useState(null);
   const [qty, setQty] = useState(1);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   const refreshRows = async () => {
-    const data = await adminList("products");
-    setRows(mergeInventoryRows(Array.isArray(data) ? data : []));
+    setLoading(true);
+    setError("");
+    try {
+      const data = await adminListProducts();
+      setRows((data.products || []).map(normalizeInventoryRow));
+    } catch (loadError) {
+      setError(loadError.message || "Unable to load inventory from MongoDB.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
     let active = true;
     const loadRows = async () => {
-      const data = await adminList("products");
-      if (active) setRows(mergeInventoryRows(Array.isArray(data) ? data : []));
+      try {
+        const data = await adminListProducts();
+        if (active) setRows((data.products || []).map(normalizeInventoryRow));
+      } catch (loadError) {
+        if (active) setError(loadError.message || "Unable to load inventory from MongoDB.");
+      } finally {
+        if (active) setLoading(false);
+      }
     };
 
     loadRows();
@@ -59,10 +59,14 @@ export default function Inventory() {
     const delta = direction === "in" ? Number(qty || 0) : -Number(qty || 0);
     const nextStock = Math.max(0, current + delta);
 
-    await adminUpdate("products", item.id, { stock: nextStock });
-    setItem(null);
-    setQty(1);
-    await refreshRows();
+    try {
+      await adminUpdate("products", item.id, { stock: nextStock });
+      setItem(null);
+      setQty(1);
+      await refreshRows();
+    } catch (updateError) {
+      setError(updateError.message || "Unable to update stock.");
+    }
   };
 
   const filtered = rows.filter((row) =>
@@ -72,9 +76,10 @@ export default function Inventory() {
   return (
     <>
       <PageHeader title="Inventory" description="Monitor stock levels and adjust inventory safely." />
+      {error && <div className="mb-4 flex items-center justify-between rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-xs text-red-700"><span>{error}</span><button onClick={refreshRows} className="font-semibold underline">Retry</button></div>}
       <Toolbar search={query} setSearch={setQuery} />
 
-      <Table
+      {loading ? <p className="py-12 text-center text-sm text-slate-500">Loading inventory...</p> : <Table
         rows={filtered}
         columns={[
           { key: "name", label: "Product", render: (row) => <b>{row.name}</b> },
@@ -110,7 +115,7 @@ export default function Inventory() {
             ),
           },
         ]}
-      />
+      />}
 
       <Modal open={!!item} title="Adjust Stock" onClose={() => setItem(null)}>
         <div className="space-y-4">

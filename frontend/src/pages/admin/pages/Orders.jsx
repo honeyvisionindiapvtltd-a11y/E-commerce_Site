@@ -18,15 +18,15 @@ const normalizeOrder = (order, index = 0) => {
   const createdAt = order?.createdAt ? new Date(order.createdAt) : new Date();
 
   return {
-    id: order?.id || `HV${(index + 1).toString().padStart(4, "0")}`,
+    id: order?.orderNumber || order?.orderId || order?.id || order?._id || `HV${(index + 1).toString().padStart(4, "0")}`,
     customer: order?.customer || order?.shippingAddress?.name || `Customer ${index + 1}`,
     phone: order?.phone || order?.shippingAddress?.phone || "",
     items: Array.isArray(order?.items)
       ? order.items.reduce((sum, item) => sum + (Number(item.quantity) || 1), 0)
       : Number(order?.items || 0),
-    amount: Number(order?.total || order?.amount || 0),
+    amount: Number(order?.totalAmount || order?.total || order?.amount || 0),
     payment: order?.paymentMethod ? String(order.paymentMethod).toUpperCase() : order?.payment || "COD",
-    status: order?.status || "Pending",
+    status: ({ "Order placed": "Pending", "Payment pending": "Pending", ORDER_PLACED: "Pending", PAYMENT_CONFIRMED: "Processing", PROCESSING: "Processing", PACKED: "Processing", SHIPPED: "Shipped", OUT_FOR_DELIVERY: "Shipped", DELIVERED: "Delivered", CANCELLED: "Cancelled", order_placed: "Pending", confirmed: "Processing", processing: "Processing", shipped: "Shipped", delivered: "Delivered", cancelled: "Cancelled" }[order?.status] || ({ order_placed: "Pending", confirmed: "Processing", processing: "Processing", shipped: "Shipped", delivered: "Delivered", cancelled: "Cancelled" }[order?.orderStatus] || "Pending")),
     date: order?.createdAt ? createdAt.toISOString().split("T")[0] : order?.date || createdAt.toISOString().split("T")[0],
   };
 };
@@ -34,8 +34,8 @@ const normalizeOrder = (order, index = 0) => {
 const buildOrderRows = (source = []) => {
   const map = new Map();
 
-  (Array.isArray(source) ? source : []).forEach((order) => {
-    const normalized = normalizeOrder(order, Math.random() * 1000);
+  (Array.isArray(source) ? source : []).forEach((order, index) => {
+    const normalized = normalizeOrder(order, index);
     if (normalized.id) {
       map.set(normalized.id, { ...map.get(normalized.id), ...normalized });
     }
@@ -51,37 +51,14 @@ export default function Orders() {
   const [view, setView] = useState(null);
 
   const refreshRows = async () => {
-    const liveOrders = [];
-    try {
-      const response = await fetch("/api/orders");
-      if (response.ok) {
-        const payload = await response.json();
-        if (Array.isArray(payload)) liveOrders.push(...payload);
-      }
-    } catch {
-      // ignore fetch failures and fall back to local admin data
-    }
-
-    const stored = await adminList("orders");
-    setRows(buildOrderRows([...liveOrders, ...(Array.isArray(stored) ? stored : [])]));
+    setRows(buildOrderRows(await adminList("orders")));
   };
 
   useEffect(() => {
     let active = true;
     const loadRows = async () => {
-      const liveOrders = [];
-      try {
-        const response = await fetch("/api/orders");
-        if (response.ok) {
-          const payload = await response.json();
-          if (Array.isArray(payload)) liveOrders.push(...payload);
-        }
-      } catch {
-        // ignore fetch failures and fall back to local admin data
-      }
-
-      const stored = await adminList("orders");
-      if (active) setRows(buildOrderRows([...liveOrders, ...(Array.isArray(stored) ? stored : [])]));
+      const orders = await adminList("orders");
+      if (active) setRows(buildOrderRows(orders));
     };
 
     loadRows();

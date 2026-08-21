@@ -1,58 +1,45 @@
-import React from 'react'
-import { Routes, Route, Link } from 'react-router-dom'
-import Dashboard from './pages/Dashboard'
-import Orders from './pages/Orders'
-import Products from './pages/Products'
-import Inventory from './pages/Inventory'
-import Customers from './pages/Customers'
-import Payments from './pages/Payments'
-import Reports from './pages/Reports'
-import Settings from './pages/Settings'
-import Reviews from './pages/Reviews'
-import Coupons from './pages/Coupons'
-import Categories from './pages/Categories'
-import Blogs from './pages/Blogs'
-import AdminUsers from './pages/AdminUsers'
+import { Routes, Route, Navigate } from "react-router-dom";
+import AdminLayout from "./components/AdminLayout";
+import DashboardPage from "./dashboard";
+import Products from "./pages/Products";
+import Categories from "./pages/Categories";
+import Orders from "./pages/Orders";
+import Customers from "./pages/Customers";
+import Inventory from "./pages/Inventory";
+import Coupons from "./pages/Coupons";
+import Reviews from "./pages/Reviews";
+import Delivery from "./pages/Delivery";
+import Payments from "./pages/Payments";
+import Blogs from "./pages/Blogs";
+import Reports from "./pages/Reports";
+import AdminUsers from "./pages/AdminUsers";
+import Settings from "./pages/Settings";
+import Services from "./pages/Services";
+import Installations from "./pages/Installations";
 
 export default function AdminRoutes() {
   return (
-    <div className="admin-shell flex min-h-screen">
-      <aside className="w-56 border-r border-slate-200 bg-white p-4">
-        <nav className="flex flex-col gap-2 text-sm">
-          <Link to="/admin" className="font-semibold">Dashboard</Link>
-          <Link to="/admin/orders">Orders</Link>
-          <Link to="/admin/products">Products</Link>
-          <Link to="/admin/inventory">Inventory</Link>
-          <Link to="/admin/customers">Customers</Link>
-          <Link to="/admin/payments">Payments</Link>
-          <Link to="/admin/reports">Reports</Link>
-          <Link to="/admin/settings">Settings</Link>
-          <Link to="/admin/reviews">Reviews</Link>
-          <Link to="/admin/coupons">Coupons</Link>
-          <Link to="/admin/categories">Categories</Link>
-          <Link to="/admin/blogs">Blogs</Link>
-          <Link to="/admin/admin-users">Admin Users</Link>
-        </nav>
-      </aside>
-
-      <main className="flex-1 bg-[#f5f7fa]">
-        <Routes>
-          <Route path="/admin" element={<Dashboard />} />
-          <Route path="/admin/orders" element={<Orders />} />
-          <Route path="/admin/products" element={<Products />} />
-          <Route path="/admin/inventory" element={<Inventory />} />
-          <Route path="/admin/customers" element={<Customers />} />
-          <Route path="/admin/payments" element={<Payments />} />
-          <Route path="/admin/reports" element={<Reports />} />
-          <Route path="/admin/settings" element={<Settings />} />
-          <Route path="/admin/reviews" element={<Reviews />} />
-          <Route path="/admin/coupons" element={<Coupons />} />
-          <Route path="/admin/categories" element={<Categories />} />
-          <Route path="/admin/blogs" element={<Blogs />} />
-          <Route path="/admin/admin-users" element={<AdminUsers />} />
-          <Route path="*" element={<Dashboard />} />
-        </Routes>
-      </main>
-    </div>
-  )
+    <Routes>
+      <Route path="/" element={<AdminLayout />}>
+        <Route index element={<DashboardPage />} />
+        <Route path="dashboard" element={<DashboardPage />} />
+        <Route path="products" element={<Products />} />
+        <Route path="categories" element={<Categories />} />
+        <Route path="orders" element={<Orders />} />
+        <Route path="customers" element={<Customers />} />
+        <Route path="inventory" element={<Inventory />} />
+        <Route path="coupons" element={<Coupons />} />
+        <Route path="reviews" element={<Reviews />} />
+        <Route path="delivery" element={<Delivery />} />
+        <Route path="payments" element={<Payments />} />
+        <Route path="blogs" element={<Blogs />} />
+        <Route path="reports" element={<Reports />} />
+        <Route path="admin-users" element={<AdminUsers />} />
+        <Route path="settings" element={<Settings />} />
+        <Route path="services" element={<Services />} />
+        <Route path="installations" element={<Installations />} />
+      </Route>
+      <Route path="*" element={<Navigate to="/admin" replace />} />
+    </Routes>
+  );
 }

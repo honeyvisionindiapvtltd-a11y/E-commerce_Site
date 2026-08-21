@@ -32,13 +32,17 @@ export default function Customers() {
   const [rows, setRows] = useState([]);
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState("All");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   const refreshRows = async () => {
+    setError("");
     try {
       const data = await loadCustomers();
       setRows(data);
-    } catch {
+    } catch (error) {
       setRows([]);
+      setError(error.message || "Unable to load customers from MongoDB.");
     }
   };
 
@@ -48,8 +52,10 @@ export default function Customers() {
       try {
         const data = await loadCustomers();
         if (active) setRows(data);
-      } catch {
-        if (active) setRows([]);
+      } catch (error) {
+        if (active) { setRows([]); setError(error.message || "Unable to load customers from MongoDB."); }
+      } finally {
+        if (active) setLoading(false);
       }
     };
 
@@ -85,9 +91,10 @@ export default function Customers() {
   return (
     <>
       <PageHeader title="Customers" description="Manage customer accounts, order history and spending." />
+      {error && <div className="mb-4 flex items-center justify-between rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-xs text-red-700"><span>{error}</span><button onClick={refreshRows} className="font-semibold underline">Retry</button></div>}
       <Toolbar search={query} setSearch={setQuery} filter={filter} setFilter={setFilter} options={["Active", "Blocked"]} />
 
-      <Table
+      {loading ? <p className="py-12 text-center text-sm text-slate-500">Loading customers...</p> : <Table
         rows={filtered}
         columns={[
           {
@@ -121,7 +128,7 @@ export default function Customers() {
             ),
           },
         ]}
-      />
+      />}
     </>
   );
 }

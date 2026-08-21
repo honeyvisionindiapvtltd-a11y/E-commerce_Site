@@ -1,82 +1,61 @@
 import dotenv from 'dotenv';
-import bcrypt from 'bcryptjs';
-import { fileURLToPath } from 'url';
-import { connectDB, getDB } from '../db.js';
+import mongoose from 'mongoose';
+import dbConfig from '../config/db.js';
+import User from '../models/User.js';
 
 dotenv.config();
 
 const adminEmail = process.env.ADMIN_EMAIL;
 const adminPassword = process.env.ADMIN_PASSWORD;
-const adminName = process.env.ADMIN_NAME || 'Admin';
-const adminPhone = process.env.ADMIN_PHONE || '+91 70000 00000';
+const adminName = process.env.ADMIN_NAME || 'Administrator';
+const adminPhone = process.env.ADMIN_PHONE || '9999999999';
 
-async function seedAdmin() {
+export async function seedAdmin() {
   if (!adminEmail || !adminPassword) {
-    throw new Error('ADMIN_EMAIL and ADMIN_PASSWORD must be set in .env to seed the admin user.');
+    console.log('ADMIN_EMAIL or ADMIN_PASSWORD not set; skipping admin seeding.');
+    return;
   }
 
-  await connectDB();
-  const db = getDB();
-  const usersCollection = db.collection('users');
-  const tokensCollection = db.collection('tokens');
+  try {
+    await mongoose.connect(dbConfig.mongoUri, { serverSelectionTimeoutMS: 10000 });
+    console.log('Connected to MongoDB for seeding admin');
 
-  const normalizedEmail = adminEmail.toLowerCase();
-  const existingUser = await usersCollection.findOne({ email: normalizedEmail });
+    const existing = await User.findOne({ email: String(adminEmail).toLowerCase() }).exec();
+    if (existing) {
+      if (existing.role !== 'admin') {
+        existing.role = 'admin';
+        existing.status = 'Active';
+        existing.setPassword(adminPassword);
+        await existing.save();
+        console.log(`Updated existing user ${adminEmail} to admin.`);
+      } else {
+        console.log(`Admin user ${adminEmail} already exists.`);
+      }
+      return;
+    }
 
-  if (existingUser) {
-    console.log(`Admin user already exists: ${normalizedEmail}`);
-    return existingUser;
-  }
-
-  const id = `admin-${Date.now()}`;
-  const token = `token-${id}`;
-  const hashedPassword = await bcrypt.hash(adminPassword, 10);
-  const adminUser = {
-    id,
-    name: adminName,
-    email: normalizedEmail,
-    phone: adminPhone,
-    interest: 'Admin',
-    role: 'admin',
-    password: hashedPassword,
-    token,
-    profile: {
-      fullName: adminName,
-      email: normalizedEmail,
+    const user = new User({
+      name: adminName,
+      email: String(adminEmail).toLowerCase(),
       phone: adminPhone,
-      alternatePhone: '',
-      dateOfBirth: '',
-      gender: '',
-      location: '',
-      address: '',
-      city: '',
-      state: '',
-      pinCode: '',
-      country: 'India',
-      emergencyContact: '',
-      bio: '',
-      memberSince: `${new Date().getFullYear()}`,
-    },
-  };
-
-  await Promise.all([
-    usersCollection.insertOne(adminUser),
-    tokensCollection.insertOne({ token, userId: id }),
-  ]);
-
-  console.log(`Created admin user: ${normalizedEmail}`);
-  return adminUser;
-}
-
-const __filename = fileURLToPath(import.meta.url);
-
-if (process.argv[1] === __filename) {
-  seedAdmin()
-    .then(() => process.exit(0))
-    .catch((err) => {
-      console.error('Failed to seed admin user:', err);
-      process.exit(1);
+      role: 'admin',
+      status: 'Active',
+      profile: { fullName: adminName, email: String(adminEmail).toLowerCase(), phone: adminPhone, memberSince: new Date().getFullYear().toString() },
     });
+
+    user.setPassword(adminPassword);
+    await user.save();
+
+    console.log(`Created admin user ${adminEmail}`);
+  } catch (err) {
+    console.error('Failed to seed admin user:', err.message || err);
+    throw err;
+  } finally {
+    try { await mongoose.disconnect(); } catch {}
+  }
 }
 
-export { seedAdmin };
+// Auto-run when executed directly
+if (process.argv[1] && process.argv[1].endsWith('scripts\seedAdmin.js')) {
+  seedAdmin().then(() => process.exit(0)).catch(() => process.exit(1));
+}

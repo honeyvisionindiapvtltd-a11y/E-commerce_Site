@@ -157,7 +157,7 @@ function BookInstallation() {
   }, [selectedAdditional]);
 
   const installationPrice = currentService?.price || 0;
-  const subtotal = productPrice + installationPrice + additionalTotal;
+  const subtotal = (productPrice * quantity) + installationPrice + additionalTotal;
   const gst = Math.round(subtotal * 0.18);
   const total = subtotal + gst;
 

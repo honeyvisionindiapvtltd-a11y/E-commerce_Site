@@ -7,7 +7,7 @@ const banners = [
     description: "On Top IT Products",
     button: "Shop Now",
     link: "/products",
-    image: "https://res.cloudinary.com/vhrkwyzs/image/upload/v1786014493/summer_sale_ybwoaw.png",
+    image: "https://res.cloudinary.com/vhrkwyzs/image/upload/v1786174380/blog2_fyfiq2.png",
     background: "bg-amber-50",
     eyebrowColor: "text-amber-600",
   },

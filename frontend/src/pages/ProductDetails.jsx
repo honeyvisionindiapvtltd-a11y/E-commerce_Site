@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useCommerce } from "../context/CommerceContext";
-import { money } from "../lib/products";
+import { money, normalizeProduct } from "../lib/products";
 import {
   Heart,
   Share2,
@@ -46,26 +46,7 @@ export default function ProductDetails() {
         const nextProduct = data.product || data.data || null;
 
         if (!ignore && nextProduct) {
-          const normalized = {
-            id: nextProduct._id || nextProduct.id || nextProduct.slug || productId,
-            name: nextProduct.name || "Product",
-            category: nextProduct.category?.name || nextProduct.category || "General",
-            brand: nextProduct.brand || "HoneyVision",
-            price: Number(nextProduct.price ?? 0),
-            mrp: Number(nextProduct.mrp ?? nextProduct.price ?? 0),
-            rating: Number(nextProduct.rating ?? 4.5),
-            reviews: Number(nextProduct.reviewCount ?? nextProduct.reviews ?? 0),
-            stock: Number(nextProduct.stock ?? 0),
-            image: nextProduct.thumbnail || nextProduct.image || nextProduct.images?.[0] || "https://res.cloudinary.com/vhrkwyzs/image/upload/v1786010029/laptop_ktvxcs.png",
-            description: nextProduct.shortDescription || nextProduct.description || "",
-            features: Array.isArray(nextProduct.features)
-              ? nextProduct.features
-              : Array.isArray(nextProduct.specifications?.features)
-                ? nextProduct.specifications.features
-                : [],
-            installationEligible: Boolean(nextProduct.installationEligible),
-          };
-
+          const normalized = normalizeProduct(nextProduct);
           setProduct(normalized);
           setSelectedImage(normalized.image);
         }

@@ -1,6 +1,8 @@
 import { useEffect } from 'react'
 import { Routes, Route, useLocation, Navigate } from 'react-router-dom'
 import { useCommerce } from './context/CommerceContext.jsx'
+import { NotificationContainer } from './components/Notifications/NotificationComponents.jsx'
+import useNotifications from './hooks/useNotifications.js'
 import Navbar from './components/Navbar.jsx'
 import Footer from './components/Footer.jsx'
 import Home from './Home.jsx'
@@ -32,6 +34,7 @@ import ComboDeals from './pages/ComboDeals.jsx'
 import Support from './pages/Support.jsx'
 import Compare from './pages/Compare.jsx'
 import Login from './pages/Login.jsx'
+import ForgotPassword from './pages/ForgotPassword.jsx'
 import Profile from './pages/Profile.jsx'
 import EditProfile from './pages/EditProfile.jsx'
 import Delivery from './pages/Delivery.jsx'
@@ -46,11 +49,13 @@ import NotFound from './pages/NotFound.jsx'
 import Register from './pages/Register.jsx'
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import AdminRoutes from "./pages/admin/AdminRoutes.jsx";
+import TrackOrder from "./pages/TrackOrder";
 import './App.css'
 
 function App() {
   const location = useLocation();
   const { isLoggedIn, user } = useCommerce();
+  const { notifications, removeNotification } = useNotifications();
   const isAdminRoute = location.pathname.startsWith('/admin');
 
   useEffect(() => {
@@ -89,6 +94,7 @@ function App() {
           <Route path="/ai-tools" element={<AITools />} />
           <Route path="/wishlist" element={<Wishlist />} />
           <Route path="/orders" element={<Orders />} />
+          <Route path="/orders/:id/tracking" element={<OrderTracking />} />
           <Route path="/addresses" element={<Addresses />} />
           <Route path="/payment" element={<Payment />} />
           <Route path="/payment/success" element={<PaymentSuccess />} />
@@ -98,11 +104,13 @@ function App() {
           <Route path="/checkout" element={<Checkout />} />
           <Route path="/order-tracking" element={<OrderTracking />} />
           <Route path="/track-order" element={<OrderTracking />} />
+          <Route path="/tracking" element={<OrderTracking />} />
           <Route path="/dealer-locator" element={<DealerLocator />} />
           <Route path="/combo-deals" element={<ComboDeals />} />
           <Route path="/support" element={<Support />} />
           <Route path="/compare" element={<Compare />} />
           <Route path="/login" element={<Login />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/profile" element={<Profile />} />
           <Route path="/edit-profile" element={<EditProfile />} />
           <Route path="/delivery" element={<Delivery />} />
@@ -114,10 +122,18 @@ function App() {
           <Route path="/request-demo" element={<RequestDemo />} />
           <Route path="/get-started" element={<GetStarted />} />
           <Route path="/register" element={<Register />} />
+          <Route
+  path="/track-order/:trackingNumber"
+  element={<TrackOrder />}
+/>
           <Route path="*" element={<NotFound />} />
         </Routes>
       </div>
       {!isAdminRoute && <Footer />}
+      <NotificationContainer 
+        notifications={notifications} 
+        onRemove={removeNotification} 
+      />
     </div>
   )
 }
