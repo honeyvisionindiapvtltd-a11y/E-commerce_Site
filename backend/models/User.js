@@ -30,7 +30,7 @@ const userSchema = new mongoose.Schema(
     passwordSalt: { type: String, required: true },
     phone: { type: String, required: true, trim: true },
     interest: { type: String, default: 'AI Cameras', trim: true },
-    role: { type: String, enum: ['customer', 'admin'], default: 'customer' },
+    role: { type: String, enum: ['customer', 'admin', 'delivery_agent'], default: 'customer' },
     status: { type: String, default: 'Active' },
     orders: { type: Number, default: 0 },
     spent: { type: Number, default: 0 },
@@ -81,8 +81,11 @@ userSchema.methods.setPassword = function (password) {
 };
 
 userSchema.methods.validatePassword = function (password) {
-  const salt = this.passwordSalt || this.email || this.name || 'honeyvision-salt';
-  const hash = crypto.scryptSync(password, salt, 64).toString('hex');
+  // Always use the stored salt, no fallbacks
+  if (!this.passwordSalt) {
+    return false;
+  }
+  const hash = crypto.scryptSync(password, this.passwordSalt, 64).toString('hex');
   return hash === this.passwordHash;
 };
 

@@ -3,14 +3,12 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
-const srvUri = process.env.MONGODB_URI;
-const directUri = process.env.MONGODB_DIRECT_URI;
 const dbName = process.env.DB_NAME || 'honeyvision';
-const uri = directUri || srvUri;
-
-if (!uri) {
-  throw new Error('MONGODB_URI or MONGODB_DIRECT_URI is required in .env');
-}
+const defaultLocalUri = `mongodb://127.0.0.1:27017/${dbName}`;
+const directUri = process.env.MONGODB_DIRECT_URI || defaultLocalUri;
+const serverUri = process.env.MONGODB_URI || process.env.MONGO_URI;
+const remoteAtlasUri = serverUri && /mongodb\.(net|com)|mongodb\+srv/i.test(serverUri);
+const uri = directUri && directUri.trim() ? directUri.trim() : remoteAtlasUri ? defaultLocalUri : (serverUri || defaultLocalUri).trim();
 
 const client = new MongoClient(uri, {
   serverApi: {

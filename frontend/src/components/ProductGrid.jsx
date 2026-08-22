@@ -16,18 +16,18 @@ export default function ProductGrid({ products = [], gridView = true }) {
       {gridView ? (
         <div className={`grid gap-6 sm:grid-cols-2 xl:grid-cols-3`}>
           {products.map((p) => (
-            <ProductCard key={p.id} product={p} onQuickView={onQuickView} />
+            <ProductCard key={p._id || p.id || p.slug || p.name} product={p} onQuickView={onQuickView} />
           ))}
         </div>
       ) : (
         <div className="space-y-4">
           {products.map((p) => (
-            <div key={p.id} role="article" tabIndex={0} className="flex items-start gap-4 rounded-2xl border border-slate-200 bg-white p-4">
+            <div key={p._id || p.id || p.slug || p.name} role="article" tabIndex={0} className="flex items-start gap-4 rounded-2xl border border-slate-200 bg-white p-4">
               <img src={p.image} alt={p.name} loading="lazy" className="h-28 w-28 flex-shrink-0 object-contain" />
               <div className="flex-1">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-xs font-semibold uppercase tracking-wide text-amber-600">{p.category}</p>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-amber-600">{p.category?.name || p.categoryName || p.category || "General"}</p>
                     <h3 className="mt-1 font-bold text-slate-900 line-clamp-2">{p.name}</h3>
                     <p className="mt-2 text-sm text-slate-600">{p.description}</p>
                   </div>

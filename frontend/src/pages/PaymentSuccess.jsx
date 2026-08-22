@@ -14,7 +14,7 @@ const formatPrice = (value) => {
 };
 
 const paymentMethodLabel = (method) => {
-  switch (method) {
+  switch (String(method || "").toLowerCase()) {
     case "cod":
       return "Cash on Delivery";
     case "upi":
@@ -45,6 +45,7 @@ export default function PaymentSuccess() {
   const [error, setError] = useState("");
   const [downloadError, setDownloadError] = useState("");
   const [downloading, setDownloading] = useState(false);
+  const shippingAddress = order?.shippingAddress || {};
 
   const itemCount = (order && Array.isArray(order.items))
     ? order.items.reduce((count, item) => count + Number(item.quantity || 1), 0)
@@ -230,14 +231,16 @@ export default function PaymentSuccess() {
               <div className="rounded-3xl bg-white p-5 shadow-sm">
                 <p className="text-sm uppercase tracking-[0.2em] text-gray-500">Shipping address</p>
                 <div className="mt-3 text-slate-700">
-                  <p className="font-semibold">{order.shippingAddress.name}</p>
-                  <p>{order.shippingAddress.addressLine1}</p>
-                  {order.shippingAddress.addressLine2 && <p>{order.shippingAddress.addressLine2}</p>}
+                  <p className="font-semibold">{shippingAddress.name || "Address unavailable"}</p>
+                  {shippingAddress.addressLine1 && <p>{shippingAddress.addressLine1}</p>}
+                  {shippingAddress.addressLine2 && <p>{shippingAddress.addressLine2}</p>}
                   <p>
-                    {order.shippingAddress.city}, {order.shippingAddress.state} {order.shippingAddress.pincode}
+                    {[shippingAddress.city, shippingAddress.state, shippingAddress.postalCode || shippingAddress.pincode]
+                      .filter(Boolean)
+                      .join(", ")}
                   </p>
-                  <p>{order.shippingAddress.country}</p>
-                  <p className="mt-1">Phone: {order.shippingAddress.phone}</p>
+                  {shippingAddress.country && <p>{shippingAddress.country}</p>}
+                  {shippingAddress.phone && <p className="mt-1">Phone: {shippingAddress.phone}</p>}
                 </div>
               </div>
             </div>

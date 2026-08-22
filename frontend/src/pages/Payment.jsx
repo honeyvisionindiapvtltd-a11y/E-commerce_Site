@@ -26,6 +26,7 @@ import {
   BadgeCheck,
   RefreshCcw,
   Zap,
+  ShieldAlert,
 } from "lucide-react";
 
 import { computeTotals } from "../lib/orderTotals";
@@ -113,6 +114,9 @@ const Payment = () => {
 
   const [preservedItems, setPreservedItems] = useState(null);
   const [paymentError, setPaymentError] = useState("");
+
+  const razorpayMinimumAmount = 100;
+  const isRazorpayBlocked = ["razorpay", "card", "netbanking", "wallet", "emi", "later", "upi"].includes(paymentMethod) && total < razorpayMinimumAmount;
 
   /* ============================================================
      BILLING INFORMATION
@@ -435,6 +439,8 @@ const Payment = () => {
       });
 
       const currentOrderId =
+        createdOrder.orderNumber ||
+        createdOrder._id ||
         createdOrder.id ||
         orderId ||
         `HV${Date.now().toString().slice(-8)}`;
@@ -483,6 +489,16 @@ const Payment = () => {
           "upi",
         ].includes(paymentMethod)
       ) {
+        const razorpayAmount = Math.round(total * 100);
+
+        if (razorpayAmount < 10000) {
+          setPaymentError(
+            "Razorpay minimum order amount is ₹100. Please add more items or choose another payment method."
+          );
+          setIsSubmitting(false);
+          return;
+        }
+
         const resp = await fetch(
           "/api/payments/razorpay/create-order",
           {
@@ -491,7 +507,7 @@ const Payment = () => {
               "Content-Type": "application/json",
             },
             body: JSON.stringify({
-              amount: Math.round(total * 100),
+              amount: razorpayAmount,
               currency: "INR",
               orderId: currentOrderId,
             }),
@@ -876,6 +892,17 @@ const Payment = () => {
               <p className="mt-1">
                 {paymentError}
               </p>
+            </div>
+          </div>
+        )}
+
+        {isRazorpayBlocked && (
+          <div className="mb-6 flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+            <ShieldAlert size={20} className="mt-0.5 shrink-0" />
+
+            <div>
+              <p className="font-bold">Minimum order amount for Razorpay</p>
+              <p className="mt-1">Razorpay requires a minimum order value of ₹{razorpayMinimumAmount}. Add more items or choose Cash on Delivery.</p>
             </div>
           </div>
         )}

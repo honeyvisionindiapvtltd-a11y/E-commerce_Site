@@ -26,7 +26,9 @@ export default function Login() {
       setError("");
       const user = await login(email.trim(), password);
       if (user?.role === 'admin') {
-        navigate('/admin/dashboard');
+        navigate('/admin');
+      } else if (user?.role === 'delivery_agent') {
+        navigate('/delivery-agent');
       } else {
         navigate('/profile');
       }

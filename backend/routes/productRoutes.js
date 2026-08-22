@@ -10,6 +10,7 @@ import {
   getBestSellers,
   getNewArrivals,
 } from '../controllers/productController.js';
+import { protect, requireAdmin } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
 
@@ -19,8 +20,8 @@ router.get('/new-arrivals', getNewArrivals);
 router.get('/', getProducts);
 router.get('/slug/:slug', getProductBySlug);
 router.get('/:id', getProductById);
-router.post('/', createProduct);
-router.put('/:id', updateProduct);
-router.delete('/:id', deleteProduct);
+router.post('/', protect, requireAdmin, createProduct);
+router.put('/:id', protect, requireAdmin, updateProduct);
+router.delete('/:id', protect, requireAdmin, deleteProduct);
 
 export default router;

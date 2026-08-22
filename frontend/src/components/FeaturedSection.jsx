@@ -8,7 +8,7 @@ import {
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useCommerce } from "../context/CommerceContext";
-import { money } from "../lib/products";
+import { money, normalizeProduct } from "../lib/products";
 
 const brands = [
   { name: "Dell", logo: "https://res.cloudinary.com/vhrkwyzs/image/upload/v1786172601/Dell_Logo_lmfwhj.png" },
@@ -25,7 +25,7 @@ const brands = [
 
 export default function FeaturedSection() {
   const { addToCart, toggleWishlist, wishlist, products } = useCommerce();
-  const productsToShow = products.slice(0, 4);
+  const productsToShow = products.slice(0, 4).map(normalizeProduct);
 
   return (
     <section className="py-20 bg-gray-50">

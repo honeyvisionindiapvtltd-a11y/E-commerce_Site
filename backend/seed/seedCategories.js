@@ -2,9 +2,45 @@ import dotenv from 'dotenv';
 import mongoose from 'mongoose';
 import dbConfig from '../config/db.js';
 import Category from '../models/Category.js';
-import categories from './categoryData.js';
+import { categoriesData } from './categoriesData.js';
 
 dotenv.config();
+
+const slugify = (value = '') =>
+  String(value)
+    .toLowerCase()
+    .trim()
+    .replace(/&/g, 'and')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+
+const createUniqueSlug = async (baseSlug, parentName = '') => {
+  const base = (baseSlug || parentName || 'category')
+    .toLowerCase()
+    .trim()
+    .replace(/^-+|-+$/g, '')
+    .replace(/--+/g, '-');
+
+  let candidate = base || 'category';
+  let counter = 2;
+
+  while (await Category.exists({ slug: candidate })) {
+    candidate = `${base}-${counter}`;
+    counter += 1;
+  }
+
+  return candidate;
+};
+
+const readCatalogCategories = async () => {
+  // All external JSON data has been extracted and stored in categoriesData.js
+  if (Array.isArray(categoriesData) && categoriesData.length) {
+    console.log(`✅ Loaded ${categoriesData.length} categories from categoriesData.js`);
+    return categoriesData;
+  }
+
+  throw new Error('No category data found in categoriesData.js');
+};
 
 const connectDB = async () => {
   try {
@@ -19,42 +55,46 @@ const connectDB = async () => {
 const seedCategories = async () => {
   try {
     await connectDB();
+    console.log('🌱 Starting category seed from categoriesData.js...');
+
+    const catalogCategories = await readCatalogCategories();
+
+    if (!catalogCategories.length) {
+      throw new Error('No categories found in categoriesData.js');
+    }
 
     await Category.deleteMany({});
-    console.log('Old categories removed');
+    console.log('🗑️  Old categories removed');
 
     let mainCategoryCount = 0;
     let subCategoryCount = 0;
 
-    for (let i = 0; i < categories.length; i++) {
-      const categoryData = categories[i];
+    for (let i = 0; i < catalogCategories.length; i++) {
+      const categoryData = catalogCategories[i];
+      const mainSlug = await createUniqueSlug(categoryData.slug || slugify(categoryData.name));
 
       const mainCategory = await Category.create({
         name: categoryData.name,
-        slug: categoryData.slug,
-        description: categoryData.description,
-        icon: categoryData.icon,
+        slug: mainSlug,
+        description: categoryData.description || `${categoryData.name} products`,
+        icon: categoryData.icon || 'folder',
         parentCategory: null,
         sortOrder: i + 1,
-        isActive: true,
+        isActive: categoryData.status !== 'inactive',
       });
 
       mainCategoryCount++;
-      console.log(`Created: ${mainCategory.name}`);
+      console.log(`  ✓ ${mainCategory.name}`);
 
-      if (categoryData.subcategories && categoryData.subcategories.length > 0) {
+      if (Array.isArray(categoryData.subcategories) && categoryData.subcategories.length > 0) {
         for (let j = 0; j < categoryData.subcategories.length; j++) {
-          const subName = categoryData.subcategories[j];
-          const subSlug = subName
-            .toLowerCase()
-            .replace(/&/g, 'and')
-            .replace(/[^a-z0-9]+/g, '-')
-            .replace(/^-|-$/g, '');
+          const subData = categoryData.subcategories[j];
+          const subSlug = await createUniqueSlug(subData.slug || slugify(subData.name));
 
           await Category.create({
-            name: subName,
-            slug: `${categoryData.slug}-${subSlug}`,
-            description: `${subName} under ${categoryData.name}`,
+            name: subData.name,
+            slug: subSlug,
+            description: subData.description || `${subData.name}`,
             parentCategory: mainCategory._id,
             sortOrder: j + 1,
             isActive: true,
@@ -65,16 +105,17 @@ const seedCategories = async () => {
       }
     }
 
-    console.log('\n=================================');
-    console.log('CATEGORY SEED COMPLETED');
-    console.log('=================================');
-    console.log(`Main Categories: ${mainCategoryCount}`);
-    console.log(`Subcategories: ${subCategoryCount}`);
-    console.log('=================================\n');
+    console.log('\n================================');
+    console.log('✅ CATEGORY IMPORT COMPLETED');
+    console.log('================================');
+    console.log(`📁 Main Categories: ${mainCategoryCount}`);
+    console.log(`📚 Subcategories: ${subCategoryCount}`);
+    console.log(`📊 Total Categories: ${mainCategoryCount + subCategoryCount}`);
+    console.log('================================\n');
 
     process.exit(0);
   } catch (error) {
-    console.error('Seed failed:', error);
+    console.error('❌ Category import failed:', error);
     process.exit(1);
   }
 };

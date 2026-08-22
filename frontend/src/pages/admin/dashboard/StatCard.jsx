@@ -1,6 +1,6 @@
 import { AlertTriangle, ClipboardList, Package, ShoppingCart, Users } from "lucide-react";
 
-export default function StatCard({ stat }) {
+export default function StatCard({ stat, onClick }) {
   const config = {
     revenue: { icon: "₹", bg: "bg-amber-400", text: "text-amber-500", showChange: true },
     orders: { icon: ShoppingCart, bg: "bg-blue-500", text: "text-blue-500", showChange: true },
@@ -14,7 +14,7 @@ export default function StatCard({ stat }) {
   const Icon = item.icon;
 
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+    <button type="button" onClick={onClick} className="w-full rounded-xl border border-slate-200 bg-white p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md">
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
           <p className="truncate text-[10px] text-slate-500">{stat.title}</p>
@@ -36,6 +36,6 @@ export default function StatCard({ stat }) {
           {stat.type === "revenue" ? <span className="text-xl font-bold">₹</span> : <Icon size={20} />}
         </div>
       </div>
-    </div>
+    </button>
   );
 }

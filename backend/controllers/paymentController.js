@@ -3,6 +3,9 @@ import { getDB } from '../db.js';
 import Razorpay from 'razorpay';
 import PDFDocument from 'pdfkit';
 import crypto from 'crypto';
+import Order from '../models/Order.js';
+import { updateOrderTracking } from '../services/orderTrackingService.js';
+import Payment from '../models/Payment.js';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', { apiVersion: '2022-11-15' });
 
@@ -10,6 +13,15 @@ const razorInstance = new Razorpay({
   key_id: process.env.RAZORPAY_KEY_ID || '',
   key_secret: process.env.RAZORPAY_KEY_SECRET || '',
 });
+
+const findOrder = async (orderId) => {
+  if (!orderId) return null;
+  const query = [{ orderNumber: String(orderId) }];
+  if (/^[a-f\d]{24}$/i.test(String(orderId))) {
+    query.push({ _id: orderId });
+  }
+  return Order.findOne({ $or: query });
+};
 
 export const createCheckoutSession = async (req, res) => {
   try {
@@ -80,19 +92,15 @@ export const handleWebhook = async (req, res) => {
 
       if (orderId) {
         try {
-          const orders = getDB().collection('orders');
-          await orders.updateOne(
-            { id: String(orderId) },
-            {
-              $set: {
-                paymentStatus: 'Paid',
-                status: 'Order placed',
-                paymentProvider: 'stripe',
-                paymentIntent: session.payment_intent || null,
-                paidAt: new Date().toISOString(),
-              },
-            }
-          );
+          const order = await findOrder(orderId);
+          if (!order) throw new Error('Order not found');
+          order.paymentStatus = 'PAID';
+          await order.save();
+          await updateOrderTracking({
+            orderId: order.orderNumber,
+            status: 'PAYMENT_CONFIRMED',
+            source: 'PAYMENT',
+          });
           console.log(`Order ${orderId} marked as paid via webhook.`);
         } catch (err) {
           console.error('Failed to update order payment status', err);
@@ -116,8 +124,30 @@ export const createRazorpayOrder = async (req, res) => {
       return res.status(500).json({ error: 'Razorpay keys not configured on server' });
     }
 
+    const numericAmount = Number(amount || 0);
+
+    if (!Number.isFinite(numericAmount) || numericAmount <= 0) {
+      return res.status(400).json({ error: 'Order amount must be greater than zero.' });
+    }
+
+    if (numericAmount < 10000) {
+      return res.status(400).json({ error: 'Razorpay minimum order amount is ₹100. Please add more items or choose another payment method.' });
+    }
+
+    if (orderId) {
+      const localOrder = await findOrder(orderId);
+      if (!localOrder) return res.status(404).json({ error: 'Order not found' });
+      const expectedAmount = Math.round(Number(localOrder.totalAmount) * 100);
+      if (expectedAmount !== numericAmount) {
+        return res.status(400).json({ error: 'Payment amount does not match the order total' });
+      }
+      if (localOrder.paymentStatus === 'PAID') {
+        return res.status(409).json({ error: 'Order has already been paid' });
+      }
+    }
+
     const options = {
-      amount: Number(amount) || 0,
+      amount: numericAmount,
       currency: (currency || 'INR').toUpperCase(),
       receipt: orderId || `rcpt_${Date.now()}`,
       payment_capture: 1,
@@ -145,7 +175,9 @@ export const verifyRazorpayPayment = async (req, res) => {
       .update(`${razorpay_order_id}|${razorpay_payment_id}`)
       .digest('hex');
 
-    if (expectedSignature !== razorpay_signature) {
+    const expectedBuffer = Buffer.from(expectedSignature, 'hex');
+    const providedBuffer = Buffer.from(String(razorpay_signature), 'hex');
+    if (expectedBuffer.length !== providedBuffer.length || !crypto.timingSafeEqual(expectedBuffer, providedBuffer)) {
       console.error('Razorpay signature mismatch', { expectedSignature, razorpay_signature });
       return res.status(400).json({ success: false, error: 'Invalid signature' });
     }
@@ -153,21 +185,43 @@ export const verifyRazorpayPayment = async (req, res) => {
     // Mark order as paid in DB if orderId provided
     if (orderId) {
       try {
-        const orders = getDB().collection('orders');
-        await orders.updateOne(
-          { id: String(orderId) },
+        const order = await findOrder(orderId);
+        if (!order) throw new Error('Order not found');
+        if (order.paymentStatus === 'PAID' && order.paymentTransactionId === razorpay_payment_id) {
+          return res.json({ success: true, order });
+        }
+        order.paymentStatus = 'PAID';
+        order.paymentProvider = 'razorpay';
+        order.paymentTransactionId = razorpay_payment_id;
+        order.paymentOrderId = razorpay_order_id;
+        await order.save();
+        await Payment.findOneAndUpdate(
+          { paymentId: razorpay_payment_id },
           {
-            $set: {
-              paymentStatus: 'Paid',
-              status: 'Order placed',
-              paymentProvider: 'razorpay',
-              paymentIntent: razorpay_payment_id,
-              paidAt: new Date().toISOString(),
-            },
-          }
+            paymentId: razorpay_payment_id,
+            orderId: order.orderNumber,
+            userId: String(order.user),
+            amount: order.totalAmount,
+            currency: 'INR',
+            status: 'completed',
+            paymentMethod: 'razorpay',
+            paymentProvider: 'razorpay',
+            razorpayOrderId: razorpay_order_id,
+            razorpayPaymentId: razorpay_payment_id,
+            razorpaySignature: razorpay_signature,
+            completedAt: new Date(),
+          },
+          { upsert: true, new: true, setDefaultsOnInsert: true },
         );
+        const result = await updateOrderTracking({
+          orderId: order.orderNumber,
+          status: 'PAYMENT_CONFIRMED',
+          source: 'PAYMENT',
+        });
+        return res.json({ success: true, order: result.order });
       } catch (err) {
         console.error('Failed to update order after razorpay verification', err);
+        return res.status(400).json({ success: false, error: err.message });
       }
     }
 

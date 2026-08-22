@@ -11,7 +11,6 @@ import {
   Camera,
   Package,
   PackageCheck,
-  Truck,
   CheckCircle,
   Clock,
   ShieldCheck,
@@ -25,7 +24,7 @@ import { useCommerce } from "../context/CommerceContext";
 
 export default function Profile() {
   const navigate = useNavigate();
-  const { user, profile, orders, wishlist, addresses, paymentMethods, notifications, products, logout } = useCommerce();
+  const { user, profile, orders, wishlist, addresses, paymentMethods, products, logout } = useCommerce();
 
   const displayProfile = {
     ...profile,
@@ -57,13 +56,17 @@ export default function Profile() {
     isDefault: Boolean(defaultAddress.isDefault),
     hasValue: Boolean(defaultAddress.address || displayProfile.address),
   };
-  const ownOrders = userId ? orders.filter((order) => order.userId === userId) : [];
+  const ownOrders = userId
+    ? orders.filter((order) => {
+        const orderUserId = order.userId || order.user?._id || order.user?.id || order.user;
+        return String(orderUserId || "") === String(userId);
+      })
+    : [];
   const totalOrders = ownOrders.length;
   const deliveredCount = ownOrders.filter((order) => String(order.status).toLowerCase().includes("delivered")).length;
   const pendingCount = ownOrders.filter((order) => String(order.status).toLowerCase().includes("pending")).length;
   const wishlistCount = wishlist.length;
   const wishlistItems = products.filter((product) => wishlist.includes(product.id));
-  const profileCompletion = Math.min(100, Math.round(((displayProfile.fullName ? 1 : 0) + (displayProfile.email ? 1 : 0) + (displayProfile.phone ? 1 : 0) + (displayProfile.address ? 1 : 0) + (displayProfile.city ? 1 : 0) + (displayProfile.pinCode ? 1 : 0) + (displayProfile.bio ? 1 : 0)) / 7 * 100));
 
   return (
     <div className="min-h-screen bg-[#F5F7FA]">
@@ -926,7 +929,7 @@ export default function Profile() {
                     <p className="mt-2 text-sm text-slate-500">Your order activity will appear here once you place an order.</p>
                   </div>
                 ) : (
-                  ownOrders.slice(0, 3).map((order) => {
+                  ownOrders.slice(0, 3).map((order, index) => {
                     const firstItem = order.items?.[0] || {};
                     const productName = firstItem.product?.name || "Order item";
                     const productQty = firstItem.quantity || 0;
@@ -940,7 +943,7 @@ export default function Profile() {
                           : "bg-gray-50 text-gray-600";
 
                     return (
-                      <div key={order.id} className="p-6 md:p-8">
+                      <div key={order.orderNumber || order._id || order.id || `order-${index}`} className="p-6 md:p-8">
                         <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-6">
                           <div className="flex items-center gap-5">
                             <div className="w-20 h-20 rounded-xl bg-gray-50 border border-gray-100 flex items-center justify-center">
@@ -955,7 +958,7 @@ export default function Profile() {
                               )}
                             </div>
                             <div>
-                              <p className="text-xs text-gray-400">ORDER #{order.id}</p>
+                              <p className="text-xs text-gray-400">ORDER #{order.orderNumber || order.id || order._id}</p>
                               <h3 className="font-bold text-[#071426] mt-1">{productName}</h3>
                               <p className="text-sm text-gray-500 mt-1">
                                 Qty: {productQty}

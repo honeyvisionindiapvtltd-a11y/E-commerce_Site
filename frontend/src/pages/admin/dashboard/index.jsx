@@ -1,10 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { BarChart3, ChevronLeft, ChevronRight, ClipboardList, CreditCard, Percent, Plus, Settings, Truck } from "lucide-react";
 import SalesChart from "./SalesChart";
 import OrderStatusChart from "./OrderStatusChart";
 import StatCard from "./StatCard";
 import { loadAdminData } from "../adminData";
+import { adminList } from "../api";
 import { products as projectProducts } from "../../../lib/products";
+import { useCommerce } from "../../../context/CommerceContext";
+import { getStatusLabel } from "../../../services/orderTrackingService";
 
 const productImages = {
   "4MP AI CCTV Camera": "https://res.cloudinary.com/vhrkwyzs/image/upload/v1786174380/blog2_fyfiq2.png",
@@ -70,11 +74,13 @@ function StatusBadge({ status }) {
 }
 
 const normalizeOrder = (order, index = 0) => ({
-  id: order?.id || `HV${String(index + 1).padStart(4, "0")}`,
+  id: order?.orderNumber || order?.id || order?._id || `HV${String(index + 1).padStart(4, "0")}`,
   customer: order?.customer || order?.shippingAddress?.name || `Customer ${index + 1}`,
   phone: order?.phone || order?.shippingAddress?.phone || "",
-  status: order?.status || "Pending",
-  amount: Number(order?.total || order?.amount || 0),
+  status: order?.status || "ORDER_PLACED",
+  statusLabel: getStatusLabel(order?.status || "ORDER_PLACED"),
+  amount: Number(order?.totalAmount || order?.total || order?.amount || 0),
+  product: order?.items?.[0]?.name || "Product",
   date: order?.createdAt ? new Date(order.createdAt).toISOString().split("T")[0] : order?.date || new Date().toISOString().split("T")[0],
 });
 
@@ -92,10 +98,14 @@ const mergeOrderRows = (source = []) => {
 };
 
 export default function DashboardIndex() {
+  const { authToken } = useCommerce();
+  const navigate = useNavigate();
   const [period, setPeriod] = useState("Last 7 Days");
+  const [orderPage, setOrderPage] = useState(1);
   const [dashboardData, setDashboardData] = useState({
     orders: [],
-    products: projectProducts,
+    products: [],
+    categories: [],
     customers: [],
     settings: { lowStockLimit: 5 },
   });
@@ -109,24 +119,36 @@ export default function DashboardIndex() {
       const fallbackCustomers = Array.isArray(adminData.customers) ? adminData.customers : [];
       const fallbackSettings = adminData.settings || {};
 
+      let liveProducts = [];
+      let liveCategories = [];
       let liveOrders = [];
       try {
-        const response = await fetch("/api/orders");
-        if (response.ok) {
-          const payload = await response.json();
-          if (Array.isArray(payload)) liveOrders = payload;
+        const headers = { Authorization: `Bearer ${authToken}` };
+        const [ordersResponse, products, categories] = await Promise.all([
+          fetch("/api/admin/orders?limit=100", { headers }),
+          adminList("products"),
+          adminList("categories"),
+        ]);
+        if (ordersResponse.ok) {
+          const payload = await ordersResponse.json();
+          liveOrders = Array.isArray(payload.orders) ? payload.orders : [];
         }
+        liveProducts = Array.isArray(products) ? products : [];
+        liveCategories = Array.isArray(categories) ? categories : [];
       } catch {
-        // keep the fallback admin order data when the public API is unavailable
+        // Keep local fallback data when the live admin resources are unavailable.
       }
 
       const storedOrders = Array.isArray(adminData.orders) ? adminData.orders : [];
       const orders = mergeOrderRows([...liveOrders, ...storedOrders]);
+      const products = liveProducts.length ? liveProducts : fallbackProducts;
+      const categories = liveCategories.length ? liveCategories : (adminData.categories || []);
 
       if (!active) return;
       setDashboardData({
         orders,
-        products: fallbackProducts,
+        products,
+        categories,
         customers: fallbackCustomers,
         settings: fallbackSettings,
       });
@@ -134,9 +156,9 @@ export default function DashboardIndex() {
 
     loadData();
     return () => { active = false; };
-  }, []);
+  }, [authToken]);
 
-  const { orders, products, customers, settings } = dashboardData;
+  const { orders, products, categories, customers, settings } = dashboardData;
   const lowStockLimit = Number(settings.lowStockLimit || 5);
 
   const salesData = useMemo(() => {
@@ -148,7 +170,10 @@ export default function DashboardIndex() {
     });
 
     const sortedDates = Object.keys(map).sort((a, b) => new Date(a) - new Date(b));
-    const lastDates = sortedDates.slice(-7);
+    const periodDays = { "Last 7 Days": 7, "Last 30 Days": 30, "Last 6 Months": 180, "This Year": 365 }[period] || 7;
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - periodDays);
+    const lastDates = sortedDates.filter((date) => new Date(date) >= cutoff);
 
     if (!lastDates.length) {
       const fallback = [];
@@ -167,11 +192,11 @@ export default function DashboardIndex() {
       label: new Date(date).toLocaleDateString("en-IN", { day: "2-digit", month: "short" }),
       value: map[date],
     }));
-  }, [orders]);
+  }, [orders, period]);
 
   const dashboardStats = useMemo(() => {
     const totalRevenue = orders.reduce((sum, order) => sum + Number(order.amount || 0), 0);
-    const pendingOrders = orders.filter((order) => order.status === "Pending").length;
+    const pendingOrders = orders.filter((order) => !["DELIVERED", "CANCELLED", "RETURNED"].includes(order.status)).length;
     const lowStockItems = products.filter((product) => Number(product.stock || 0) <= lowStockLimit).length;
 
     return [
@@ -179,19 +204,22 @@ export default function DashboardIndex() {
       { title: "Total Orders", value: String(orders.length), change: "12.5%", type: "orders" },
       { title: "Customers", value: String(customers.length), change: "8.2%", type: "customers" },
       { title: "Products", value: String(products.length), change: "4.1%", type: "products" },
+      { title: "Categories", value: String(categories.length), change: "Live", type: "products" },
       { title: "Pending Orders", value: String(pendingOrders), type: "pending" },
       { title: "Low Stock Items", value: String(lowStockItems), type: "lowstock" },
     ];
-  }, [customers.length, lowStockLimit, orders, products]);
+  }, [categories.length, customers.length, lowStockLimit, orders, products]);
 
-  const displayedOrders = [...orders].slice(0, 5).map((order, index) => {
+  const ordersPerPage = 5;
+  const totalOrderPages = Math.max(1, Math.ceil(orders.length / ordersPerPage));
+  const pagedOrders = [...orders].slice((orderPage - 1) * ordersPerPage, orderPage * ordersPerPage).map((order, index) => {
     const product = products.find((item) => item.name === order.product) || products[index % Math.max(products.length, 1)] || { name: "Product", image: productImages.default };
     return {
       id: order.id,
       customer: order.customer,
       product: product.name,
       amount: formatCurrency(order.amount),
-      status: order.status,
+      status: order.statusLabel,
       date: formatDate(order.date),
       image: productImages[product.name] || productImages.default,
     };
@@ -224,13 +252,20 @@ export default function DashboardIndex() {
             <p className="mt-1 text-xs text-slate-500">Here's what's happening with your store today.</p>
           </div>
 
-          <button className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#071426] px-4 py-2.5 text-xs font-semibold text-white transition hover:bg-amber-400 hover:text-slate-950">
+          <button type="button" onClick={() => navigate("/admin/products")} className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#071426] px-4 py-2.5 text-xs font-semibold text-white transition hover:bg-amber-400 hover:text-slate-950">
             <Plus size={16} />Add Product
           </button>
         </div>
 
         <div className="grid grid-cols-2 gap-3 xl:grid-cols-6">
-          {dashboardStats.map((stat) => <StatCard key={stat.title} stat={stat} />)}
+          {dashboardStats.map((stat) => <StatCard key={stat.title} stat={stat} onClick={() => navigate({
+            revenue: "/admin/reports",
+            orders: "/admin/orders",
+            customers: "/admin/customers",
+            products: "/admin/products",
+            pending: "/admin/orders",
+            lowstock: "/admin/inventory",
+          }[stat.type] || "/admin")} />)}
         </div>
 
         <div className="mt-5 grid gap-5 xl:grid-cols-[minmax(0,1.5fr)_minmax(320px,0.9fr)]">
@@ -269,7 +304,7 @@ export default function DashboardIndex() {
           <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
             <div className="flex items-center justify-between border-b border-slate-200 p-4">
               <h2 className="text-sm font-bold">Recent Orders</h2>
-              <button className="text-[11px] font-semibold text-blue-600 hover:text-amber-500">View All Orders</button>
+              <button type="button" onClick={() => navigate("/admin/orders")} className="text-[11px] font-semibold text-blue-600 hover:text-amber-500">View All Orders</button>
             </div>
 
             <div className="overflow-x-auto">
@@ -287,7 +322,7 @@ export default function DashboardIndex() {
                 </thead>
 
                 <tbody>
-                  {displayedOrders.map((order) => (
+                  {pagedOrders.map((order) => (
                     <tr key={order.id} className="border-b border-slate-100 transition hover:bg-slate-50">
                       <td className="px-4 py-3 text-[11px] font-semibold">{order.id}</td>
                       <td className="px-4 py-3 text-[11px]">{order.customer}</td>
@@ -300,7 +335,7 @@ export default function DashboardIndex() {
                       <td className="px-4 py-3 text-[11px] font-semibold">{order.amount}</td>
                       <td className="px-4 py-3"><StatusBadge status={order.status} /></td>
                       <td className="whitespace-nowrap px-4 py-3 text-[10px] text-slate-500">{order.date}</td>
-                      <td className="px-4 py-3"><button className="text-lg text-slate-400 hover:text-slate-900">⋮</button></td>
+                      <td className="px-4 py-3"><button type="button" aria-label={`Open order ${order.id}`} onClick={() => navigate("/admin/orders")} className="text-lg text-slate-400 hover:text-slate-900">⋮</button></td>
                     </tr>
                   ))}
                 </tbody>
@@ -308,15 +343,11 @@ export default function DashboardIndex() {
             </div>
 
             <div className="flex items-center justify-between border-t border-slate-200 px-4 py-3">
-              <p className="text-[10px] text-slate-500">Showing 1 to {Math.min(displayedOrders.length, 5)} of {orders.length} orders</p>
+              <p className="text-[10px] text-slate-500">Showing {orders.length ? (orderPage - 1) * ordersPerPage + 1 : 0} to {Math.min(orderPage * ordersPerPage, orders.length)} of {orders.length} orders</p>
               <div className="flex items-center gap-1">
-                <button className="grid h-7 w-7 place-items-center rounded border border-slate-200 text-slate-500 hover:bg-slate-100"><ChevronLeft size={13} /></button>
-                <button className="grid h-7 w-7 place-items-center rounded bg-amber-400 text-xs font-semibold">1</button>
-                <button className="grid h-7 w-7 place-items-center rounded border border-slate-200 text-xs hover:bg-slate-100">2</button>
-                <button className="grid h-7 w-7 place-items-center rounded border border-slate-200 text-xs hover:bg-slate-100">3</button>
-                <span className="px-1 text-xs text-slate-400">...</span>
-                <button className="grid h-7 w-7 place-items-center rounded border border-slate-200 text-xs hover:bg-slate-100">50</button>
-                <button className="grid h-7 w-7 place-items-center rounded border border-slate-200 text-slate-500 hover:bg-slate-100"><ChevronRight size={13} /></button>
+                <button type="button" disabled={orderPage === 1} onClick={() => setOrderPage((page) => Math.max(1, page - 1))} className="grid h-7 w-7 place-items-center rounded border border-slate-200 text-slate-500 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40"><ChevronLeft size={13} /></button>
+                <span className="min-w-7 text-center text-xs font-semibold">{orderPage} / {totalOrderPages}</span>
+                <button type="button" disabled={orderPage === totalOrderPages} onClick={() => setOrderPage((page) => Math.min(totalOrderPages, page + 1))} className="grid h-7 w-7 place-items-center rounded border border-slate-200 text-slate-500 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40"><ChevronRight size={13} /></button>
               </div>
             </div>
           </section>
@@ -325,18 +356,18 @@ export default function DashboardIndex() {
             <section className="rounded-xl border border-slate-200 bg-white shadow-sm">
               <div className="flex items-center justify-between border-b border-slate-200 p-4">
                 <h2 className="text-sm font-bold">Low Stock Products</h2>
-                <button className="text-[10px] font-semibold text-blue-600">View Inventory</button>
+                <button type="button" onClick={() => navigate("/admin/inventory")} className="text-[10px] font-semibold text-blue-600">View Inventory</button>
               </div>
 
               <div className="divide-y divide-slate-100">
                 {lowStockProducts.map((product) => (
-                  <div key={product.name} className="flex items-center justify-between gap-3 px-4 py-3">
+                  <button type="button" key={product.name} onClick={() => navigate("/admin/inventory")} className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left hover:bg-slate-50">
                     <div className="flex min-w-0 items-center gap-3">
                       <img src={product.image} alt={product.name} className="h-8 w-9 rounded object-cover" />
                       <p className="truncate text-[10px] font-medium">{product.name}</p>
                     </div>
                     <span className="shrink-0 rounded-md bg-red-50 px-2 py-1 text-[9px] font-semibold text-red-500">{product.stock} left</span>
-                  </div>
+                  </button>
                 ))}
               </div>
             </section>
@@ -344,18 +375,18 @@ export default function DashboardIndex() {
             <section className="rounded-xl border border-slate-200 bg-white shadow-sm">
               <div className="flex items-center justify-between border-b border-slate-200 p-4">
                 <h2 className="text-sm font-bold">Top Selling Products</h2>
-                <button className="text-[10px] font-semibold text-blue-600">View Products</button>
+                <button type="button" onClick={() => navigate("/admin/products")} className="text-[10px] font-semibold text-blue-600">View Products</button>
               </div>
 
               <div className="divide-y divide-slate-100">
                 {topProducts.map((product) => (
-                  <div key={product.name} className="flex items-center justify-between gap-3 px-4 py-3">
+                  <button type="button" key={product.name} onClick={() => navigate("/admin/products")} className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left hover:bg-slate-50">
                     <div className="flex min-w-0 items-center gap-3">
                       <img src={product.image} alt={product.name} className="h-8 w-9 rounded object-cover" />
                       <p className="truncate text-[10px] font-medium">{product.name}</p>
                     </div>
                     <span className="shrink-0 rounded-md bg-emerald-50 px-2 py-1 text-[9px] font-semibold text-emerald-600">{product.sold} sold</span>
-                  </div>
+                  </button>
                 ))}
               </div>
             </section>
@@ -365,13 +396,13 @@ export default function DashboardIndex() {
         <section className="mt-5 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
           <h2 className="text-sm font-bold">Quick Actions</h2>
           <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
-            <QuickAction icon={Plus} title="Add Product" type="blue" onClick={() => {}} />
-            <QuickAction icon={ClipboardList} title="Manage Orders" type="green" onClick={() => {}} />
-            <QuickAction icon={Percent} title="Create Coupon" type="purple" onClick={() => {}} />
-            <QuickAction icon={Truck} title="Delivery Settings" type="orange" onClick={() => {}} />
-            <QuickAction icon={CreditCard} title="Payment Settings" type="blue" onClick={() => {}} />
-            <QuickAction icon={Settings} title="Website Settings" type="cyan" onClick={() => {}} />
-            <QuickAction icon={BarChart3} title="View Reports" type="red" onClick={() => {}} />
+            <QuickAction icon={Plus} title="Add Product" type="blue" onClick={() => navigate("/admin/products")} />
+            <QuickAction icon={ClipboardList} title="Manage Orders" type="green" onClick={() => navigate("/admin/orders")} />
+            <QuickAction icon={Percent} title="Create Coupon" type="purple" onClick={() => navigate("/admin/coupons")} />
+            <QuickAction icon={Truck} title="Delivery Settings" type="orange" onClick={() => navigate("/admin/delivery")} />
+            <QuickAction icon={CreditCard} title="Payment Settings" type="blue" onClick={() => navigate("/admin/payments")} />
+            <QuickAction icon={Settings} title="Website Settings" type="cyan" onClick={() => navigate("/admin/settings")} />
+            <QuickAction icon={BarChart3} title="View Reports" type="red" onClick={() => navigate("/admin/reports")} />
           </div>
         </section>
       </main>

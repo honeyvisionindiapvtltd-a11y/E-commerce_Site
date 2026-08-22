@@ -1,32 +1,38 @@
 ﻿import { useEffect, useState } from "react";
 import { Eye } from "lucide-react";
-import { adminList, adminUpdate } from "../api";
+import { useCommerce } from "../../../context/CommerceContext";
+import { ORDER_STATUSES, getStatusLabel } from "../../../services/orderTrackingService";
 import PageHeader from "../components/PageHeader";
 import Toolbar from "../components/Toolbar";
 import Table from "../components/Table";
 import Modal from "../components/Modal";
 
 const badge = (status) => ({
-  Pending: "bg-amber-50 text-amber-600",
+  ORDER_PLACED: "bg-amber-50 text-amber-600",
+  PAYMENT_CONFIRMED: "bg-amber-50 text-amber-600",
   Processing: "bg-purple-50 text-purple-600",
-  Shipped: "bg-blue-50 text-blue-600",
-  Delivered: "bg-emerald-50 text-emerald-600",
-  Cancelled: "bg-red-50 text-red-500",
+  PACKED: "bg-purple-50 text-purple-600",
+  SHIPPED: "bg-blue-50 text-blue-600",
+  OUT_FOR_DELIVERY: "bg-blue-50 text-blue-600",
+  DELIVERED: "bg-emerald-50 text-emerald-600",
+  CANCELLED: "bg-red-50 text-red-500",
 }[status] || "bg-slate-100 text-slate-500");
 
 const normalizeOrder = (order, index = 0) => {
   const createdAt = order?.createdAt ? new Date(order.createdAt) : new Date();
 
   return {
-    id: order?.id || `HV${(index + 1).toString().padStart(4, "0")}`,
+    id: order?.orderNumber || order?.id || order?._id || `HV${(index + 1).toString().padStart(4, "0")}`,
     customer: order?.customer || order?.shippingAddress?.name || `Customer ${index + 1}`,
     phone: order?.phone || order?.shippingAddress?.phone || "",
     items: Array.isArray(order?.items)
       ? order.items.reduce((sum, item) => sum + (Number(item.quantity) || 1), 0)
       : Number(order?.items || 0),
-    amount: Number(order?.total || order?.amount || 0),
-    payment: order?.paymentMethod ? String(order.paymentMethod).toUpperCase() : order?.payment || "COD",
-    status: order?.status || "Pending",
+    amount: Number(order?.totalAmount || order?.total || order?.amount || 0),
+    payment: String(order?.paymentMethod || order?.payment || "COD").toUpperCase() === "COD"
+      ? "Cash on Delivery"
+      : "Online",
+    status: order?.status || ORDER_STATUSES.ORDER_PLACED,
     date: order?.createdAt ? createdAt.toISOString().split("T")[0] : order?.date || createdAt.toISOString().split("T")[0],
   };
 };
@@ -45,52 +51,62 @@ const buildOrderRows = (source = []) => {
 };
 
 export default function Orders() {
+  const { authToken } = useCommerce();
   const [rows, setRows] = useState([]);
   const [q, setQ] = useState("");
   const [filter, setFilter] = useState("All");
   const [view, setView] = useState(null);
 
   const refreshRows = async () => {
-    const liveOrders = [];
     try {
-      const response = await fetch("/api/orders");
+      const response = await fetch("/api/admin/orders?limit=100", {
+        headers: { Authorization: `Bearer ${authToken}` },
+      });
       if (response.ok) {
         const payload = await response.json();
-        if (Array.isArray(payload)) liveOrders.push(...payload);
+        setRows(buildOrderRows(payload.orders || []));
       }
     } catch {
-      // ignore fetch failures and fall back to local admin data
+      // Preserve the current list when the API is temporarily unavailable.
     }
-
-    const stored = await adminList("orders");
-    setRows(buildOrderRows([...liveOrders, ...(Array.isArray(stored) ? stored : [])]));
   };
 
   useEffect(() => {
     let active = true;
     const loadRows = async () => {
-      const liveOrders = [];
       try {
-        const response = await fetch("/api/orders");
+        const response = await fetch("/api/admin/orders?limit=100", {
+          headers: { Authorization: `Bearer ${authToken}` },
+        });
         if (response.ok) {
           const payload = await response.json();
-          if (Array.isArray(payload)) liveOrders.push(...payload);
+          if (active) setRows(buildOrderRows(payload.orders || []));
         }
       } catch {
-        // ignore fetch failures and fall back to local admin data
+        // Preserve the current list when the API is temporarily unavailable.
       }
-
-      const stored = await adminList("orders");
-      if (active) setRows(buildOrderRows([...liveOrders, ...(Array.isArray(stored) ? stored : [])]));
     };
 
     loadRows();
     return () => { active = false; };
-  }, []);
+  }, [authToken]);
 
   const update = async (id, status) => {
-    await adminUpdate("orders", id, { status });
-    await refreshRows();
+    try {
+      const response = await fetch(`/api/admin/orders/${encodeURIComponent(id)}/status`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${authToken}`,
+        },
+        body: JSON.stringify({ newStatus: status }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Unable to update order status");
+      await refreshRows();
+    } catch (error) {
+      window.alert(error.message);
+    }
   };
 
   const filtered = rows.filter((row) =>
@@ -106,7 +122,7 @@ export default function Orders() {
         setSearch={setQ}
         filter={filter}
         setFilter={setFilter}
-        options={["Pending", "Processing", "Shipped", "Delivered", "Cancelled"]}
+        options={Object.values(ORDER_STATUSES)}
       />
 
       <Table
@@ -129,11 +145,9 @@ export default function Orders() {
                 onChange={(event) => update(row.id, event.target.value)}
                 className={`rounded px-2 py-1 text-[9px] font-semibold outline-none ${badge(row.status)}`}
               >
-                <option>Pending</option>
-                <option>Processing</option>
-                <option>Shipped</option>
-                <option>Delivered</option>
-                <option>Cancelled</option>
+                {Object.values(ORDER_STATUSES).map((status) => (
+                  <option key={status} value={status}>{getStatusLabel(status)}</option>
+                ))}
               </select>
             )
           },

@@ -1,14 +1,16 @@
-import Product from '../models/Product.js';
-import Category from '../models/Category.js';
+import Product from "../models/Product.js";
+import Category from "../models/Category.js";
 
-// ==========================================
+// ============================================================
 // GET ALL PRODUCTS
-// ==========================================
+// GET /api/products
+// ============================================================
 
 const getProducts = async (req, res) => {
   try {
     const {
       search,
+      q,
       category,
       subCategory,
       brand,
@@ -21,208 +23,340 @@ const getProducts = async (req, res) => {
       inStock,
       sort,
       page = 1,
-      limit = 20,
+      limit = 24,
     } = req.query;
 
+    // ========================================================
+    // BASE FILTER
+    // ========================================================
+
+    // Older products may not have isActive. Treat them as visible unless explicitly disabled.
     const filter = {
-      isActive: true,
+      isActive: { $ne: false },
     };
 
-    // Search
-    if (search) {
-      filter.$or = [
+    // ========================================================
+    // SEARCH
+    // Supports both ?search= and ?q=
+    // ========================================================
+
+    const searchValue = search || q;
+
+    if (searchValue && searchValue.trim()) {
+      const regex = {
+        $regex: searchValue.trim(),
+        $options: "i",
+      };
+
+      filter.$and = [
         {
-          name: {
-            $regex: search,
-            $options: "i",
-          },
-        },
-        {
-          brand: {
-            $regex: search,
-            $options: "i",
-          },
-        },
-        {
-          sku: {
-            $regex: search,
-            $options: "i",
-          },
-        },
-        {
-          tags: {
-            $regex: search,
-            $options: "i",
-          },
+          $or: [
+            { name: regex },
+            { brand: regex },
+            { sku: regex },
+            { tags: regex },
+            { shortDescription: regex },
+            { description: regex },
+          ],
         },
       ];
     }
 
-    // Category
-    if (category) {
-      let categoryData;
+    // ========================================================
+    // CATEGORY
+    // Supports category ID and category slug
+    // ========================================================
 
-      if (category.match(/^[0-9a-fA-F]{24}$/)) {
-        categoryData = await Category.findById(category);
-      } else {
+    if (category && category.trim()) {
+      let categoryData = null;
+
+      const categoryValue = category.trim();
+
+      // Check ObjectId
+      if (/^[0-9a-fA-F]{24}$/.test(categoryValue)) {
         categoryData = await Category.findOne({
-          slug: category,
+          _id: categoryValue,
+          isActive: true,
         });
       }
 
-      if (categoryData) {
-        if (categoryData.parentCategory === null) {
-          const subcategories = await Category.find({
-            parentCategory: categoryData._id,
-            isActive: true,
-          }).select("_id");
+      // Check slug
+      if (!categoryData) {
+        categoryData = await Category.findOne({
+          slug: categoryValue.toLowerCase(),
+          isActive: true,
+        });
+      }
 
-          const subCategoryIds = subcategories.map(
-            (item) => item._id
-          );
+      // Category not found
+      if (!categoryData) {
+        return res.status(200).json({
+          success: true,
+          count: 0,
+          totalProducts: 0,
+          currentPage: 1,
+          totalPages: 1,
+          products: [],
+        });
+      }
 
-          filter.$or = [
-            {
-              category: categoryData._id,
+      // ======================================================
+      // MAIN CATEGORY
+      // ======================================================
+
+      if (!categoryData.parentCategory) {
+        const subCategoryIds = await Category.find({
+          parentCategory: categoryData._id,
+          isActive: true,
+        }).distinct("_id");
+
+        filter.$or = [
+          {
+            category: categoryData._id,
+          },
+          {
+            subCategory: {
+              $in: subCategoryIds,
             },
-            {
-              subCategory: {
-                $in: subCategoryIds,
-              },
-            },
-          ];
-        } else {
-          filter.subCategory = categoryData._id;
-        }
+          },
+        ];
+      }
+
+      // ======================================================
+      // SUBCATEGORY PASSED AS CATEGORY
+      // ======================================================
+
+      else {
+        filter.subCategory = categoryData._id;
       }
     }
 
-    // Subcategory
-    if (subCategory) {
-      let subCategoryData;
+    // ========================================================
+    // SUBCATEGORY
+    // Supports subcategory ID and slug
+    // ========================================================
 
-      if (subCategory.match(/^[0-9a-fA-F]{24}$/)) {
-        subCategoryData = await Category.findById(subCategory);
-      } else {
+    if (subCategory && subCategory.trim()) {
+      let subCategoryData = null;
+
+      const subCategoryValue = subCategory.trim();
+
+      // Check ObjectId
+      if (/^[0-9a-fA-F]{24}$/.test(subCategoryValue)) {
         subCategoryData = await Category.findOne({
-          slug: subCategory,
+          _id: subCategoryValue,
+          isActive: true,
         });
       }
 
-      if (subCategoryData) {
-        filter.subCategory = subCategoryData._id;
+      // Check slug
+      if (!subCategoryData) {
+        subCategoryData = await Category.findOne({
+          slug: subCategoryValue.toLowerCase(),
+          isActive: true,
+        });
       }
+
+      // Subcategory not found
+      if (!subCategoryData) {
+        return res.status(200).json({
+          success: true,
+          count: 0,
+          totalProducts: 0,
+          currentPage: 1,
+          totalPages: 1,
+          products: [],
+        });
+      }
+
+      filter.subCategory = subCategoryData._id;
     }
 
-    // Brand
-    if (brand) {
+    // ========================================================
+    // BRAND
+    // ========================================================
+
+    if (brand && brand.trim()) {
       filter.brand = {
-        $regex: brand,
+        $regex: brand.trim(),
         $options: "i",
       };
     }
 
-    // Product Type
+    // ========================================================
+    // PRODUCT TYPE
+    // ========================================================
+
     if (productType) {
       filter.productType = productType;
     }
 
-    // Price
+    // ========================================================
+    // PRICE FILTER
+    // ========================================================
+
     if (minPrice || maxPrice) {
       filter.price = {};
 
-      if (minPrice) {
+      if (minPrice !== undefined && minPrice !== "") {
         filter.price.$gte = Number(minPrice);
       }
 
-      if (maxPrice) {
+      if (maxPrice !== undefined && maxPrice !== "") {
         filter.price.$lte = Number(maxPrice);
       }
     }
 
-    // Featured
+    // ========================================================
+    // FEATURED
+    // ========================================================
+
     if (featured === "true") {
       filter.featured = true;
     }
 
-    // Best Seller
+    // ========================================================
+    // BEST SELLER
+    // ========================================================
+
     if (bestSeller === "true") {
       filter.bestSeller = true;
     }
 
-    // New Arrival
+    // ========================================================
+    // NEW ARRIVAL
+    // ========================================================
+
     if (newArrival === "true") {
       filter.newArrival = true;
     }
 
-    // In Stock
+    // ========================================================
+    // IN STOCK
+    // ========================================================
+
     if (inStock === "true") {
       filter.stock = {
         $gt: 0,
       };
     }
 
-    // Sorting
+    // ========================================================
+    // SORT
+    // ========================================================
+
     let sortOption = {
       createdAt: -1,
     };
 
-    if (sort === "price_low") {
-      sortOption = {
-        price: 1,
-      };
+    switch (sort) {
+      case "price_low":
+        sortOption = {
+          price: 1,
+        };
+        break;
+
+      case "price_high":
+        sortOption = {
+          price: -1,
+        };
+        break;
+
+      case "rating":
+        sortOption = {
+          rating: -1,
+        };
+        break;
+
+      case "oldest":
+        sortOption = {
+          createdAt: 1,
+        };
+        break;
+
+      case "newest":
+        sortOption = {
+          createdAt: -1,
+        };
+        break;
+
+      case "popular":
+      default:
+        sortOption = {
+          createdAt: -1,
+        };
+        break;
     }
 
-    if (sort === "price_high") {
-      sortOption = {
-        price: -1,
-      };
-    }
+    // ========================================================
+    // PAGINATION
+    // ========================================================
 
-    if (sort === "rating") {
-      sortOption = {
-        rating: -1,
-      };
-    }
+    const pageNumber = Math.max(
+      1,
+      Number(page) || 1
+    );
 
-    if (sort === "newest") {
-      sortOption = {
-        createdAt: -1,
-      };
-    }
+    const limitNumber = Math.min(
+      100,
+      Math.max(
+        1,
+        Number(limit) || 24
+      )
+    );
 
-    if (sort === "oldest") {
-      sortOption = {
-        createdAt: 1,
-      };
-    }
+    const skip =
+      (pageNumber - 1) * limitNumber;
 
-    const pageNumber = Number(page);
-    const limitNumber = Number(limit);
+    // ========================================================
+    // COUNT PRODUCTS
+    // ========================================================
 
-    const skip = (pageNumber - 1) * limitNumber;
+    const totalProducts =
+      await Product.countDocuments(filter);
 
-    const totalProducts = await Product.countDocuments(filter);
+    // ========================================================
+    // GET PRODUCTS
+    // ========================================================
 
     const products = await Product.find(filter)
-      .populate("category", "name slug")
-      .populate("subCategory", "name slug")
+      .populate(
+        "category",
+        "name slug parentCategory"
+      )
+      .populate(
+        "subCategory",
+        "name slug parentCategory"
+      )
+      .populate(
+        "relatedProducts",
+        "name slug price thumbnail rating"
+      )
       .sort(sortOption)
       .skip(skip)
-      .limit(limitNumber);
+      .limit(limitNumber)
+      .lean();
+
+    // ========================================================
+    // RESPONSE
+    // ========================================================
 
     res.status(200).json({
       success: true,
       count: products.length,
       totalProducts,
       currentPage: pageNumber,
-      totalPages: Math.ceil(
-        totalProducts / limitNumber
-      ),
+      totalPages:
+        Math.ceil(
+          totalProducts / limitNumber
+        ) || 1,
       products,
     });
   } catch (error) {
-    console.error(error);
+    console.error(
+      "GET PRODUCTS ERROR:",
+      error
+    );
 
     res.status(500).json({
       success: false,
@@ -232,19 +366,27 @@ const getProducts = async (req, res) => {
   }
 };
 
-// ==========================================
-// GET SINGLE PRODUCT
-// ==========================================
+// ============================================================
+// GET SINGLE PRODUCT BY ID
+// GET /api/products/:id
+// ============================================================
 
 const getProductById = async (req, res) => {
   try {
-    const product = await Product.findById(req.params.id)
-      .populate("category", "name slug")
-      .populate("subCategory", "name slug")
-      .populate(
-        "relatedProducts",
-        "name slug price thumbnail rating"
-      );
+    const product =
+      await Product.findById(req.params.id)
+        .populate(
+          "category",
+          "name slug parentCategory"
+        )
+        .populate(
+          "subCategory",
+          "name slug parentCategory"
+        )
+        .populate(
+          "relatedProducts",
+          "name slug price thumbnail rating"
+        );
 
     if (!product) {
       return res.status(404).json({
@@ -258,6 +400,11 @@ const getProductById = async (req, res) => {
       product,
     });
   } catch (error) {
+    console.error(
+      "GET PRODUCT BY ID ERROR:",
+      error
+    );
+
     res.status(500).json({
       success: false,
       message: "Failed to fetch product",
@@ -266,22 +413,30 @@ const getProductById = async (req, res) => {
   }
 };
 
-// ==========================================
+// ============================================================
 // GET PRODUCT BY SLUG
-// ==========================================
+// GET /api/products/slug/:slug
+// ============================================================
 
 const getProductBySlug = async (req, res) => {
   try {
-    const product = await Product.findOne({
-      slug: req.params.slug,
-      isActive: true,
-    })
-      .populate("category", "name slug")
-      .populate("subCategory", "name slug")
-      .populate(
-        "relatedProducts",
-        "name slug price thumbnail rating"
-      );
+    const product =
+      await Product.findOne({
+        slug: req.params.slug,
+        isActive: { $ne: false },
+      })
+        .populate(
+          "category",
+          "name slug parentCategory"
+        )
+        .populate(
+          "subCategory",
+          "name slug parentCategory"
+        )
+        .populate(
+          "relatedProducts",
+          "name slug price thumbnail rating"
+        );
 
     if (!product) {
       return res.status(404).json({
@@ -295,6 +450,11 @@ const getProductBySlug = async (req, res) => {
       product,
     });
   } catch (error) {
+    console.error(
+      "GET PRODUCT BY SLUG ERROR:",
+      error
+    );
+
     res.status(500).json({
       success: false,
       message: "Failed to fetch product",
@@ -303,9 +463,10 @@ const getProductBySlug = async (req, res) => {
   }
 };
 
-// ==========================================
+// ============================================================
 // CREATE PRODUCT
-// ==========================================
+// POST /api/products
+// ============================================================
 
 const createProduct = async (req, res) => {
   try {
@@ -343,34 +504,62 @@ const createProduct = async (req, res) => {
       metaDescription,
     } = req.body;
 
-    // Check SKU
-    const existingSKU = await Product.findOne({
-      sku,
-    });
+    // ========================================================
+    // REQUIRED CATEGORY
+    // ========================================================
 
-    if (existingSKU) {
+    if (!category) {
       return res.status(400).json({
         success: false,
-        message: "SKU already exists",
+        message: "Category is required",
       });
     }
 
-    // Check slug
-    const existingSlug = await Product.findOne({
-      slug,
-    });
+    // ========================================================
+    // CHECK SKU
+    // ========================================================
 
-    if (existingSlug) {
-      return res.status(400).json({
-        success: false,
-        message: "Product slug already exists",
-      });
+    if (sku) {
+      const existingSKU =
+        await Product.findOne({
+          sku,
+        });
+
+      if (existingSKU) {
+        return res.status(400).json({
+          success: false,
+          message: "SKU already exists",
+        });
+      }
     }
 
-    // Check category
-    const categoryExists = await Category.findById(
-      category
-    );
+    // ========================================================
+    // CHECK SLUG
+    // ========================================================
+
+    if (slug) {
+      const existingSlug =
+        await Product.findOne({
+          slug,
+        });
+
+      if (existingSlug) {
+        return res.status(400).json({
+          success: false,
+          message: "Product slug already exists",
+        });
+      }
+    }
+
+    // ========================================================
+    // CHECK CATEGORY
+    // ========================================================
+
+    const categoryExists =
+      await Category.findOne({
+        _id: category,
+        isActive: true,
+      });
 
     if (!categoryExists) {
       return res.status(400).json({
@@ -379,12 +568,16 @@ const createProduct = async (req, res) => {
       });
     }
 
-    // Check subcategory
+    // ========================================================
+    // CHECK SUBCATEGORY
+    // ========================================================
+
     if (subCategory) {
       const subCategoryExists =
         await Category.findOne({
           _id: subCategory,
           parentCategory: categoryExists._id,
+          isActive: true,
         });
 
       if (!subCategoryExists) {
@@ -396,52 +589,73 @@ const createProduct = async (req, res) => {
       }
     }
 
-    const product = await Product.create({
-      name,
-      slug,
-      sku,
-      brand,
-      productType,
-      category,
-      subCategory,
-      shortDescription,
-      description,
-      price,
-      mrp,
-      discountPercentage,
-      gstPercentage,
-      stock,
-      lowStockThreshold,
-      images,
-      thumbnail,
-      videoUrl,
-      specifications,
-      variants,
-      warranty,
-      installationAvailable,
-      installationPrice,
-      installationDescription,
-      featured,
-      bestSeller,
-      newArrival,
-      recommended,
-      tags,
-      metaTitle,
-      metaDescription,
-    });
+    // ========================================================
+    // CREATE PRODUCT
+    // ========================================================
+
+    const product =
+      await Product.create({
+        name,
+        slug,
+        sku,
+        brand,
+        productType,
+        category,
+        subCategory,
+        shortDescription,
+        description,
+        price,
+        mrp,
+        discountPercentage,
+        gstPercentage,
+        stock,
+        lowStockThreshold,
+        images,
+        thumbnail,
+        videoUrl,
+        specifications,
+        variants,
+        warranty,
+        installationAvailable,
+        installationPrice,
+        installationDescription,
+        featured,
+        bestSeller,
+        newArrival,
+        recommended,
+        tags,
+        metaTitle,
+        metaDescription,
+      });
+
+    // ========================================================
+    // POPULATE CREATED PRODUCT
+    // ========================================================
 
     const populatedProduct =
-      await Product.findById(product._id)
-        .populate("category", "name slug")
-        .populate("subCategory", "name slug");
+      await Product.findById(
+        product._id
+      )
+        .populate(
+          "category",
+          "name slug parentCategory"
+        )
+        .populate(
+          "subCategory",
+          "name slug parentCategory"
+        );
 
     res.status(201).json({
       success: true,
-      message: "Product created successfully",
+      message:
+        "Product created successfully",
       product: populatedProduct,
     });
   } catch (error) {
-    console.error(error);
+    console.error(
+      "CREATE PRODUCT ERROR:",
+      error
+    );
 
     res.status(500).json({
       success: false,
@@ -451,15 +665,17 @@ const createProduct = async (req, res) => {
   }
 };
 
-// ==========================================
+// ============================================================
 // UPDATE PRODUCT
-// ==========================================
+// PUT /api/products/:id
+// ============================================================
 
 const updateProduct = async (req, res) => {
   try {
-    const product = await Product.findById(
-      req.params.id
-    );
+    const product =
+      await Product.findById(
+        req.params.id
+      );
 
     if (!product) {
       return res.status(404).json({
@@ -468,13 +684,23 @@ const updateProduct = async (req, res) => {
       });
     }
 
-    // Validate category/subcategory if changing
-    if (req.body.category || req.body.subCategory) {
+    // ========================================================
+    // CATEGORY VALIDATION
+    // ========================================================
+
+    if (
+      req.body.category ||
+      req.body.subCategory
+    ) {
       const categoryId =
-        req.body.category || product.category;
+        req.body.category ||
+        product.category;
 
       const categoryExists =
-        await Category.findById(categoryId);
+        await Category.findOne({
+          _id: categoryId,
+          isActive: true,
+        });
 
       if (!categoryExists) {
         return res.status(400).json({
@@ -487,7 +713,9 @@ const updateProduct = async (req, res) => {
         const subCategoryExists =
           await Category.findOne({
             _id: req.body.subCategory,
-            parentCategory: categoryId,
+            parentCategory:
+              categoryExists._id,
+            isActive: true,
           });
 
         if (!subCategoryExists) {
@@ -500,21 +728,95 @@ const updateProduct = async (req, res) => {
       }
     }
 
-    Object.assign(product, req.body);
+    // ========================================================
+    // SKU DUPLICATE CHECK
+    // ========================================================
+
+    if (
+      req.body.sku &&
+      req.body.sku !== product.sku
+    ) {
+      const existingSKU =
+        await Product.findOne({
+          sku: req.body.sku,
+          _id: {
+            $ne: product._id,
+          },
+        });
+
+      if (existingSKU) {
+        return res.status(400).json({
+          success: false,
+          message: "SKU already exists",
+        });
+      }
+    }
+
+    // ========================================================
+    // SLUG DUPLICATE CHECK
+    // ========================================================
+
+    if (
+      req.body.slug &&
+      req.body.slug !== product.slug
+    ) {
+      const existingSlug =
+        await Product.findOne({
+          slug: req.body.slug,
+          _id: {
+            $ne: product._id,
+          },
+        });
+
+      if (existingSlug) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Product slug already exists",
+        });
+      }
+    }
+
+    // ========================================================
+    // UPDATE
+    // ========================================================
+
+    Object.assign(
+      product,
+      req.body
+    );
 
     await product.save();
 
+    // ========================================================
+    // POPULATE UPDATED PRODUCT
+    // ========================================================
+
     const updatedProduct =
-      await Product.findById(product._id)
-        .populate("category", "name slug")
-        .populate("subCategory", "name slug");
+      await Product.findById(
+        product._id
+      )
+        .populate(
+          "category",
+          "name slug parentCategory"
+        )
+        .populate(
+          "subCategory",
+          "name slug parentCategory"
+        );
 
     res.status(200).json({
       success: true,
-      message: "Product updated successfully",
+      message:
+        "Product updated successfully",
       product: updatedProduct,
     });
   } catch (error) {
+    console.error(
+      "UPDATE PRODUCT ERROR:",
+      error
+    );
+
     res.status(500).json({
       success: false,
       message: "Failed to update product",
@@ -523,15 +825,17 @@ const updateProduct = async (req, res) => {
   }
 };
 
-// ==========================================
+// ============================================================
 // DELETE PRODUCT
-// ==========================================
+// DELETE /api/products/:id
+// ============================================================
 
 const deleteProduct = async (req, res) => {
   try {
-    const product = await Product.findById(
-      req.params.id
-    );
+    const product =
+      await Product.findById(
+        req.params.id
+      );
 
     if (!product) {
       return res.status(404).json({
@@ -540,13 +844,21 @@ const deleteProduct = async (req, res) => {
       });
     }
 
-    await Product.findByIdAndDelete(req.params.id);
+    await Product.findByIdAndDelete(
+      req.params.id
+    );
 
     res.status(200).json({
       success: true,
-      message: "Product deleted successfully",
+      message:
+        "Product deleted successfully",
     });
   } catch (error) {
+    console.error(
+      "DELETE PRODUCT ERROR:",
+      error
+    );
+
     res.status(500).json({
       success: false,
       message: "Failed to delete product",
@@ -555,20 +867,33 @@ const deleteProduct = async (req, res) => {
   }
 };
 
-// ==========================================
-// FEATURED PRODUCTS
-// ==========================================
+// ============================================================
+// GET FEATURED PRODUCTS
+// GET /api/products/featured
+// ============================================================
 
-const getFeaturedProducts = async (req, res) => {
+const getFeaturedProducts = async (
+  req,
+  res
+) => {
   try {
-    const products = await Product.find({
-      featured: true,
-      isActive: true,
-    })
-      .populate("category", "name slug")
-      .populate("subCategory", "name slug")
-      .sort({ createdAt: -1 })
-      .limit(12);
+    const products =
+      await Product.find({
+        featured: true,
+        isActive: { $ne: false },
+      })
+        .populate(
+          "category",
+          "name slug parentCategory"
+        )
+        .populate(
+          "subCategory",
+          "name slug parentCategory"
+        )
+        .sort({
+          createdAt: -1,
+        })
+        .limit(12);
 
     res.status(200).json({
       success: true,
@@ -576,28 +901,47 @@ const getFeaturedProducts = async (req, res) => {
       products,
     });
   } catch (error) {
+    console.error(
+      "GET FEATURED PRODUCTS ERROR:",
+      error
+    );
+
     res.status(500).json({
       success: false,
-      message: "Failed to fetch featured products",
+      message:
+        "Failed to fetch featured products",
       error: error.message,
     });
   }
 };
 
-// ==========================================
-// BEST SELLERS
-// ==========================================
+// ============================================================
+// GET BEST SELLERS
+// GET /api/products/best-sellers
+// ============================================================
 
-const getBestSellers = async (req, res) => {
+const getBestSellers = async (
+  req,
+  res
+) => {
   try {
-    const products = await Product.find({
-      bestSeller: true,
-      isActive: true,
-    })
-      .populate("category", "name slug")
-      .populate("subCategory", "name slug")
-      .sort({ rating: -1 })
-      .limit(12);
+    const products =
+      await Product.find({
+        bestSeller: true,
+        isActive: { $ne: false },
+      })
+        .populate(
+          "category",
+          "name slug parentCategory"
+        )
+        .populate(
+          "subCategory",
+          "name slug parentCategory"
+        )
+        .sort({
+          rating: -1,
+        })
+        .limit(12);
 
     res.status(200).json({
       success: true,
@@ -605,28 +949,47 @@ const getBestSellers = async (req, res) => {
       products,
     });
   } catch (error) {
+    console.error(
+      "GET BEST SELLERS ERROR:",
+      error
+    );
+
     res.status(500).json({
       success: false,
-      message: "Failed to fetch best sellers",
+      message:
+        "Failed to fetch best sellers",
       error: error.message,
     });
   }
 };
 
-// ==========================================
-// NEW ARRIVALS
-// ==========================================
+// ============================================================
+// GET NEW ARRIVALS
+// GET /api/products/new-arrivals
+// ============================================================
 
-const getNewArrivals = async (req, res) => {
+const getNewArrivals = async (
+  req,
+  res
+) => {
   try {
-    const products = await Product.find({
-      newArrival: true,
-      isActive: true,
-    })
-      .populate("category", "name slug")
-      .populate("subCategory", "name slug")
-      .sort({ createdAt: -1 })
-      .limit(12);
+    const products =
+      await Product.find({
+        newArrival: true,
+        isActive: { $ne: false },
+      })
+        .populate(
+          "category",
+          "name slug parentCategory"
+        )
+        .populate(
+          "subCategory",
+          "name slug parentCategory"
+        )
+        .sort({
+          createdAt: -1,
+        })
+        .limit(12);
 
     res.status(200).json({
       success: true,
@@ -634,13 +997,23 @@ const getNewArrivals = async (req, res) => {
       products,
     });
   } catch (error) {
+    console.error(
+      "GET NEW ARRIVALS ERROR:",
+      error
+    );
+
     res.status(500).json({
       success: false,
-      message: "Failed to fetch new arrivals",
+      message:
+        "Failed to fetch new arrivals",
       error: error.message,
     });
   }
 };
+
+// ============================================================
+// EXPORTS
+// ============================================================
 
 export {
   getProducts,

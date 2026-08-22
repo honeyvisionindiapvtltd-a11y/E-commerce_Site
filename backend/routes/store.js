@@ -75,7 +75,7 @@ router.post('/orders', async (req, res) => {
   const clientTotal = Number(req.body.total ?? NaN);
 
   const subtotal = Number.isFinite(clientSubtotal) ? clientSubtotal : items.reduce((sum, item) => sum + (item.price || 0) * (item.quantity || 1), 0);
-  const installationFee = Number.isFinite(clientInstallationFee) ? clientInstallationFee : items.filter((item) => item.installation).length * 499;
+  const installationFee = Number.isFinite(clientInstallationFee) ? clientInstallationFee : items.some((item) => item.installation) ? 499 : 0;
   const shipping = Number.isFinite(clientShipping) ? clientShipping : (subtotal >= 999 ? 0 : 99);
   const discount = Number.isFinite(clientDiscount) ? clientDiscount : 0;
   const insurance = Number.isFinite(clientInsurance) ? clientInsurance : 0;

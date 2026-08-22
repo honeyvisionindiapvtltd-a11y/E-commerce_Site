@@ -1,11 +1,12 @@
 import { Link } from 'react-router-dom';
-import { Heart, ShoppingCart, Star } from 'lucide-react';
+import { Heart, Star } from 'lucide-react';
 import { money } from '../lib/products';
 import { useCommerce } from '../context/CommerceContext';
 
 export default function ProductCard({ product, onQuickView = () => {} }) {
   const { addToCart, toggleWishlist, wishlist } = useCommerce();
   const isWishlisted = wishlist.includes(product.id);
+  const isOutOfStock = Number(product.stock) <= 0;
 
   return (
     <article className="group relative rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:-translate-y-1 hover:shadow-lg">
@@ -27,7 +28,7 @@ export default function ProductCard({ product, onQuickView = () => {} }) {
       </div>
 
       <div className="p-4">
-        <p className="text-xs font-semibold uppercase tracking-wide text-amber-600">{product.category}</p>
+        <p className="text-xs font-semibold uppercase tracking-wide text-amber-600">{product.category?.name || product.categoryName || product.category || "General"}</p>
         <h3 className="mt-2 min-h-12 font-bold leading-6 text-slate-900 group-hover:text-amber-600">{product.name}</h3>
 
         <div className="mt-3 flex items-center gap-2 text-sm">
@@ -45,7 +46,7 @@ export default function ProductCard({ product, onQuickView = () => {} }) {
         <p className="mt-2 text-xs font-medium text-green-700">{product.delivery}</p>
 
         <div className="mt-4 flex gap-2">
-          <button onClick={() => addToCart(product.id)} aria-label={`Add ${product.name} to cart`} className="flex-1 rounded-lg bg-[#071426] px-4 py-2 text-sm font-semibold text-white">Add to cart</button>
+          <button onClick={() => addToCart(product.id)} disabled={isOutOfStock} aria-label={isOutOfStock ? `${product.name} is out of stock` : `Add ${product.name} to cart`} className="flex-1 rounded-lg bg-[#071426] px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-slate-300">{isOutOfStock ? 'Out of stock' : 'Add to cart'}</button>
           <button onClick={() => onQuickView(product)} aria-label={`Quick view ${product.name}`} className="w-12 rounded-lg border border-slate-200 bg-white">Quick</button>
         </div>
       </div>

@@ -6,12 +6,11 @@ import { money } from "../lib/products";
 import { computeTotals } from "../lib/orderTotals";
 
 export default function Checkout() {
-  const { cart, products, placeOrder, deliveryPin, setDeliveryPin, profile, addresses, user, isLoggedIn, couponApplied } = useCommerce();
+  const { cart, products, deliveryPin, setDeliveryPin, profile, addresses, user, isLoggedIn, couponApplied } = useCommerce();
   const navigate = useNavigate();
   const [paymentMethod, setPaymentMethod] = useState("cod");
   const [slot, setSlot] = useState("Tomorrow, 10:00 AM - 1:00 PM");
   const [formError, setFormError] = useState("");
-  const [showLoginAlert, setShowLoginAlert] = useState(false);
   const userAddresses = user?.id ? addresses.filter((addr) => addr.userId === user.id) : [];
   const defaultAddress = userAddresses.find((addr) => addr.isDefault) || userAddresses[0] || {};
   const initialAddress = isLoggedIn
@@ -20,6 +19,7 @@ export default function Checkout() {
         phone: defaultAddress.phone || profile.phone || "",
         line1: defaultAddress.address || profile.address || "",
         city: defaultAddress.city || profile.city || "",
+        state: defaultAddress.state || profile.state || "",
         pin: defaultAddress.pin || profile.pinCode || deliveryPin,
       }
     : {
@@ -27,13 +27,14 @@ export default function Checkout() {
         phone: "",
         line1: "",
         city: "",
+        state: "",
         pin: deliveryPin || "",
       };
 
   const [address, setAddress] = useState(initialAddress);
   const items = cart.map((item) => ({ ...item, product: products.find((product) => product.id === item.productId) })).filter((item) => item.product);
-  const { subtotal, installationFee, shipping, discount, insurance, total } = computeTotals(items, { coupon: couponApplied, secureShipping: false });
-  const valid = address.name && address.phone.length >= 10 && address.line1 && address.pin.length === 6;
+  const { subtotal, installationFee, shipping, discount, total } = computeTotals(items, { coupon: couponApplied, secureShipping: false });
+  const valid = address.name && address.phone.length >= 10 && address.line1 && address.city && address.state && address.pin.length === 6;
 
   const submit = async (event) => {
     event.preventDefault();
@@ -44,7 +45,7 @@ export default function Checkout() {
       return;
     }
     if (!valid || !items.length) {
-      setFormError('Please complete all required address fields and enter a valid 6-digit PIN code before continuing.');
+      setFormError('Please complete all required address fields, including state, and enter a valid 6-digit PIN code before continuing.');
       return;
     }
 
@@ -73,6 +74,7 @@ return (
                 <Field label="Mobile number" type="tel" value={address.phone} onChange={(phone) => setAddress({ ...address, phone })} />
                 <Field label="Address" value={address.line1} onChange={(line1) => setAddress({ ...address, line1 })} className="sm:col-span-2" />
                 <Field label="City" value={address.city} onChange={(city) => { setAddress({ ...address, city }); setFormError(""); }} />
+                <Field label="State" value={address.state} onChange={(state) => { setAddress({ ...address, state }); setFormError(""); }} />
                 <Field label="PIN code" value={address.pin} onChange={(pin) => { setAddress({ ...address, pin: pin.replace(/\D/g, "").slice(0, 6) }); setFormError(""); }} />
                 {formError ? <p className="mt-4 text-sm text-red-600" role="alert">{formError}</p> : null}
               </div>
@@ -108,12 +110,13 @@ return (
             ))}
             <div className="mt-5 border-t pt-4 text-sm">
               <Line label="Subtotal" value={money(subtotal)} />
+              {discount > 0 && <Line label="Discount" value={`- ${money(discount)}`} />}
               <Line label="Shipping" value={shipping ? money(shipping) : "FREE"} />
               <Line label="Installation" value={money(installationFee)} />
             </div>
             <div className="mt-4 flex justify-between text-lg font-extrabold">
               <span>Total</span>
-              <span>{money(subtotal + shipping + installationFee)}</span>
+              <span>{money(total)}</span>
             </div>
             <button type="submit" className="mt-6 w-full rounded-lg bg-amber-500 px-5 py-3 font-bold text-slate-950">Place order</button>
             <p className="mt-4 flex items-center gap-2 text-xs text-slate-500"><Truck size={15} /> Your order will be confirmed by SMS/WhatsApp.</p>

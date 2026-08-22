@@ -234,8 +234,63 @@ export function CommerceProvider({ children }) {
   const paymentMethods = store.paymentMethods || defaultPaymentMethods;
   const notifications = store.notifications || defaultNotifications;
   const accountSettings = store.accountSettings || defaultAccountSettings;
-  const deliveryLocation = store.deliveryLocation || fallback.deliveryLocation;
+  const deliveryLocation = store.deliveryLocation || {
+    pincode: store.deliveryPin || "751001",
+    city: "Bhubaneswar",
+    state: "Odisha",
+  };
   const couponApplied = Boolean(store.couponApplied);
+
+  useEffect(() => {
+    if (!authToken || !user?._id && !user?.id) return undefined;
+
+    let ignore = false;
+    const currentUserId = String(user._id || user.id);
+
+    const loadUserOrders = async () => {
+      try {
+        const response = await fetch(`${API_BASE}/orders/my-orders`, {
+          headers: {
+            Authorization: `Bearer ${authToken}`,
+          },
+        });
+        if (!response.ok) return;
+
+        const data = await response.json();
+        const serverOrders = Array.isArray(data.orders) ? data.orders : [];
+        if (ignore) return;
+
+        setStore((current) => {
+          const mergedOrders = new Map();
+          [...serverOrders, ...(current.orders || [])].forEach((order) => {
+            const key = order.orderNumber || order._id || order.id;
+            if (key) mergedOrders.set(String(key), order);
+          });
+          const orders = Array.from(mergedOrders.values());
+          const userStates = current.userStates || {};
+
+          return {
+            ...current,
+            orders,
+            userStates: {
+              ...userStates,
+              [currentUserId]: {
+                ...userStates[currentUserId],
+                orders,
+              },
+            },
+          };
+        });
+      } catch {
+        // Keep locally stored orders when the account order request is unavailable.
+      }
+    };
+
+    loadUserOrders();
+    return () => {
+      ignore = true;
+    };
+  }, [authToken, user?._id, user?.id]);
 
   const setCouponApplied = (value) => update({ couponApplied: Boolean(value) });
   const setDeliveryPin = (pin) => update({ deliveryPin: String(pin || "").replace(/\D/g, "").slice(0, 6) });
@@ -379,21 +434,14 @@ export function CommerceProvider({ children }) {
       total: totals.total,
     };
 
-    const data = authToken
-      ? await requestJson("/orders", {
-          method: "POST",
-          body: JSON.stringify(orderPayload),
-        })
-      : {
-          ...orderPayload,
-          id: `HV${Date.now().toString().slice(-8)}`,
-          createdAt: new Date().toISOString(),
-          status: paymentMethod === "cod" ? "Order placed" : "Payment pending",
-          paymentStatus: paymentMethod === "cod" ? "Pay on delivery" : "Awaiting payment gateway",
-        };
+    const data = await requestJson("/orders", {
+      method: "POST",
+      body: JSON.stringify(orderPayload),
+    });
 
-    update({ orders: [data, ...orders], cart: [] });
-    return data;
+    const createdOrder = data.order || data;
+    update({ orders: [createdOrder, ...orders], cart: [] });
+    return createdOrder;
   };
 
   const clearWishlist = () => update({ wishlist: [] });
@@ -472,6 +520,24 @@ export function CommerceProvider({ children }) {
     });
 
     return data.user;
+  };
+
+  const requestPasswordReset = async (email) => {
+    const data = await requestJson("/auth/request-password-reset", {
+      method: "POST",
+      body: JSON.stringify({ email }),
+    });
+
+    return data;
+  };
+
+  const resetPassword = async ({ email, token, newPassword }) => {
+    const data = await requestJson("/auth/reset-password", {
+      method: "POST",
+      body: JSON.stringify({ email, token, newPassword }),
+    });
+
+    return data;
   };
 
   const fetchProfile = async () => {
@@ -644,12 +710,16 @@ export function CommerceProvider({ children }) {
     setCouponApplied,
     setDeliveryPin,
     register,
+    login,
+    requestPasswordReset,
+    resetPassword,
     logout,
     addToCart,
     setQuantity,
     removeFromCart,
     toggleWishlist,
     moveWishlistToCart,
+    clearWishlist,
     checkDeliveryByPincode,
     checkDeliveryByLocation,
     addInstallationBooking,

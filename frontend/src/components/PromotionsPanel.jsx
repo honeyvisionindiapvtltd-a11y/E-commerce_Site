@@ -1,8 +1,8 @@
 import { Link } from 'react-router-dom';
-import { money } from '../lib/products';
+import { money, normalizeProduct } from '../lib/products';
 
 export default function PromotionsPanel({ products = [] }) {
-  const recommended = products.slice(0, 4);
+  const recommended = products.slice(0, 4).map(normalizeProduct);
 
   return (
     <aside className="hidden lg:block">
