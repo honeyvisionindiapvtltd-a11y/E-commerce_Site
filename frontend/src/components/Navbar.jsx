@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ChevronDown,
   GitCompareArrows,
@@ -9,13 +9,13 @@ import {
   Menu,
   Search,
   ShoppingCart,
+  Sparkles,
   Truck,
   User,
   X,
 } from "lucide-react";
 import { Link, NavLink, useNavigate } from "react-router-dom";
 import { useCommerce } from "../context/CommerceContext";
-import { slugifyCategory } from "../lib/products";
 
 const logo = "https://res.cloudinary.com/vhrkwyzs/image/upload/v1786269504/logo.png_tun5nq.png";
 import MegaMenu from "./MegaMenu";
@@ -23,7 +23,6 @@ import MegaMenu from "./MegaMenu";
 const navLinks = [
   ["Services", "/services"],
   ["AI Tools", "/ai-tools"],
-  ["Checkout", "/checkout"],
   ["Categories", "/categories"],
   ["Blogs", "/blogs"],
   ["Compare", "/compare"],
@@ -33,26 +32,96 @@ const navLinks = [
   ["Contact Us", "/contact"],
 ];
 
-const productLinks = [
-  { label: "CCTV Cameras", category: "CCTV & Security" },
-  { label: "IP Cameras", category: "CCTV & Security" },
-  { label: "AI Cameras", category: "CCTV & Security" },
-  { label: "Drones", category: "Drones & Cameras" },
-  { label: "Networking", category: "Networking" },
-  { label: "Storage Devices", category: "Storage" },
-  { label: "Accessories", category: "IT Accessories" },
-  { label: "Audio Video", category: "Electronics" },
-];
-
 export default function Navbar() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [query, setQuery] = useState("");
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [showCategories, setShowCategories] = useState(false);
   const navigate = useNavigate();
-  const { cart, wishlist, deliveryPin, isLoggedIn, user } = useCommerce();
+  const searchRef = useRef(null);
+  const { cart, wishlist, deliveryPin, isLoggedIn, user, products } = useCommerce();
+
+  const popularSearches = useMemo(() => {
+    const fallback = ["AI Camera", "CCTV", "Networking", "Drones", "Router", "UPS"];
+    if (!Array.isArray(products) || products.length === 0) return fallback;
+
+    const labels = products
+      .map((product) => product.name)
+      .filter(Boolean)
+      .slice(0, 8);
+
+    return [...new Set([...labels, ...fallback])].slice(0, 8);
+  }, [products]);
+
+  const suggestions = useMemo(() => {
+    const searchValue = query.trim().toLowerCase();
+    if (!searchValue) return [];
+
+    const possibleMatches = products.filter((product) => {
+      const haystack = [
+        product.name,
+        product.category,
+        product.subCategory,
+        product.brand,
+        product.description,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+
+      return haystack.includes(searchValue);
+    });
+
+    return possibleMatches.slice(0, 6).map((product) => ({
+      type: 'product',
+      label: product.name,
+      meta: `${product.category || 'Product'} • ${product.brand || 'HoneyVision'}`,
+      to: `/products?search=${encodeURIComponent(product.name)}`,
+    }));
+  }, [products, query]);
+
+  useEffect(() => {
+    const handleOutsideClick = (event) => {
+      if (searchRef.current && !searchRef.current.contains(event.target)) {
+        setShowSuggestions(false);
+        setShowCategories(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleOutsideClick);
+    return () => document.removeEventListener('mousedown', handleOutsideClick);
+  }, []);
+
   const submitSearch = (event) => {
     event.preventDefault();
-    navigate(`/products?q=${encodeURIComponent(query)}`);
+    const trimmed = query.trim();
+
+    if (!trimmed) {
+      navigate('/products');
+      setShowSuggestions(false);
+      setMenuOpen(false);
+      return;
+    }
+
+    navigate({ pathname: '/products', search: `?search=${encodeURIComponent(trimmed)}` });
+    setShowSuggestions(false);
     setMenuOpen(false);
+  };
+
+  const handleSuggestionClick = (value) => {
+    setQuery(value);
+    setShowSuggestions(false);
+    setShowCategories(false);
+    navigate({ pathname: '/products', search: `?search=${encodeURIComponent(value)}` });
+  };
+
+  const handleCategorySelect = ({ categorySlug, subCategorySlug } = {}) => {
+    const params = new URLSearchParams();
+    if (categorySlug) params.set('category', categorySlug);
+    if (subCategorySlug) params.set('subCategory', subCategorySlug);
+    setShowCategories(false);
+    setShowSuggestions(false);
+    navigate({ pathname: '/products', search: params.toString() ? `?${params.toString()}` : '' });
   };
 
   return (
@@ -113,31 +182,120 @@ export default function Navbar() {
         </Link>
 
         {/* Desktop search */}
-        <form onSubmit={submitSearch} className="hidden h-12 min-w-0 flex-1 overflow-hidden rounded-lg border-2 border-yellow-400 bg-white lg:flex">
-          <Link
-            to="/categories"
-            className="flex min-w-44 items-center justify-between border-r border-slate-300 bg-slate-100 px-4 text-sm font-medium text-slate-700 hover:bg-slate-200"
-          >
-            All Categories
-            <ChevronDown size={17} />
-          </Link>
+        <div ref={searchRef} className="relative hidden flex-1 lg:block">
+          <form onSubmit={submitSearch} className="flex h-12 w-full items-center overflow-hidden rounded-xl border border-yellow-400 bg-white shadow-[0_8px_24px_rgba(251,191,36,0.18)] ring-1 ring-yellow-200">
+            <button
+              type="button"
+              onClick={() => {
+                setShowCategories((value) => !value);
+                setShowSuggestions(false);
+              }}
+              className="flex min-w-42.5 items-center justify-between border-r border-slate-200 bg-slate-100 px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-200"
+            >
+              <span className="truncate">All Categories</span>
+              <ChevronDown size={17} className={`ml-2 shrink-0 transition-transform ${showCategories ? "rotate-180" : "rotate-0"}`} />
+            </button>
 
-          <input
-            type="search"
-            placeholder="Search for products, brands and more..."
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            className="min-w-0 flex-1 px-4 text-sm text-slate-800 outline-none"
-          />
+            <div className="flex min-w-0 flex-1 items-center">
+              <Search size={18} className="ml-4 mr-2 text-slate-400" />
+              <input
+                type="search"
+                placeholder="Search for products, brands and more..."
+                value={query}
+                onFocus={() => setShowSuggestions(true)}
+                onChange={(event) => {
+                  setQuery(event.target.value);
+                  setShowSuggestions(true);
+                }}
+                className="w-full border-0 bg-transparent px-0 py-3 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none"
+              />
+            </div>
 
-          <button
-            type="submit"
-            className="grid w-14 place-items-center bg-yellow-500 text-slate-950 transition hover:bg-yellow-400"
-            aria-label="Search"
-          >
-            <Search size={22} />
-          </button>
-        </form>
+            <button
+              type="submit"
+              className="grid h-full w-14 place-items-center bg-linear-to-b from-yellow-400 to-yellow-500 text-slate-950 transition hover:from-yellow-300 hover:to-yellow-400"
+              aria-label="Search"
+            >
+              <Search size={22} />
+            </button>
+          </form>
+
+          {showCategories && (
+            <div className="absolute left-0 top-[calc(100%+10px)] z-60 w-205 rounded-2xl border border-slate-200 bg-white p-3 shadow-2xl">
+              <div className="mb-2 flex items-center justify-between px-2">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Browse Categories</p>
+                <button type="button" onClick={() => setShowCategories(false)} className="text-[11px] text-slate-500 hover:text-slate-700">Close</button>
+              </div>
+              <MegaMenu onSelect={(data) => handleCategorySelect(data)} />
+            </div>
+          )}
+
+          {showSuggestions && (
+            <div className="absolute left-0 right-0 top-[calc(100%+10px)] z-50 rounded-2xl border border-slate-200 bg-white p-3 shadow-2xl">
+              <div className="mb-3 flex items-center justify-between px-2">
+                <span className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+                  <Sparkles size={12} className="text-yellow-500" />
+                  Smart Search
+                </span>
+                <button type="button" onClick={() => setShowSuggestions(false)} className="text-[11px] text-slate-500 hover:text-slate-700">Close</button>
+              </div>
+
+              {query.trim() ? (
+                suggestions.length > 0 ? (
+                  <div className="space-y-1">
+                    {suggestions.map((item) => (
+                      <button
+                        key={item.to}
+                        type="button"
+                        onClick={() => {
+                          setShowSuggestions(false);
+                          setShowCategories(false);
+                          navigate(item.to);
+                        }}
+                        className="flex w-full items-center justify-between rounded-xl px-3 py-2 text-left transition hover:bg-slate-100"
+                      >
+                        <div>
+                          <p className="text-sm font-medium text-slate-800">{item.label}</p>
+                          <p className="text-[11px] text-slate-500">{item.meta}</p>
+                        </div>
+                        <span className="rounded-full bg-yellow-50 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-yellow-700">
+                          {item.type}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="space-y-3 px-2 pb-2">
+                    <p className="text-sm text-slate-600">No products matched your search.</p>
+                    <button
+                      type="button"
+                      onClick={submitSearch}
+                      className="rounded-lg bg-[#071426] px-3 py-2 text-xs font-semibold text-white"
+                    >
+                      Search all products
+                    </button>
+                  </div>
+                )
+              ) : (
+                <div className="space-y-3">
+                  <p className="px-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Popular searches</p>
+                  <div className="flex flex-wrap gap-2">
+                    {popularSearches.map((term) => (
+                      <button
+                        key={term}
+                        type="button"
+                        onClick={() => handleSuggestionClick(term)}
+                        className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs text-slate-700 transition hover:border-yellow-300 hover:bg-yellow-50 hover:text-slate-900"
+                      >
+                        {term}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
 
         <div className="hidden shrink-0 items-center gap-5 lg:flex">
           <NavIcon icon={GitCompareArrows} label="Compare" to="/compare" />
@@ -161,23 +319,52 @@ export default function Navbar() {
       </div>
 
       {/* Mobile search */}
-      <form onSubmit={submitSearch} className="mx-3 mb-3 flex h-11 overflow-hidden rounded-lg border-2 border-yellow-400 bg-white sm:mx-6 lg:hidden">
-        <input
-          type="search"
-          placeholder="Search products..."
-          value={query}
-          onChange={(event) => setQuery(event.target.value)}
-          className="min-w-0 flex-1 px-4 text-sm text-slate-800 outline-none"
-        />
+      <div ref={searchRef} className="relative mx-3 mb-3 sm:mx-6 lg:hidden">
+        <form onSubmit={submitSearch} className="flex h-11 items-center overflow-hidden rounded-xl border border-yellow-400 bg-white shadow-[0_8px_22px_rgba(251,191,36,0.12)]">
+          <Search size={18} className="ml-3 mr-2 text-slate-400" />
+          <input
+            type="search"
+            placeholder="Search products..."
+            value={query}
+            onFocus={() => setShowSuggestions(true)}
+            onChange={(event) => {
+              setQuery(event.target.value);
+              setShowSuggestions(true);
+            }}
+            className="min-w-0 flex-1 border-0 bg-transparent px-0 py-2 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none"
+          />
 
-        <button
-          type="submit"
-          className="grid w-14 place-items-center bg-yellow-500 text-slate-950"
-          aria-label="Search"
-        >
-          <Search size={21} />
-        </button>
-      </form>
+          <button
+            type="submit"
+            className="grid h-full w-12 place-items-center bg-linear-to-b from-yellow-400 to-yellow-500 text-slate-950"
+            aria-label="Search"
+          >
+            <Search size={18} />
+          </button>
+        </form>
+
+        {showSuggestions && query.trim() && suggestions.length > 0 && (
+          <div className="absolute left-0 right-0 top-[calc(100%+8px)] z-50 rounded-2xl border border-slate-200 bg-white p-2 shadow-xl">
+            {suggestions.map((item) => (
+              <button
+                key={item.to}
+                type="button"
+                onClick={() => {
+                  setShowSuggestions(false);
+                  setShowCategories(false);
+                  navigate(item.to);
+                }}
+                className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left hover:bg-slate-100"
+              >
+                <div>
+                  <p className="text-sm font-medium text-slate-800">{item.label}</p>
+                  <p className="text-[11px] text-slate-500">{item.meta}</p>
+                </div>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
 
       {/* Navigation menu */}
       <nav className="border-t border-white/10">
@@ -210,7 +397,7 @@ export default function Navbar() {
                 <ChevronDown size={16} />
               </NavLink>
 
-              <div className="absolute left-0 top-12 z-50 hidden w-[900px] gap-4 rounded-lg bg-white p-2 text-slate-800 shadow-xl group-hover:block">
+              <div className="absolute left-0 top-12 z-50 hidden w-225 gap-4 rounded-lg bg-white p-2 text-slate-800 shadow-xl group-hover:block">
                 <MegaMenu />
               </div>
             </li>
