@@ -178,6 +178,7 @@ export const normalizeProduct = (product) => {
     : product.subCategory || "";
 
   return {
+    ...product,
     id: product._id || product.id || product.slug || `${category}-${product.name}`,
     name: product.name || "Product",
     category,

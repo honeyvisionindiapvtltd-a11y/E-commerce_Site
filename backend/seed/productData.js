@@ -2,7 +2,9 @@
 // Generated on: 2026-08-14T07:18:41.296Z
 // Total products: 178
 
-export const productData = [
+import { categoriesData } from './categoriesData.js';
+
+const rawProductData = [
 
   {
     name: "4MP Analog Dome Camera",
@@ -22,8 +24,8 @@ export const productData = [
     featured: false,
     bestSeller: false,
     newArrival: false,
-    image: "",
-    images: [],
+    image: "https://res.cloudinary.com/vhrkwyzs/image/upload/v1786017607/AI_PTZ_Camera_jdwn7h.webp",
+    images: ["https://res.cloudinary.com/vhrkwyzs/image/upload/v1786165545/Dahua_4MP_AI_Dome_Camera_aqg3co.png"],
     status: "active",
   },
 
@@ -4099,5 +4101,145 @@ export const productData = [
   },
 
 ];
+
+const approvedBrandFamilies = {
+  "cctv-cameras": ["CP Plus", "Dahua", "Hikvision", "Prama", "Honeywell", "Prizor"],
+  "nvr-and-dvr": ["CP Plus", "Dahua", "Hikvision", "Prama"],
+  "led-displays": ["Dell", "HP", "Samsung"],
+  "computer-accessories": ["Dell", "HP"],
+  "printers-and-scanners": ["HP", "Dell", "Honeywell"],
+  "smart-wearables": ["Samsung"],
+  "camera-mounts-and-stands": ["CP Plus", "Dahua", "Hikvision", "Prama"],
+  "access-control": ["Honeywell", "Prama", "Hikvision", "CP Plus"],
+  "racks-and-cabinets": ["Dell", "TP-Link", "Honeywell"],
+  "storage-devices": ["Seagate", "Samsung"],
+  "monitors-and-displays": ["Dell", "HP", "Samsung"],
+  "power-management": ["Honeywell", "Prama", "TP-Link"],
+  "cables-and-connectors": ["TP-Link", "Dahua", "Hikvision"],
+  "computer-components": ["Dell", "HP", "Samsung"],
+  "networking-equipment": ["TP-Link", "Dell"],
+};
+
+const categoryImages = new Map(categoriesData.map((category) => [category.slug, category.src || category.image || ""]));
+const subcategorySlugAliases = {
+  "power-management:smps": "smps-power-management",
+  "power-management:rack-pdu": "rack-pdu-power-management",
+  "computer-components:smps": "smps-computer-components",
+};
+const canonicalSubcategoryKey = (categorySlug, subCategorySlug) =>
+  `${categorySlug}:${subcategorySlugAliases[`${categorySlug}:${subCategorySlug}`] || subCategorySlug}`;
+const existingSubcategoryCounts = new Map();
+rawProductData.forEach((product) => {
+  const key = canonicalSubcategoryKey(product.categorySlug, product.subCategorySlug);
+  existingSubcategoryCounts.set(key, (existingSubcategoryCounts.get(key) || 0) + 1);
+});
+
+let generatedProductNumber = 1;
+let subcategoryNumber = 0;
+for (const category of categoriesData) {
+  const brands = approvedBrandFamilies[category.slug] || [];
+  for (const subcategory of category.subcategories || []) {
+    subcategoryNumber += 1;
+    const key = `${category.slug}:${subcategory.slug}`;
+    const existingCount = existingSubcategoryCounts.get(key) || 0;
+    const targetCount = subcategoryNumber <= 144 ? 3 : 2;
+    const image = categoryImages.get(category.slug) || "";
+
+    for (let variant = existingCount; variant < targetCount && rawProductData.length < 500; variant += 1) {
+      const brand = brands.length ? brands[variant % brands.length] : "HoneyVision";
+      const displayName = `${brand} ${subcategory.name} Product Family ${variant + 1}`;
+      const slug = `${brand}-${subcategory.slug}-family-${variant + 1}`
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-+|-+$/g, "");
+
+      rawProductData.push({
+        name: displayName,
+        src: image,
+        slug,
+        sku: `HV-AUTO-${String(generatedProductNumber).padStart(4, "0")}`,
+        brand,
+        categorySlug: category.slug,
+        subCategorySlug: subcategory.slug,
+        productType: "physical",
+        price: 0,
+        mrp: 0,
+        stock: 0,
+        warranty: "Verify with supplier",
+        shortDescription: `${brand} ${subcategory.name} product family entry. Verify exact model and specifications with supplier.`,
+        tags: [brand, category.name, subcategory.name],
+        specifications: {},
+        featured: false,
+        bestSeller: false,
+        newArrival: false,
+        image,
+        images: image ? [image] : [],
+        status: "active",
+      });
+      generatedProductNumber += 1;
+    }
+  }
+}
+
+rawProductData.forEach((product) => {
+  const image = product.src || product.image || product.thumbnail || product.images?.[0] || "";
+  const imageList = Array.isArray(product.images)
+    ? product.images.filter((value) => typeof value === "string" && value.trim())
+    : [];
+  const brandAliases = {
+    "CP PLUS": "CP Plus",
+    Prisor: "Prizor",
+  };
+  const subcategoryAliases = {
+    "power-management:smps": "smps-power-management",
+    "power-management:rack-pdu": "rack-pdu-power-management",
+    "computer-components:smps": "smps-computer-components",
+  };
+
+  product.brand = brandAliases[product.brand] || product.brand;
+  product.tags = product.tags.map((tag) => brandAliases[tag] || tag);
+  product.subCategorySlug = subcategoryAliases[`${product.categorySlug}:${product.subCategorySlug}`]
+    || product.subCategorySlug;
+  product.image = image;
+  product.src = image;
+  product.thumbnail = image;
+  product.images = imageList.length ? imageList : (image ? [image] : []);
+});
+
+const priceBands = [
+  { keywords: ["cable", "connector", "face-plate", "keystone", "card", "consumable"], base: 499 },
+  { keywords: ["mouse", "keyboard", "webcam", "headset", "speaker", "hub", "adapter", "accessor"], base: 999 },
+  { keywords: ["memory", "ram", "ssd", "hdd", "flash", "storage", "battery"], base: 3499 },
+  { keywords: ["router", "switch", "access-point", "extender", "converter", "module", "firewall"], base: 4499 },
+  { keywords: ["printer", "scanner", "watch", "tracker", "lock", "reader", "panel"], base: 6999 },
+  { keywords: ["monitor", "display", "signage", "projector", "rack", "cabinet", "ups", "power"], base: 9999 },
+  { keywords: ["camera", "nvr", "dvr", "ptz", "barrier", "turnstile"], base: 12999 },
+];
+
+const stableNumber = (value) => [...value].reduce((total, character) => total + character.charCodeAt(0), 0);
+
+rawProductData.forEach((product) => {
+  const searchText = `${product.name}-${product.subCategorySlug}`.toLowerCase();
+  const band = priceBands.find((item) => item.keywords.some((keyword) => searchText.includes(keyword)))
+    || { base: 2499 };
+  const variation = (stableNumber(product.slug) % 6) * 500;
+  const price = band.base + variation;
+
+  product.price = price;
+  product.mrp = price + Math.max(500, Math.round(price * 0.15));
+  product.stock = 8 + (stableNumber(product.sku) % 43);
+});
+
+const usedProductSlugs = new Set();
+rawProductData.forEach((product) => {
+  if (usedProductSlugs.has(product.slug)) {
+    product.slug = `${product.slug}-${product.sku.toLowerCase()}`;
+  }
+  usedProductSlugs.add(product.slug);
+});
+
+export const productData = rawProductData;
+
+export const productImageUrls = productData.map((product) => product.image);
 
 export default productData;

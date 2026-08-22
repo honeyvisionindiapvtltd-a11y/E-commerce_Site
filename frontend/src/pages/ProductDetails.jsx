@@ -67,11 +67,14 @@ export default function ProductDetails() {
   }, [productId, products]);
 
   const images = [
-    product?.image || "https://images.unsplash.com/photo-1512436991641-6745cdb1723f?auto=format&fit=crop&w=800&q=80",
-    "https://images.unsplash.com/photo-1602524812759-4b0b5f7e6f37?auto=format&fit=crop&w=800&q=80",
-    "https://images.unsplash.com/photo-1581092334444-9b8b0e5c2b8b?auto=format&fit=crop&w=800&q=80",
-    "https://images.unsplash.com/photo-1545239351-1141bd82e8a6?auto=format&fit=crop&w=800&q=80",
-  ];
+    ...(Array.isArray(product?.images) ? product.images : []),
+    product?.thumbnail,
+    product?.image,
+  ].filter((image) => typeof image === "string" && image.trim());
+
+  if (!images.length) {
+    images.push("https://res.cloudinary.com/vhrkwyzs/image/upload/v1786017607/AI_PTZ_Camera_jdwn7h.webp");
+  }
   const [imageIndex, setImageIndex] = useState(0);
 
   useEffect(() => {

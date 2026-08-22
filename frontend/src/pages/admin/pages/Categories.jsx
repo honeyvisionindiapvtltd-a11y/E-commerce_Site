@@ -1,6 +1,6 @@
 ﻿import { useEffect, useState } from "react";
 import { Pencil, Plus, Trash2 } from "lucide-react";
-import { adminCreate, adminDelete, adminList, adminUpdate } from "../api";
+import { adminCreate, adminDelete, adminListCategoryTree, adminUpdate } from "../api";
 import PageHeader from "../components/PageHeader";
 import Toolbar from "../components/Toolbar";
 import Table from "../components/Table";
@@ -9,13 +9,29 @@ import { Field, inputClass } from "../components/FormField";
 const normalizeCategory = (category) => ({
   ...category,
   id: category._id || category.id,
+  parentId: category.parentCategory?._id || category.parentCategory || null,
+  parentName: category.parentCategory?.name || "Main category",
+  image: category.image || category.src || "",
   products: Number(category.productCount ?? category.products ?? 0),
   status: category.isActive === false ? "Inactive" : "Active",
 });
 
+const flattenCategoryTree = (categories = []) => categories.flatMap((category) => [
+  normalizeCategory(category),
+  ...(category.subcategories || []).map((subcategory) => normalizeCategory({
+    ...subcategory,
+    parentCategory: { _id: category._id, name: category.name },
+  })),
+]);
+
 const createBlankCategory = () => ({
   name: "",
   slug: "",
+  description: "",
+  image: "",
+  icon: "",
+  parentCategory: "",
+  sortOrder: 0,
   products: 0,
   status: "Active",
 });
@@ -28,16 +44,16 @@ export default function Categories() {
   const [form, setForm] = useState(createBlankCategory());
 
   const refreshRows = async () => {
-    const data = await adminList("categories");
-    setRows((Array.isArray(data) ? data : []).map(normalizeCategory));
+    const data = await adminListCategoryTree();
+    setRows(flattenCategoryTree(data));
   };
 
   useEffect(() => {
     let active = true;
 
     const loadRows = async () => {
-      const data = await adminList("categories");
-      if (active) setRows((Array.isArray(data) ? data : []).map(normalizeCategory));
+      const data = await adminListCategoryTree();
+      if (active) setRows(flattenCategoryTree(data));
     };
 
     loadRows();
@@ -56,6 +72,11 @@ export default function Categories() {
       ...category,
       name: category.name || "",
       slug: category.slug || "",
+      description: category.description || "",
+      image: category.image || category.src || "",
+      icon: category.icon || "",
+      parentCategory: category.parentId || "",
+      sortOrder: category.sortOrder || 0,
       products: category.products || 0,
       status: category.status || "Active",
     });
@@ -73,26 +94,32 @@ export default function Categories() {
       description: form.description || "",
       image: form.image || "",
       icon: form.icon || "",
+      parentCategory: form.parentCategory || null,
     };
 
     if (!payload.name || !payload.slug) return;
 
-    if (edit) {
-      await adminUpdate("categories", edit.id, payload);
-    } else {
-      await adminCreate("categories", payload);
-    }
+    try {
+      if (edit) await adminUpdate("categories", edit.id, payload);
+      else await adminCreate("categories", payload);
 
-    setOpen(false);
-    setEdit(null);
-    setForm(createBlankCategory());
-    await refreshRows();
+      setOpen(false);
+      setEdit(null);
+      setForm(createBlankCategory());
+      await refreshRows();
+    } catch (error) {
+      window.alert(error.message || "Unable to save category.");
+    }
   };
 
   const handleDelete = async (category) => {
     if (!window.confirm(`Delete category "${category.name}"?`)) return;
-    await adminDelete("categories", category.id);
-    await refreshRows();
+    try {
+      await adminDelete("categories", category.id);
+      await refreshRows();
+    } catch (error) {
+      window.alert(error.message || "Unable to delete category.");
+    }
   };
 
   const filtered = rows.filter((row) =>
@@ -119,8 +146,9 @@ export default function Categories() {
       <Table
         rows={filtered}
         columns={[
-          { key: "name", label: "Category", render: (row) => <b>{row.name}</b> },
+          { key: "name", label: "Category", render: (row) => <div className={row.parentId ? "pl-5" : ""}><b>{row.parentId ? "↳ " : ""}{row.name}</b><p className="text-[10px] text-slate-400">{row.parentName}</p></div> },
           { key: "slug", label: "Slug" },
+          { key: "image", label: "Image", render: (row) => row.image ? <img src={row.image} alt={row.name} className="h-10 w-14 rounded object-contain" /> : <span className="text-xs text-slate-400">No image</span> },
           { key: "products", label: "Products" },
           {
             key: "status",
@@ -156,6 +184,29 @@ export default function Categories() {
 
           <Field label="Slug">
             <input required value={form.slug} onChange={(e) => setForm({ ...form, slug: e.target.value })} className={inputClass} />
+          </Field>
+
+          <Field label="Parent Category">
+            <select value={form.parentCategory} onChange={(e) => setForm({ ...form, parentCategory: e.target.value })} className={inputClass}>
+              <option value="">Main category</option>
+              {rows.filter((row) => !row.parentId && row.id !== edit?.id).map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}
+            </select>
+          </Field>
+
+          <Field label="Description">
+            <textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} rows={3} className={inputClass} />
+          </Field>
+
+          <Field label="Image URL">
+            <input type="url" value={form.image} onChange={(e) => setForm({ ...form, image: e.target.value })} placeholder="https://..." className={inputClass} />
+          </Field>
+
+          <Field label="Icon">
+            <input value={form.icon} onChange={(e) => setForm({ ...form, icon: e.target.value })} className={inputClass} />
+          </Field>
+
+          <Field label="Sort Order">
+            <input type="number" min="0" value={form.sortOrder} onChange={(e) => setForm({ ...form, sortOrder: e.target.value })} className={inputClass} />
           </Field>
 
           <Field label="Products">

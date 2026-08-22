@@ -87,6 +87,49 @@ export async function adminList(key) {
   }
 }
 
+export async function adminListProducts() {
+  const products = [];
+  let page = 1;
+  let lastResponse;
+
+  do {
+    const response = await request(`/products?page=${page}&limit=100&includeInactive=true`);
+    lastResponse = response;
+    products.push(...(Array.isArray(response.products) ? response.products : []));
+    page += 1;
+  } while (page <= Number(lastResponse.totalPages || 1));
+
+  return {
+    ...lastResponse,
+    products,
+    count: products.length,
+    totalProducts: Number(lastResponse.totalProducts ?? products.length),
+    totalPages: 1,
+  };
+}
+
+export async function adminListCategories() {
+  const body = await request("/categories");
+  return body.categories || [];
+}
+
+export async function adminListCategoryTree() {
+  const body = await request("/categories/tree");
+  return body.categories || [];
+}
+
+export async function adminListOrders() {
+  const body = await request("/orders");
+  return Array.isArray(body) ? body : body.orders || [];
+}
+
+export async function adminListServices() { return (await request("/admin/services")).services || []; }
+export async function adminListInstallations() { return (await request("/admin/installations")).installations || []; }
+export async function adminListNotifications() { return (await request("/admin/notifications")).notifications || []; }
+export async function adminUpdateInstallationStatus(id, status) {
+  return request(`/admin/installations/${id}/status`, { method: "PUT", body: JSON.stringify({ status }) });
+}
+
 export async function adminCreate(key, item) {
   if (key === "products") return request("/products", { method: "POST", body: JSON.stringify(item) });
   if (key === "categories") return request("/categories", { method: "POST", body: JSON.stringify(item) });

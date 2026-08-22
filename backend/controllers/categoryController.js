@@ -389,6 +389,29 @@ const createCategory = async (req, res) => {
 
 const updateCategory = async (req, res) => {
   try {
+    if (req.body.slug) {
+      const duplicate = await Category.findOne({
+        slug: req.body.slug,
+        _id: { $ne: req.params.id },
+      });
+      if (duplicate) {
+        return res.status(400).json({
+          success: false,
+          message: "Category with this slug already exists",
+        });
+      }
+    }
+
+    if (req.body.parentCategory) {
+      if (String(req.body.parentCategory) === String(req.params.id)) {
+        return res.status(400).json({ success: false, message: "A category cannot be its own parent" });
+      }
+      const parent = await Category.findOne({ _id: req.body.parentCategory, parentCategory: null });
+      if (!parent) {
+        return res.status(400).json({ success: false, message: "Invalid parent category" });
+      }
+    }
+
     const category = await Category.findByIdAndUpdate(
       req.params.id,
       req.body,

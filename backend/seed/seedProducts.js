@@ -124,8 +124,12 @@ const seedProducts = async () => {
         discountPercentage,
         stock,
         lowStockThreshold: 5,
-        images: Array.isArray(product.images) && product.images.length ? product.images : product.image ? [product.image] : [],
-        thumbnail: product.image || '',
+        images: Array.isArray(product.images) && product.images.length
+          ? product.images
+          : product.src || product.image
+            ? [product.src || product.image]
+            : [],
+        thumbnail: product.thumbnail || product.src || product.image || product.images?.[0] || '',
         specifications: product.specifications || {},
         warranty: product.warranty || 'Verify with supplier',
         tags: Array.isArray(product.tags) ? product.tags : [product.brand].filter(Boolean),

@@ -2,6 +2,7 @@ import dotenv from 'dotenv';
 import mongoose from 'mongoose';
 import dbConfig from '../config/db.js';
 import Category from '../models/Category.js';
+import Product from '../models/Product.js';
 import { categoriesData } from './categoriesData.js';
 
 dotenv.config();
@@ -14,22 +15,21 @@ const slugify = (value = '') =>
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '');
 
-const createUniqueSlug = async (baseSlug, parentName = '') => {
-  const base = (baseSlug || parentName || 'category')
-    .toLowerCase()
-    .trim()
-    .replace(/^-+|-+$/g, '')
-    .replace(/--+/g, '-');
-
-  let candidate = base || 'category';
-  let counter = 2;
-
-  while (await Category.exists({ slug: candidate })) {
-    candidate = `${base}-${counter}`;
-    counter += 1;
-  }
-
-  return candidate;
+const legacyCategoryAliases = {
+  'cctv-surveillance': 'cctv-cameras',
+  'nvr-dvr-surveillance-storage': 'nvr-and-dvr',
+  networking: 'networking-equipment',
+  'cables-connectors': 'cables-and-connectors',
+  'stands-racks-mounts': 'camera-mounts-and-stands',
+  'storage-memory': 'storage-devices',
+  'it-essentials-accessories': 'computer-accessories',
+  'installation-tools-equipment': 'computer-accessories',
+  'access-control-attendance': 'access-control',
+  'led-displays-digital-signage': 'led-displays',
+  'audio-visual': 'led-displays',
+  'office-equipment-accessories': 'computer-accessories',
+  'smart-devices-wearables': 'smart-wearables',
+  smps: 'smps-computer-components',
 };
 
 const readCatalogCategories = async () => {
@@ -63,17 +63,20 @@ const seedCategories = async () => {
       throw new Error('No categories found in categoriesData.js');
     }
 
-    await Category.deleteMany({});
-    console.log('🗑️  Old categories removed');
-
     let mainCategoryCount = 0;
     let subCategoryCount = 0;
+    const desiredSlugs = new Set();
+    const desiredCategoriesBySlug = new Map();
 
     for (let i = 0; i < catalogCategories.length; i++) {
       const categoryData = catalogCategories[i];
-      const mainSlug = await createUniqueSlug(categoryData.slug || slugify(categoryData.name));
+      const mainSlug = categoryData.slug || slugify(categoryData.name);
+      desiredSlugs.add(mainSlug);
+      desiredCategoriesBySlug.set(mainSlug, { slug: mainSlug, name: categoryData.name, parentSlug: null });
 
-      const mainCategory = await Category.create({
+      const mainCategory = await Category.findOneAndUpdate(
+        { slug: mainSlug },
+        {
         name: categoryData.name,
         slug: mainSlug,
         description: categoryData.description || `${categoryData.name} products`,
@@ -81,7 +84,9 @@ const seedCategories = async () => {
         parentCategory: null,
         sortOrder: i + 1,
         isActive: categoryData.status !== 'inactive',
-      });
+        },
+        { upsert: true, new: true, setDefaultsOnInsert: true }
+      );
 
       mainCategoryCount++;
       console.log(`  ✓ ${mainCategory.name}`);
@@ -89,20 +94,90 @@ const seedCategories = async () => {
       if (Array.isArray(categoryData.subcategories) && categoryData.subcategories.length > 0) {
         for (let j = 0; j < categoryData.subcategories.length; j++) {
           const subData = categoryData.subcategories[j];
-          const subSlug = await createUniqueSlug(subData.slug || slugify(subData.name));
+          const subSlug = subData.slug || slugify(subData.name);
+          desiredSlugs.add(subSlug);
+          desiredCategoriesBySlug.set(subSlug, {
+            slug: subSlug,
+            name: subData.name,
+            parentSlug: mainSlug,
+          });
 
-          await Category.create({
+          await Category.findOneAndUpdate(
+            { slug: subSlug },
+            {
             name: subData.name,
             slug: subSlug,
             description: subData.description || `${subData.name}`,
             parentCategory: mainCategory._id,
             sortOrder: j + 1,
             isActive: true,
-          });
+            },
+            { upsert: true, new: true, setDefaultsOnInsert: true }
+          );
 
           subCategoryCount++;
         }
       }
+    }
+
+    const staleCategories = await Category.find({ slug: { $nin: [...desiredSlugs] } }).select('_id slug');
+    let removedStaleCount = 0;
+    let retainedReferencedCount = 0;
+
+    for (const staleCategory of staleCategories) {
+      const staleDetails = await Category.findById(staleCategory._id).select('name slug parentCategory');
+      const aliasSlug = legacyCategoryAliases[staleDetails.slug] || staleDetails.slug;
+      let replacement = desiredCategoriesBySlug.get(aliasSlug);
+      let isUnmatchedSubcategory = false;
+      const hasStoredParent = staleDetails.parentCategory
+        ? await Category.exists({ _id: staleDetails.parentCategory })
+        : false;
+
+      if (!replacement && hasStoredParent) {
+        const staleParent = await Category.findById(staleDetails.parentCategory).select('slug');
+        const replacementParentSlug = legacyCategoryAliases[staleParent?.slug] || staleParent?.slug;
+        replacement = [...desiredCategoriesBySlug.values()].find((category) =>
+          category.parentSlug === replacementParentSlug && category.name === staleDetails.name
+        );
+        if (!replacement) {
+          replacement = [...desiredCategoriesBySlug.values()].find((category) =>
+            category.slug === replacementParentSlug && category.parentSlug === null
+          );
+          isUnmatchedSubcategory = Boolean(replacement);
+        }
+      }
+
+      if (replacement) {
+        const replacementCategory = await Category.findOne({ slug: replacement.slug }).select('_id');
+        await Product.updateMany(
+          { category: staleCategory._id },
+          { $set: { category: replacementCategory._id } }
+        );
+        await Product.updateMany(
+          { subCategory: staleCategory._id },
+          { $set: { subCategory: isUnmatchedSubcategory ? null : replacementCategory._id } }
+        );
+      } else if (await Product.exists({
+        $or: [{ category: staleCategory._id }, { subCategory: staleCategory._id }],
+      })) {
+        if (!hasStoredParent && staleDetails.parentCategory) {
+          await Product.updateMany(
+            { subCategory: staleCategory._id },
+            { $set: { subCategory: null } }
+          );
+          await Product.updateMany(
+            { category: staleCategory._id },
+            { $set: { category: (await Category.findOne({ slug: 'computer-accessories' }).select('_id'))._id } }
+          );
+        } else {
+          retainedReferencedCount++;
+          console.warn(`⚠️  Retained stale category ${staleDetails.slug}: no canonical replacement`);
+          continue;
+        }
+      }
+
+      await Category.deleteOne({ _id: staleCategory._id });
+      removedStaleCount++;
     }
 
     console.log('\n================================');
@@ -111,6 +186,8 @@ const seedCategories = async () => {
     console.log(`📁 Main Categories: ${mainCategoryCount}`);
     console.log(`📚 Subcategories: ${subCategoryCount}`);
     console.log(`📊 Total Categories: ${mainCategoryCount + subCategoryCount}`);
+    console.log(`🧹 Stale categories removed: ${removedStaleCount}`);
+    console.log(`⚠️  Referenced stale categories retained: ${retainedReferencedCount}`);
     console.log('================================\n');
 
     process.exit(0);

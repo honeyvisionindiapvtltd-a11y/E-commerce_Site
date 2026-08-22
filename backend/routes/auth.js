@@ -182,6 +182,55 @@ router.post('/login', async (req, res) => {
   }
 });
 
+router.post('/google', async (req, res) => {
+  try {
+    const { credential } = req.body || {};
+    if (!credential) {
+      return res.status(400).json({ message: 'Google credential is required.' });
+    }
+
+    const googleResponse = await fetch(
+      `https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(credential)}`,
+    );
+    const googleUser = await googleResponse.json();
+    if (!googleResponse.ok || googleUser.aud !== process.env.GOOGLE_CLIENT_ID || !googleUser.email_verified) {
+      return res.status(401).json({ message: 'Invalid Google account credential.' });
+    }
+
+    const email = String(googleUser.email).toLowerCase();
+    let user = await User.findOne({ email }).exec();
+
+    if (user) {
+      if (user.status && user.status !== 'Active') {
+        return res.status(403).json({ message: 'This account is inactive. Contact an administrator.' });
+      }
+    } else {
+      const name = String(googleUser.name || googleUser.email.split('@')[0]).trim();
+      user = new User({
+        name,
+        email,
+        phone: `google-${crypto.randomUUID()}`,
+        role: 'customer',
+        status: 'Active',
+        emailVerified: true,
+        profile: {
+          fullName: name,
+          email,
+          country: 'India',
+          memberSince: new Date().getFullYear().toString(),
+        },
+      });
+      user.setPassword(crypto.randomUUID());
+      await user.save();
+    }
+
+    res.json(createAuthResponse(user));
+  } catch (error) {
+    console.error('Google login error:', error);
+    res.status(500).json({ message: 'Google login failed. Please try again later.' });
+  }
+});
+
 router.post('/verify-email', async (req, res) => {
   try {
     const { email, token } = req.body || {};

@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import { computeTotals } from "../lib/orderTotals";
-import { products as fallbackProducts } from "../lib/products";
+import { products as fallbackProducts, normalizeProduct } from "../lib/products";
 
 const CommerceContext = createContext(null);
 const storageKey = "honey-vision-commerce";
@@ -157,29 +157,6 @@ function readStore() {
     return fallback;
   }
 }
-
-const normalizeProduct = (product) => {
-  const category = product.category && typeof product.category === "object" ? product.category.name : product.category || "General";
-  const subCategory = product.subCategory && typeof product.subCategory === "object" ? product.subCategory.name : product.subCategory || "";
-
-  return {
-    id: product._id || product.id || product.slug || `${category}-${product.name}`,
-    name: product.name || "Product",
-    category,
-    subCategory,
-    brand: product.brand || "HoneyVision",
-    price: Number(product.price ?? product.salePrice ?? 0),
-    mrp: Number(product.mrp ?? product.originalPrice ?? product.price ?? 0),
-    rating: Number(product.rating ?? product.averageRating ?? 4.5),
-    reviews: Number(product.reviewCount ?? product.reviews ?? 0),
-    stock: Number(product.stock ?? 0),
-    delivery: product.delivery || "Delivery available",
-    image: product.thumbnail || product.image || product.images?.[0] || "https://res.cloudinary.com/vhrkwyzs/image/upload/v1786010029/laptop_ktvxcs.png",
-    description: product.shortDescription || product.description || "",
-    features: Array.isArray(product.features) ? product.features : [],
-    installationEligible: Boolean(product.installationEligible),
-  };
-};
 
 export function CommerceProvider({ children }) {
   const [store, setStore] = useState(readStore);
@@ -452,6 +429,11 @@ export function CommerceProvider({ children }) {
       body: JSON.stringify({ email, password }),
     });
 
+    return applyAuthResponse(data);
+  };
+
+  const applyAuthResponse = (data) => {
+
     setStore((current) => {
       const userStates = current.userStates || {};
       const userState = userStates[data.user.id] || {};
@@ -482,6 +464,15 @@ export function CommerceProvider({ children }) {
     });
 
     return data.user;
+  };
+
+  const loginWithGoogle = async (credential) => {
+    const data = await requestJson("/auth/google", {
+      method: "POST",
+      body: JSON.stringify({ credential }),
+    });
+
+    return applyAuthResponse(data);
   };
 
   const register = async (payload) => {
@@ -711,6 +702,7 @@ export function CommerceProvider({ children }) {
     setDeliveryPin,
     register,
     login,
+    loginWithGoogle,
     requestPasswordReset,
     resetPassword,
     logout,

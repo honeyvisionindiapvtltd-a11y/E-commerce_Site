@@ -18,10 +18,11 @@
 	display: flex;
 	width: max-content;
 	gap: 1.25rem;
+	min-width: max-content;
 	animation: brand-marquee-scroll 32s linear infinite;
+	will-change: transform;
 }
 
-.brand-marquee:hover .brand-marquee-track,
 .brand-marquee:focus-within .brand-marquee-track {
 	animation-play-state: paused;
 }
@@ -37,7 +38,7 @@
 	}
 
 	to {
-		transform: translateX(calc(-50% - 0.625rem));
+		transform: translate3d(calc(-50% - 0.625rem), 0, 0);
 	}
 }
 

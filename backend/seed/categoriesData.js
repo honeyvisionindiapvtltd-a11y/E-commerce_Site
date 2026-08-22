@@ -688,7 +688,7 @@ export const categoriesData = [
       },
       {
         name: "SMPS",
-        slug: "smps",
+        slug: "smps-power-management",
         description: "SMPS - Power Management",
       },
       {
@@ -713,7 +713,7 @@ export const categoriesData = [
       },
       {
         name: "Rack PDU",
-        slug: "rack-pdu",
+        slug: "rack-pdu-power-management",
         description: "Rack PDU - Power Management",
       },
       {
@@ -843,7 +843,7 @@ export const categoriesData = [
       },
       {
         name: "CAT6 Cable",
-        slug: "cat6-cable",
+        slug: "cat6-cable-uppercase",
         description: "CAT6 Cable - Cables & Connectors",
       },
       {
@@ -898,7 +898,7 @@ export const categoriesData = [
       },
       {
         name: "SMPS",
-        slug: "smps",
+        slug: "smps-computer-components",
         description: "SMPS - Computer Components",
       },
       {
