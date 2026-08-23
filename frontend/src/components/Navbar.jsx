@@ -40,6 +40,10 @@ export default function Navbar() {
   const navigate = useNavigate();
   const searchRef = useRef(null);
   const { cart, wishlist, deliveryPin, isLoggedIn, user, products } = useCommerce();
+  const cartCount = useMemo(
+    () => cart.filter((item) => Number(item.quantity || 0) > 0).reduce((total, item) => total + Number(item.quantity || 0), 0),
+    [cart]
+  );
 
   const popularSearches = useMemo(() => {
     const fallback = ["AI Camera", "CCTV", "Networking", "Drones", "Router", "UPS"];
@@ -300,7 +304,7 @@ export default function Navbar() {
         <div className="hidden shrink-0 items-center gap-5 lg:flex">
           <NavIcon icon={GitCompareArrows} label="Compare" to="/compare" />
           <NavIcon icon={Heart} label="Wishlist" to="/wishlist" count={wishlist.length} />
-          <NavIcon icon={ShoppingCart} label="Cart" to="/cart" count={cart.reduce((total, item) => total + item.quantity, 0)} />
+          <NavIcon icon={ShoppingCart} label="Cart" to="/cart" count={cartCount} />
           <NavIcon
             icon={isLoggedIn && user?.role === 'admin' ? LayoutDashboard : User}
             label={isLoggedIn && user?.role === 'admin' ? 'Admin' : isLoggedIn ? 'Profile' : 'Login'}

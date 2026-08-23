@@ -128,7 +128,9 @@ function readStore() {
     const currentUserId = parsed.user?.id || parsed.user?._id || null;
     const userState = currentUserId ? userStates[currentUserId] || {} : null;
 
-    const storedCart = Array.isArray(parsed.cart) ? parsed.cart : [];
+    const storedCart = Array.isArray(parsed.cart)
+      ? parsed.cart.filter((item) => item && item.productId && Number(item.quantity || 0) > 0)
+      : [];
     const storedWishlist = Array.isArray(parsed.wishlist) ? parsed.wishlist : [];
     const storedOrders = Array.isArray(parsed.orders) ? parsed.orders : [];
     const storedInstallationBookings = Array.isArray(parsed.installationBookings) ? parsed.installationBookings : [];
@@ -199,7 +201,7 @@ export function CommerceProvider({ children }) {
     };
   }, []);
 
-  const cart = store.cart || [];
+  const cart = (store.cart || []).filter((item) => item && item.productId && Number(item.quantity || 0) > 0);
   const wishlist = store.wishlist || [];
   const orders = store.orders || [];
   const installationBookings = store.installationBookings || [];
@@ -349,44 +351,97 @@ export function CommerceProvider({ children }) {
   });
 
   const addToCart = (productId, quantity = 1, installation = false) => {
-    update({
-      cart: cart.some((item) => item.productId === productId)
-        ? cart.map((item) =>
+    const nextQuantity = Number(quantity) || 0;
+    if (nextQuantity <= 0 && !installation) return;
+
+    setStore((current) => {
+      const currentCart = current.cart || [];
+      const existing = currentCart.find((item) => item.productId === productId);
+
+      if (existing) {
+        const updatedQuantity = Math.max(0, Number(existing.quantity || 0) + nextQuantity);
+        if (updatedQuantity <= 0) {
+          return { ...current, cart: currentCart.filter((item) => item.productId !== productId) };
+        }
+
+        return {
+          ...current,
+          cart: currentCart.map((item) =>
             item.productId === productId
-              ? { ...item, quantity: item.quantity + quantity, installation: item.installation || installation }
+              ? { ...item, quantity: updatedQuantity, installation: item.installation || installation }
               : item
-          )
-        : [...cart, { productId, quantity, installation }],
+          ),
+        };
+      }
+
+      if (nextQuantity <= 0) {
+        return current;
+      }
+
+      return {
+        ...current,
+        cart: [...currentCart, { productId, quantity: nextQuantity, installation }],
+      };
     });
   };
 
   const setQuantity = (productId, quantity) => {
-    update({
-      cart: quantity < 1 ? cart.filter((item) => item.productId !== productId) : cart.map((item) => item.productId === productId ? { ...item, quantity } : item),
+    const nextQuantity = Number(quantity) || 0;
+
+    setStore((current) => {
+      const currentCart = current.cart || [];
+      if (nextQuantity < 1) {
+        return {
+          ...current,
+          cart: currentCart.filter((item) => item.productId !== productId),
+        };
+      }
+
+      return {
+        ...current,
+        cart: currentCart.map((item) =>
+          item.productId === productId ? { ...item, quantity: nextQuantity } : item
+        ),
+      };
     });
   };
 
   const removeFromCart = (productId) => {
-    update({
-      cart: cart.filter((item) => item.productId !== productId),
-    });
+    setStore((current) => ({
+      ...current,
+      cart: (current.cart || []).filter((item) => item.productId !== productId),
+    }));
   };
 
   const toggleWishlist = (productId) => {
-    update({
-      wishlist: wishlist.includes(productId) ? wishlist.filter((id) => id !== productId) : [...wishlist, productId],
-    });
+    setStore((current) => ({
+      ...current,
+      wishlist: (current.wishlist || []).includes(productId)
+        ? (current.wishlist || []).filter((id) => id !== productId)
+        : [...(current.wishlist || []), productId],
+    }));
   };
 
   const moveWishlistToCart = (productIds) => {
     const ids = new Set(productIds);
-    const nextCart = [...cart];
-    ids.forEach((productId) => {
-      const existing = nextCart.find((item) => item.productId === productId);
-      if (existing) existing.quantity += 1;
-      else nextCart.push({ productId, quantity: 1, installation: false });
+
+    setStore((current) => {
+      const currentCart = current.cart || [];
+      const wishlist = current.wishlist || [];
+      const nextCart = [...currentCart];
+
+      ids.forEach((productId) => {
+        const existing = nextCart.find((item) => item.productId === productId);
+        if (existing) existing.quantity += 1;
+        else nextCart.push({ productId, quantity: 1, installation: false });
+      });
+
+      return {
+        ...current,
+        cart: nextCart,
+        wishlist: wishlist.filter((id) => !ids.has(id)),
+      };
     });
-    update({ cart: nextCart, wishlist: wishlist.filter((id) => !ids.has(id)) });
   };
 
   const placeOrder = async ({ address, paymentMethod, installationSlot, secureShipping = false }) => {

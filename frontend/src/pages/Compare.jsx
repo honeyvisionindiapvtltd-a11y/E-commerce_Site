@@ -12,29 +12,43 @@ import {
   X,
 } from "lucide-react";
 import { useCommerce } from "../context/CommerceContext";
-import { money, products as catalogProducts } from "../lib/products";
+import { money, normalizeProduct } from "../lib/products";
 
-const comparePool = catalogProducts.slice(0, 8).map((product) => ({
-  ...product,
-  oldPrice: product.mrp,
-  discount: `${Math.max(8, Math.round(((product.mrp - product.price) / product.mrp) * 100))}% OFF`,
-  specs: {
-    Brand: product.brand,
-    Category: product.category,
-    Price: money(product.price),
-    MRP: money(product.mrp),
-    Rating: `${product.rating} / 5`,
-    Reviews: `${product.reviews} reviews`,
-    Delivery: product.delivery,
-    Stock: `${product.stock} in stock`,
-    Features: product.features.join(", "),
-    Description: product.description,
-    Installation: product.installationEligible ? "Eligible" : "Not eligible",
-  },
-}));
+const buildComparePool = (products = []) =>
+  (Array.isArray(products) ? products : [])
+    .slice(0, 8)
+    .map((product) => {
+      const normalized = normalizeProduct(product);
+      if (!normalized) return null;
+
+      const mrp = Number(normalized.mrp ?? normalized.price ?? 0);
+      const price = Number(normalized.price ?? 0);
+      const discount = mrp > 0 ? `${Math.max(8, Math.round(((mrp - price) / mrp) * 100))}% OFF` : "Special price";
+
+      return {
+        ...normalized,
+        oldPrice: mrp,
+        discount,
+        specs: {
+          Brand: normalized.brand,
+          Category: normalized.category,
+          Price: money(price),
+          MRP: money(mrp),
+          Rating: `${Number(normalized.rating ?? 0)} / 5`,
+          Reviews: `${Number(normalized.reviews ?? 0)} reviews`,
+          Delivery: normalized.delivery || "Delivery available",
+          Stock: `${Number(normalized.stock ?? 0)} in stock`,
+          Features: Array.isArray(normalized.features) && normalized.features.length ? normalized.features.join(", ") : "N/A",
+          Description: normalized.description || "",
+          Installation: normalized.installationEligible ? "Eligible" : "Not eligible",
+        },
+      };
+    })
+    .filter(Boolean);
 
 export default function CompareProducts() {
-  const { addToCart, toggleWishlist, wishlist } = useCommerce();
+  const { addToCart, toggleWishlist, wishlist, products } = useCommerce();
+  const comparePool = useMemo(() => buildComparePool(products), [products]);
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [searchTerm, setSearchTerm] = useState("");

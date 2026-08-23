@@ -187,21 +187,21 @@ export default function ProductDetails() {
                   type="button"
                   aria-label="Add to wishlist"
                   onClick={() => toggleWishlist(product.id)}
-                  className={`absolute top-5 right-5 w-12 h-12 rounded-full bg-white shadow flex items-center justify-center transition-all duration-300 ${inWishlist ? "bg-yellow-500 text-white" : "hover:bg-yellow-100"}`}
+                  className={`absolute top-5 right-5 z-20 w-12 h-12 rounded-full bg-white shadow flex items-center justify-center transition-all duration-300 ${inWishlist ? "bg-yellow-500 text-white" : "hover:bg-yellow-100"}`}
                 >
                   <Heart size={20} fill={inWishlist ? "currentColor" : "none"} />
                 </button>
                 <button
                   type="button"
                   onClick={handleShare}
-                  className="absolute top-20 right-5 w-12 h-12 rounded-full bg-white shadow flex items-center justify-center hover:bg-yellow-100 transition"
+                  className="absolute top-20 right-5 z-20 w-12 h-12 rounded-full bg-white shadow flex items-center justify-center hover:bg-yellow-100 transition"
                   aria-label="Share product"
                 >
                   <Share2 size={18} />
                 </button>
-                <button type="button" onClick={() => setImageIndex((i) => Math.max(0, i - 1))} className="absolute left-4 z-10 rounded-full bg-white p-3 shadow">‹</button>
-                <img src={images[imageIndex] || selectedImage || product.image} alt={product.name} className="h-[520px] object-contain transition-transform duration-500 hover:scale-105" />
-                <button type="button" onClick={() => setImageIndex((i) => Math.min(images.length - 1, i + 1))} className="absolute right-4 z-10 rounded-full bg-white p-3 shadow">›</button>
+                <button type="button" onClick={() => setImageIndex((i) => Math.max(0, i - 1))} className="absolute left-4 z-20 rounded-full bg-white p-3 shadow">‹</button>
+                <img src={images[imageIndex] || selectedImage || product.image} alt={product.name} className="relative z-0 h-[520px] object-contain transition-transform duration-500 hover:scale-105" />
+                <button type="button" onClick={() => setImageIndex((i) => Math.min(images.length - 1, i + 1))} className="absolute right-4 z-20 rounded-full bg-white p-3 shadow">›</button>
               </div>
             </div>
           </div>

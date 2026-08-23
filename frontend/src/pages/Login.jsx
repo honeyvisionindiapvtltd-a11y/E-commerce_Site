@@ -31,7 +31,7 @@ export default function Login() {
       } else if (user?.role === 'delivery_agent') {
         navigate('/delivery-agent');
       } else {
-        navigate('/profile');
+        navigate('/');
       }
     } catch (err) {
       setError(err.message || "Login failed.");
@@ -52,7 +52,7 @@ export default function Login() {
             try {
               setLoading(true); setError("");
               const user = await loginWithGoogle(credential);
-              navigate(user?.role === "admin" ? "/admin/dashboard" : "/profile");
+              navigate(user?.role === "admin" ? "/admin/dashboard" : "/");
             } catch (googleError) { setError(googleError.message || "Google login failed."); }
             finally { setLoading(false); }
           },

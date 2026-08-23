@@ -59,7 +59,7 @@ export default function Register() {
         password: form.password,
         interest: form.interest,
       });
-      navigate("/profile");
+      navigate("/");
     } catch (err) {
       setError(err.message || "Registration failed.");
     } finally {

@@ -21,7 +21,8 @@ import { computeTotals } from "../lib/orderTotals";
 
 export default function Cart() {
   const { cart, products, setQuantity, removeFromCart, addToCart, couponApplied, setCouponApplied } = useCommerce();
-  const items = cart.map((item) => ({ ...item, product: products.find((product) => product.id === item.productId) })).filter((item) => item.product);
+  const validCart = cart.filter((item) => item && item.productId && Number(item.quantity || 0) > 0);
+  const items = validCart.map((item) => ({ ...item, product: products.find((product) => product.id === item.productId) })).filter((item) => item.product);
   const { subtotal, installationFee: installation, shipping, discount, insurance, total } = computeTotals(items, { coupon: couponApplied, secureShipping: false });
   const suggestions = useMemo(() => {
     const ids = new Set(items.map((item) => item.productId));
