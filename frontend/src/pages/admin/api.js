@@ -11,7 +11,8 @@ const categoryLabel = (category) => (
 
 const getToken = () => {
   try {
-    return JSON.parse(localStorage.getItem("honey-vision-commerce") || "{}").authToken || "";
+    const auth = JSON.parse(localStorage.getItem("hv-auth") || "{}");
+    return auth.authToken || JSON.parse(localStorage.getItem("honey-vision-commerce") || "{}").authToken || "";
   } catch {
     return "";
   }
@@ -111,6 +112,40 @@ export async function adminListProducts() {
 export async function adminListCategories() {
   const body = await request("/categories");
   return body.categories || [];
+}
+
+export async function adminListSupportTickets(filters = {}) {
+  const query = new URLSearchParams(Object.entries(filters).filter(([, value]) => value));
+  return request(`/support/admin${query.toString() ? `?${query}` : ""}`);
+}
+
+export async function adminUpdateSupportTicket(id, patch) {
+  return request(`/support/admin/${encodeURIComponent(id)}`, {
+    method: "PATCH",
+    body: JSON.stringify(patch),
+  });
+}
+
+export async function adminListDeliveryZones(filters = {}) {
+  const query = new URLSearchParams(Object.entries(filters).filter(([, value]) => value !== "" && value !== undefined));
+  return request(`/admin/delivery-zones${query.toString() ? `?${query}` : ""}`);
+}
+
+export async function adminCreateDeliveryZone(zone) {
+  return request("/admin/delivery-zones", { method: "POST", body: JSON.stringify(zone) });
+}
+
+export async function adminUpdateDeliveryZone(id, zone) {
+  return request(`/admin/delivery-zones/${encodeURIComponent(id)}`, { method: "PUT", body: JSON.stringify(zone) });
+}
+
+export async function adminToggleDeliveryZone(id, field, value) {
+  const key = field === "status" ? "active" : "serviceable";
+  return request(`/admin/delivery-zones/${encodeURIComponent(id)}/${field}`, { method: "PATCH", body: JSON.stringify({ [key]: value }) });
+}
+
+export async function adminDeleteDeliveryZone(id) {
+  return request(`/admin/delivery-zones/${encodeURIComponent(id)}`, { method: "DELETE" });
 }
 
 export async function adminListCategoryTree() {
