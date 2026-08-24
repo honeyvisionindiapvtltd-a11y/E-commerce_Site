@@ -8,7 +8,7 @@ import {
 } from "lucide-react";
 import { useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { useCommerce } from "../context/CommerceContext";
+import { useCommerce } from "../context/index.js";
 import { money, normalizeProduct } from "../lib/products";
 
 const brandLogos = {

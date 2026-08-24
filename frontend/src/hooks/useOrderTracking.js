@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import io from "socket.io-client";
 import { getOrderTracking } from "../services/orderTrackingService.js";
 import { SOCKET_URL } from "../lib/socketConfig.js";
+import { isValidCoordinatePair } from "../utils/locationUtils.js";
 
 /**
  * Custom hook for real-time order tracking with polling fallback
@@ -22,10 +23,12 @@ export const useOrderTracking = (orderNumber, token, pollInterval = 15000) => {
   const orderRef = useRef(null);
   const latestRealtimeAtRef = useRef(0);
   const isMountedRef = useRef(true);
+  const fetchInFlightRef = useRef(false);
 
   // Fetch tracking data
   const fetchTracking = useCallback(async () => {
-    if (!orderNumber) return;
+    if (!orderNumber || fetchInFlightRef.current) return;
+    fetchInFlightRef.current = true;
 
     try {
       setLoading(true);
@@ -50,6 +53,7 @@ export const useOrderTracking = (orderNumber, token, pollInterval = 15000) => {
         console.error("useOrderTracking error:", err);
       }
     } finally {
+      fetchInFlightRef.current = false;
       if (isMountedRef.current) {
         setLoading(false);
       }
@@ -76,10 +80,15 @@ export const useOrderTracking = (orderNumber, token, pollInterval = 15000) => {
 
     const socket = io(SOCKET_URL, {
       auth: { token },
-      reconnection: true,
-      reconnectionAttempts: 5,
+      autoConnect: false,
+      reconnection: false,
     });
     socketRef.current = socket;
+    let stopped = false;
+    let reconnectTimer = null;
+    let reconnectAttempt = 0;
+    let connecting = false;
+    let pageHidden = false;
 
     const matchesOrder = (update) => String(update?.orderId) === String(orderNumber);
     const markRealtimeUpdate = (update) => {
@@ -132,12 +141,17 @@ export const useOrderTracking = (orderNumber, token, pollInterval = 15000) => {
     };
     const applyLocationUpdate = (update) => {
       if (!isMountedRef.current || String(update?.orderNumber) !== String(orderNumber)) return;
+      const latitude = Number(update?.latitude);
+      const longitude = Number(update?.longitude);
+      if (!isValidCoordinatePair(latitude, longitude) || (latitude === 0 && longitude === 0)) return;
       if (!isFreshRealtimeUpdate(update)) return;
       markRealtimeUpdate(update);
       const location = {
-        latitude: update.latitude,
-        longitude: update.longitude,
+        latitude,
+        longitude,
         accuracy: update.accuracy,
+        heading: update.heading,
+        speed: update.speed,
         updatedAt: update.updatedAt,
       };
       if (import.meta.env.DEV) {
@@ -179,30 +193,59 @@ export const useOrderTracking = (orderNumber, token, pollInterval = 15000) => {
       }
     };
     const handleConnectError = (connectError) => {
+      connecting = false;
+      socketConnectedRef.current = false;
       setConnectionStatus("reconnecting");
       if (isMountedRef.current) {
         setError(connectError?.message || "Unable to connect to live order updates");
       }
+      if (!stopped && reconnectAttempt < 5) {
+        reconnectAttempt += 1;
+        reconnectTimer = window.setTimeout(connectSocket, Math.min(30000, 5000 * reconnectAttempt));
+      }
     };
 
     const subscribe = () => {
+      connecting = false;
+      reconnectAttempt = 0;
       socketConnectedRef.current = true;
       setConnectionStatus("connected");
       setError(null);
       if (orderRef.current) socket.emit("order:subscribe", orderRef.current.orderNumber || orderNumber);
     };
     const markDisconnected = () => {
+      connecting = false;
       socketConnectedRef.current = false;
-      setConnectionStatus("disconnected");
+      if (!stopped && !pageHidden) {
+        setConnectionStatus("reconnecting");
+        if (!reconnectTimer) {
+          reconnectAttempt += 1;
+          reconnectTimer = window.setTimeout(connectSocket, Math.min(30000, 5000 * reconnectAttempt));
+        }
+      } else {
+        setConnectionStatus("disconnected");
+      }
     };
     const handlePageHide = () => {
+      pageHidden = true;
       socketConnectedRef.current = false;
       socket.disconnect();
     };
-    const handlePageShow = (event) => {
-      if (!event.persisted || !isMountedRef.current) return;
+    function connectSocket() {
+      if (stopped || connecting || socket.connected) return;
+      if (reconnectTimer) {
+        window.clearTimeout(reconnectTimer);
+        reconnectTimer = null;
+      }
+      connecting = true;
       setConnectionStatus("reconnecting");
       socket.connect();
+    }
+    const handlePageShow = (event) => {
+      if (!event.persisted || !isMountedRef.current) return;
+      pageHidden = false;
+      setConnectionStatus("reconnecting");
+      connectSocket();
     };
 
     socket.on("connect", subscribe);
@@ -217,12 +260,17 @@ export const useOrderTracking = (orderNumber, token, pollInterval = 15000) => {
     window.addEventListener("pageshow", handlePageShow);
 
     const poll = window.setInterval(() => {
-      if (!socketConnectedRef.current && isMountedRef.current) {
+      if (isMountedRef.current) {
         fetchTracking();
       }
     }, pollInterval);
 
+    connectSocket();
+
     return () => {
+      stopped = true;
+      if (reconnectTimer) window.clearTimeout(reconnectTimer);
+      reconnectTimer = null;
       socketConnectedRef.current = false;
       window.clearInterval(poll);
       socket.off("connect", subscribe);

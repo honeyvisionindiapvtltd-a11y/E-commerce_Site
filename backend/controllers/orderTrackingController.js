@@ -17,10 +17,27 @@ import {
 } from "../services/orderTrackingService.js";
 import { sendDeliveryOtpEmail } from "../services/deliveryOtpService.js";
 import { sendDeliveryOtpSms } from "../services/deliveryOtpSmsService.js";
+import { checkDeliveryServiceability } from "../services/deliveryServiceabilityService.js";
 
 const escapeRegExp = (value = "") => String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 const canExposeDevelopmentOtp = () => process.env.NODE_ENV === "development"
   && process.env.ALLOW_DEV_OTP_EXPOSURE === "true";
+
+const coordinateValue = (value) => {
+  if (value === null || value === undefined || value === "") return null;
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
+};
+
+const hasValidCoordinatePair = (latitude, longitude) => (
+  latitude !== null
+  && longitude !== null
+  && latitude >= -90
+  && latitude <= 90
+  && longitude >= -180
+  && longitude <= 180
+  && !(latitude === 0 && longitude === 0)
+);
 
 const buildOrderNumberQuery = (orderNumber) => {
   const raw = String(orderNumber ?? "").trim();
@@ -55,7 +72,6 @@ export const createOrder = async (req, res) => {
       paymentMethod = "COD",
       deliveryType = "courier",
       customerNote = "",
-      userId,
     } = req.body;
 
     const resolvedShippingAddress = shippingAddress || address;
@@ -65,10 +81,18 @@ export const createOrder = async (req, res) => {
       phone: resolvedShippingAddress?.phone || "",
       addressLine1: resolvedShippingAddress?.addressLine1 || resolvedShippingAddress?.line1 || resolvedShippingAddress?.address || "",
       addressLine2: resolvedShippingAddress?.addressLine2 || resolvedShippingAddress?.line2 || "",
+      landmark: resolvedShippingAddress?.landmark || "",
+      district: resolvedShippingAddress?.district || "",
       city: resolvedShippingAddress?.city || "",
       state: resolvedShippingAddress?.state || resolvedShippingAddress?.region || "",
       postalCode: resolvedShippingAddress?.postalCode || resolvedShippingAddress?.pin || resolvedShippingAddress?.pincode || resolvedShippingAddress?.pinCode || "",
-      country: resolvedShippingAddress?.country || "India",
+      pincode: resolvedShippingAddress?.pincode || resolvedShippingAddress?.postalCode || resolvedShippingAddress?.pin || resolvedShippingAddress?.pinCode || "",
+      country: resolvedShippingAddress?.country ?? "India",
+      latitude: coordinateValue(resolvedShippingAddress?.latitude),
+      longitude: coordinateValue(resolvedShippingAddress?.longitude),
+      locationResolved: false,
+      googlePlaceId: String(resolvedShippingAddress?.googlePlaceId || "").trim(),
+      formattedAddress: String(resolvedShippingAddress?.formattedAddress || "").trim(),
     };
 
     if (!Array.isArray(items) || items.length === 0) {
@@ -76,6 +100,10 @@ export const createOrder = async (req, res) => {
         success: false,
         message: "Order must contain products",
       });
+    }
+
+    if (!normalizedAddress.name || !normalizedAddress.phone || !normalizedAddress.addressLine1 || !normalizedAddress.city || !normalizedAddress.state || !/^\d{6}$/.test(String(normalizedAddress.postalCode || ""))) {
+      return res.status(400).json({ success: false, message: "A complete valid shipping address is required." });
     }
 
     if (!resolvedShippingAddress) {
@@ -92,10 +120,32 @@ export const createOrder = async (req, res) => {
       });
     }
 
-    let user = req.user;
-    if (!user && userId) {
-      user = await User.findById(userId);
+    const serviceability = await checkDeliveryServiceability({
+      country: normalizedAddress.country,
+      state: normalizedAddress.state,
+      city: normalizedAddress.city,
+      pincode: normalizedAddress.postalCode,
+    });
+    if (!serviceability.valid || !serviceability.serviceable) {
+      return res.status(400).json({
+        success: false,
+        message: serviceability.valid
+          ? "Delivery is currently not available at the selected address."
+          : serviceability.validationError,
+      });
     }
+
+    const hasLatitude = normalizedAddress.latitude !== null;
+    const hasLongitude = normalizedAddress.longitude !== null;
+    if (hasLatitude !== hasLongitude || (hasLatitude && !hasValidCoordinatePair(normalizedAddress.latitude, normalizedAddress.longitude))) {
+      return res.status(400).json({
+        success: false,
+        message: "Latitude and longitude must both be valid when provided.",
+      });
+    }
+    normalizedAddress.locationResolved = hasValidCoordinatePair(normalizedAddress.latitude, normalizedAddress.longitude);
+
+    let user = req.user;
 
     if (!user) {
       const guestEmail = `guest-${Date.now()}@honeyvision.local`;
@@ -166,7 +216,7 @@ export const createOrder = async (req, res) => {
       });
     }
 
-    const shippingFee = 0;
+    const shippingFee = Number(serviceability.deliveryCharge || 0);
     const discount = 0;
     const tax = 0;
     const totalAmount = subtotal + shippingFee - discount + tax;
@@ -183,8 +233,19 @@ export const createOrder = async (req, res) => {
       paymentStatus: "PENDING",
       shippingAddress: {
         ...normalizedAddress,
+        fullName: normalizedAddress.name,
+        locationResolved: Boolean(normalizedAddress.locationResolved && normalizedAddress.latitude !== undefined && normalizedAddress.longitude !== undefined),
         name: normalizedAddress.name || user.name,
         phone: normalizedAddress.phone || user.phone,
+      },
+      deliveryDetails: {
+        serviceable: true,
+        country: serviceability.location.country,
+        state: serviceability.location.state,
+        city: serviceability.location.city,
+        pincode: normalizedAddress.postalCode,
+        deliveryCharge: Number(serviceability.deliveryCharge || 0),
+        estimatedDeliveryDays: serviceability.estimatedDeliveryDays || { min: 1, max: 2 },
       },
       status: ORDER_STATUSES.ORDER_PLACED,
       trackingEvents: [
@@ -212,12 +273,14 @@ export const createOrder = async (req, res) => {
       }
 
       reservedItems.push(item);
+      const stockStatus = reservedProduct.stock <= 0
+        ? "out_of_stock"
+        : reservedProduct.stock <= reservedProduct.lowStockThreshold
+          ? "low_stock"
+          : "in_stock";
       await Product.updateOne(
         { _id: item.product },
-        [{ $set: { stockStatus: { $cond: [
-          { $eq: ["$stock", 0] }, "out_of_stock",
-          { $cond: [{ $lte: ["$stock", "$lowStockThreshold"] }, "low_stock", "in_stock"] },
-        ] } } }],
+        { $set: { stockStatus } },
       );
     }
 
@@ -570,16 +633,6 @@ export const getOrderTracking = async (req, res) => {
       };
     }
 
-    if (order.deliveryAgent && !order.trackingNumber) {
-      order.trackingNumber = await generateUniqueHoneyVisionTrackingNumber(
-        (candidate) => Order.exists({ trackingNumber: candidate, _id: { $ne: order._id } }),
-      );
-      await Order.updateOne(
-        { _id: order._id },
-        { $set: { trackingNumber: order.trackingNumber } },
-      );
-    }
-
     // Customer can only view own order tracking
     if (req.user && order.user && String(order.user._id) !== String(req.user._id)) {
       if (req.user.role !== "admin") {
@@ -588,6 +641,16 @@ export const getOrderTracking = async (req, res) => {
           message: "Access denied",
         });
       }
+    }
+
+    if (order.deliveryAgent && !order.trackingNumber) {
+      order.trackingNumber = await generateUniqueHoneyVisionTrackingNumber(
+        (candidate) => Order.exists({ trackingNumber: candidate, _id: { $ne: order._id } }),
+      );
+      await Order.updateOne(
+        { _id: order._id },
+        { $set: { trackingNumber: order.trackingNumber } },
+      );
     }
 
     // Format tracking response
@@ -662,6 +725,34 @@ export const getOrderTracking = async (req, res) => {
       message: "Failed to fetch tracking",
       error: error.message,
     });
+  }
+};
+
+export const updateOrderDestination = async (req, res) => {
+  try {
+    const latitude = Number(req.body?.latitude);
+    const longitude = Number(req.body?.longitude);
+    if (!Number.isFinite(latitude) || latitude < -90 || latitude > 90 || !Number.isFinite(longitude) || longitude < -180 || longitude > 180 || (latitude === 0 && longitude === 0)) {
+      return res.status(400).json({ success: false, message: "Valid destination coordinates are required" });
+    }
+
+    const order = await Order.findOne(buildOrderNumberQuery(req.params.orderNumber));
+    if (!order) return res.status(404).json({ success: false, message: "Order not found" });
+    if (String(order.user) !== String(req.user._id) && req.user.role !== "admin") {
+      return res.status(403).json({ success: false, message: "Access denied" });
+    }
+
+    order.shippingAddress = {
+      ...order.shippingAddress.toObject(),
+      latitude,
+      longitude,
+      locationResolved: true,
+    };
+    await order.save();
+    return res.json({ success: true, shippingAddress: order.shippingAddress });
+  } catch (error) {
+    console.error("updateOrderDestination error:", error);
+    return res.status(500).json({ success: false, message: "Failed to save destination coordinates" });
   }
 };
 

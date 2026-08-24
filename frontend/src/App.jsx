@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { Routes, Route, useLocation, Navigate } from 'react-router-dom'
-import { useCommerce } from './context/CommerceContext.jsx'
+import { useCommerce } from './context/index.js'
+import { APIProvider } from '@vis.gl/react-google-maps'
 import { NotificationContainer } from './components/Notifications/NotificationComponents.jsx'
 import useNotifications from './hooks/useNotifications.js'
 import Navbar from './components/Navbar.jsx'
@@ -53,6 +54,8 @@ import AdminRoutes from "./pages/admin/AdminRoutes.jsx";
 import TrackOrder from "./pages/TrackOrder";
 import './App.css'
 
+const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
+
 function App() {
   const location = useLocation();
   const { isLoggedIn, user } = useCommerce();
@@ -64,7 +67,7 @@ function App() {
     window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
   }, [location.pathname]);
 
-  return (
+  const appContent = (
     <div className="app-shell">
       {!isAdminRoute && !isDeliveryAgentRoute && <Navbar />}
       <div className="page-content">
@@ -147,7 +150,11 @@ function App() {
         onRemove={removeNotification} 
       />
     </div>
-  )
+  );
+
+  return GOOGLE_MAPS_API_KEY
+    ? <APIProvider apiKey={GOOGLE_MAPS_API_KEY} libraries={["places", "geocoding", "routes"]}>{appContent}</APIProvider>
+    : appContent;
 }
 
 export default App

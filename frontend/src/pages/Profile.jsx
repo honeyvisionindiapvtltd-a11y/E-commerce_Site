@@ -20,7 +20,7 @@ import {
   Headphones,
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
-import { useCommerce } from "../context/CommerceContext";
+import { useCommerce } from "../context/index.js";
 
 export default function Profile() {
   const navigate = useNavigate();
@@ -899,7 +899,8 @@ export default function Profile() {
 
                   </div>
 
-                  <button
+                  <Link
+                    to="/orders"
                     className="
                       text-[#071426]
                       font-semibold
@@ -910,7 +911,7 @@ export default function Profile() {
 
                     View All Orders →
 
-                  </button>
+                  </Link>
 
                 </div>
 
@@ -986,11 +987,12 @@ export default function Profile() {
                             </p>
                           </div>
 
-                          <button
+                          <Link
+                            to={`/orders/${encodeURIComponent(order.orderNumber || order.id || order._id)}/tracking`}
                             className="border border-gray-200 hover:border-[#F4B400] hover:bg-[#FFF9E8] px-5 py-3 rounded-xl font-semibold text-[#071426] transition"
                           >
                             View Order
-                          </button>
+                          </Link>
                         </div>
                       </div>
                     );

@@ -27,7 +27,7 @@ import {
   ArrowRight,
   ArrowLeft,
 } from "lucide-react";
-import { useCommerce } from "../context/CommerceContext";
+import { useCommerce } from "../context/index.js";
 
 
 // ============================================================

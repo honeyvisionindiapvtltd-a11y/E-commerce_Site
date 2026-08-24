@@ -1,9 +1,11 @@
 import { ChevronLeft, CreditCard, MapPin, Truck, Wrench } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { useCommerce } from "../context/CommerceContext";
+import { useCommerce } from "../context/index.js";
 import { money } from "../lib/products";
 import { computeTotals } from "../lib/orderTotals";
+import { productIdOf } from "../lib/products";
+import { checkDeliveryServiceability } from "../services/deliveryServiceability";
 
 export default function Checkout() {
   const { cart, products, deliveryPin, setDeliveryPin, profile, addresses, user, isLoggedIn, couponApplied } = useCommerce();
@@ -11,6 +13,8 @@ export default function Checkout() {
   const [paymentMethod, setPaymentMethod] = useState("cod");
   const [slot, setSlot] = useState("Tomorrow, 10:00 AM - 1:00 PM");
   const [formError, setFormError] = useState("");
+  const [serviceability, setServiceability] = useState({ status: "idle", message: "" });
+  const serviceabilityRequestRef = useRef("");
   const userAddresses = user?.id ? addresses.filter((addr) => addr.userId === user.id) : [];
   const defaultAddress = userAddresses.find((addr) => addr.isDefault) || userAddresses[0] || {};
   const initialAddress = isLoggedIn
@@ -21,6 +25,8 @@ export default function Checkout() {
         city: defaultAddress.city || profile.city || "",
         state: defaultAddress.state || profile.state || "",
         pin: defaultAddress.pin || profile.pinCode || deliveryPin,
+        latitude: defaultAddress.latitude,
+        longitude: defaultAddress.longitude,
       }
     : {
         name: "",
@@ -32,9 +38,65 @@ export default function Checkout() {
       };
 
   const [address, setAddress] = useState(initialAddress);
-  const items = cart.map((item) => ({ ...item, product: products.find((product) => product.id === item.productId) })).filter((item) => item.product);
+  const items = cart.map((item) => ({
+    ...item,
+    product: products.find((product) => String(productIdOf(product) ?? "") === String(productIdOf(item) ?? "")),
+  })).filter((item) => item.product);
   const { subtotal, installationFee, shipping, discount, total } = computeTotals(items, { coupon: couponApplied, secureShipping: false });
   const valid = address.name && address.phone.length >= 10 && address.line1 && address.city && address.state && address.pin.length === 6;
+
+  useEffect(() => {
+    if (!isLoggedIn || !defaultAddress.fullName) return;
+    const nextAddress = {
+      name: defaultAddress.fullName || defaultAddress.name || "",
+      phone: defaultAddress.phone || "",
+      line1: defaultAddress.address || defaultAddress.addressLine1 || "",
+      addressLine2: defaultAddress.addressLine2 || "",
+      landmark: defaultAddress.landmark || "",
+      city: defaultAddress.city || "",
+      district: defaultAddress.district || "",
+      state: defaultAddress.state || "",
+      pin: defaultAddress.pin || defaultAddress.pincode || defaultAddress.postalCode || "",
+      country: defaultAddress.country || "India",
+      latitude: defaultAddress.latitude,
+      longitude: defaultAddress.longitude,
+      locationResolved: defaultAddress.locationResolved,
+    };
+    const syncId = window.setTimeout(() => setAddress(nextAddress), 0);
+    return () => window.clearTimeout(syncId);
+  }, [defaultAddress.fullName, defaultAddress.name, defaultAddress.address, defaultAddress.addressLine1, defaultAddress.addressLine2, defaultAddress.landmark, defaultAddress.district, defaultAddress.phone, defaultAddress.city, defaultAddress.state, defaultAddress.pin, defaultAddress.pincode, defaultAddress.postalCode, defaultAddress.country, defaultAddress.latitude, defaultAddress.longitude, defaultAddress.locationResolved, isLoggedIn]);
+
+  useEffect(() => {
+    if (!address.city || !address.state || !/^\d{6}$/.test(address.pin)) {
+      serviceabilityRequestRef.current = "";
+      const resetId = window.setTimeout(() => setServiceability({ status: "idle", message: "" }), 0);
+      return () => window.clearTimeout(resetId);
+    }
+
+    const requestKey = [address.country || "India", address.state, address.city, address.pin].join("|");
+    if (serviceabilityRequestRef.current === requestKey) return undefined;
+    serviceabilityRequestRef.current = requestKey;
+    let active = true;
+    const checkingId = window.setTimeout(() => setServiceability({ status: "checking", message: "Checking delivery availability..." }), 0);
+
+    checkDeliveryServiceability({ country: address.country || "India", state: address.state, city: address.city, pincode: address.pin })
+      .then((result) => {
+        if (!active) return;
+        setServiceability({
+          key: requestKey,
+          status: result.serviceable ? "available" : "unavailable",
+          message: result.serviceable ? "Delivery is available at this location." : "Delivery is currently unavailable at this location.",
+        });
+      })
+      .catch((error) => {
+        if (active) setServiceability({ key: requestKey, status: "error", message: error.message || "Unable to check delivery availability." });
+      });
+
+    return () => {
+      active = false;
+      window.clearTimeout(checkingId);
+    };
+  }, [address.city, address.state, address.pin, address.country]);
 
   const submit = async (event) => {
     event.preventDefault();
@@ -48,10 +110,30 @@ export default function Checkout() {
       setFormError('Please complete all required address fields, including state, and enter a valid 6-digit PIN code before continuing.');
       return;
     }
-
+    const currentAddressKey = [address.country || "India", address.state, address.city, address.pin].join("|");
+    if (serviceability.key !== currentAddressKey || serviceability.status !== "available") {
+      setFormError(serviceability.message || "Please wait for delivery availability to be confirmed.");
+      return;
+    }
     setFormError("");
     setDeliveryPin(address.pin);
-    navigate('/payment', { state: { address, slot, paymentMethod } });
+    try {
+      const hasCoordinates = Number.isFinite(Number(address.latitude)) && Number.isFinite(Number(address.longitude));
+      navigate('/payment', {
+        state: {
+          address: {
+            ...address,
+            latitude: hasCoordinates ? Number(address.latitude) : null,
+            longitude: hasCoordinates ? Number(address.longitude) : null,
+            locationResolved: Boolean(address.locationResolved && hasCoordinates),
+          },
+          slot,
+          paymentMethod,
+        },
+      });
+    } catch (error) {
+      setFormError(error.message || "Unable to continue with this delivery address.");
+    }
   };
 
   if (!items.length) return <main className="min-h-screen bg-slate-50 p-12 text-center"><h1 className="text-2xl font-bold">Your cart is empty</h1><Link to="/products" className="mt-4 inline-block text-amber-600">Shop products</Link></main>;
@@ -69,6 +151,20 @@ return (
               <h2 className="flex items-center gap-2 text-xl font-bold">
                 <MapPin className="text-amber-500" /> Delivery address
               </h2>
+              {userAddresses.length > 0 && (
+                <div className="mt-4 flex flex-wrap gap-2">
+                  {userAddresses.map((savedAddress) => (
+                    <button
+                      key={savedAddress.id || savedAddress._id}
+                      type="button"
+                      onClick={() => setAddress({ name: savedAddress.fullName || savedAddress.name || "", phone: savedAddress.phone || "", line1: savedAddress.address || savedAddress.addressLine1 || "", addressLine2: savedAddress.addressLine2 || "", landmark: savedAddress.landmark || "", city: savedAddress.city || "", district: savedAddress.district || "", state: savedAddress.state || "", pin: savedAddress.pin || savedAddress.pincode || savedAddress.postalCode || "", country: savedAddress.country || "India", latitude: savedAddress.latitude, longitude: savedAddress.longitude, locationResolved: savedAddress.locationResolved })}
+                      className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-left text-xs font-semibold text-slate-700 hover:border-amber-400"
+                    >
+                      {savedAddress.label || savedAddress.type || "Saved address"} · {savedAddress.city}
+                    </button>
+                  ))}
+                </div>
+              )}
               <div className="mt-5 grid gap-4 sm:grid-cols-2">
                 <Field label="Full name" value={address.name} onChange={(name) => setAddress({ ...address, name })} />
                 <Field label="Mobile number" type="tel" value={address.phone} onChange={(phone) => setAddress({ ...address, phone })} />
@@ -77,6 +173,9 @@ return (
                 <Field label="State" value={address.state} onChange={(state) => { setAddress({ ...address, state }); setFormError(""); }} />
                 <Field label="PIN code" value={address.pin} onChange={(pin) => { setAddress({ ...address, pin: pin.replace(/\D/g, "").slice(0, 6) }); setFormError(""); }} />
                 {formError ? <p className="mt-4 text-sm text-red-600" role="alert">{formError}</p> : null}
+                {serviceability.status === "checking" && <p className="sm:col-span-2 text-sm text-slate-500">Checking delivery availability...</p>}
+                {serviceability.status === "available" && <p className="sm:col-span-2 text-sm font-semibold text-emerald-600">✓ {serviceability.message}</p>}
+                {(serviceability.status === "unavailable" || serviceability.status === "error") && <p className="sm:col-span-2 text-sm text-red-600">{serviceability.message}</p>}
               </div>
             </div>
             {installationFee > 0 && (
@@ -118,7 +217,7 @@ return (
               <span>Total</span>
               <span>{money(total)}</span>
             </div>
-            <button type="submit" className="mt-6 w-full rounded-lg bg-amber-500 px-5 py-3 font-bold text-slate-950">Place order</button>
+            <button type="submit" disabled={!valid || serviceability.status !== "available"} className="mt-6 w-full rounded-lg bg-amber-500 px-5 py-3 font-bold text-slate-950 disabled:cursor-not-allowed disabled:opacity-50">Place order</button>
             <p className="mt-4 flex items-center gap-2 text-xs text-slate-500"><Truck size={15} /> Your order will be confirmed by SMS/WhatsApp.</p>
           </aside>
         </form>

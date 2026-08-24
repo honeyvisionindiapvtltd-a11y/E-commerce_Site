@@ -1,6 +1,6 @@
 import { Heart, Star, ShoppingCart } from "lucide-react";
 import { Link } from "react-router-dom";
-import { useCommerce } from "../context/CommerceContext";
+import { useCommerce } from "../context/index.js";
 import { money, normalizeProduct } from "../lib/products";
 
 export default function TrendingProducts() {

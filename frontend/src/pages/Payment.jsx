@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useCommerce } from "../context/CommerceContext";
+import { useCommerce } from "../context/index.js";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 
 import {
@@ -30,6 +30,7 @@ import {
 } from "lucide-react";
 
 import { computeTotals } from "../lib/orderTotals";
+import { productIdOf } from "../lib/products";
 
 /* ============================================================
    PAYMENT PAGE
@@ -174,7 +175,7 @@ const Payment = () => {
   const currentCheckoutItems = cart
     .map((item) => {
       const product = products.find(
-        (product) => product.id === item.productId
+        (product) => String(productIdOf(product) ?? "") === String(productIdOf(item) ?? "")
       );
 
       return product
@@ -190,7 +191,7 @@ const Payment = () => {
     .filter(
       (item) =>
         !products.some(
-          (product) => product.id === item.productId
+          (product) => String(productIdOf(product) ?? "") === String(productIdOf(item) ?? "")
         )
     )
     .map((item) => item.productId);

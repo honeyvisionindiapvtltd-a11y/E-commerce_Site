@@ -6,13 +6,49 @@ import crypto from 'crypto';
 import Order from '../models/Order.js';
 import { updateOrderTracking } from '../services/orderTrackingService.js';
 import Payment from '../models/Payment.js';
+import { checkDeliveryServiceability } from '../services/deliveryServiceabilityService.js';
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', { apiVersion: '2022-11-15' });
+const stripe = process.env.STRIPE_SECRET_KEY ? new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: '2022-11-15' }) : null;
 
-const razorInstance = new Razorpay({
-  key_id: process.env.RAZORPAY_KEY_ID || '',
-  key_secret: process.env.RAZORPAY_KEY_SECRET || '',
-});
+const razorInstance = process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET
+  ? new Razorpay({
+      key_id: process.env.RAZORPAY_KEY_ID,
+      key_secret: process.env.RAZORPAY_KEY_SECRET,
+    })
+  : null;
+
+export const verifyRazorpaySignature = (secret, orderId, paymentId, receivedSignature) => {
+  if (!secret || !orderId || !paymentId || !receivedSignature) {
+    return false;
+  }
+
+  const signatureString = String(receivedSignature).trim();
+  if (!/^[a-fA-F0-9]+$/.test(signatureString)) {
+    return false;
+  }
+
+  const expectedSignature = crypto
+    .createHmac('sha256', secret)
+    .update(`${orderId}|${paymentId}`)
+    .digest('hex');
+
+  if (signatureString.length !== expectedSignature.length) {
+    return false;
+  }
+
+  const expectedBuffer = Buffer.from(expectedSignature, 'hex');
+  const providedBuffer = Buffer.from(signatureString, 'hex');
+
+  if (expectedBuffer.length !== providedBuffer.length) {
+    return false;
+  }
+
+  try {
+    return crypto.timingSafeEqual(expectedBuffer, providedBuffer);
+  } catch {
+    return false;
+  }
+};
 
 const findOrder = async (orderId) => {
   if (!orderId) return null;
@@ -27,8 +63,11 @@ export const createCheckoutSession = async (req, res) => {
   try {
     const { amount, currency = 'INR', orderId, items } = req.body || {};
 
-    if (!process.env.STRIPE_SECRET_KEY) {
-      return res.status(500).json({ error: 'Stripe secret key not configured on server' });
+    if (!process.env.STRIPE_ENABLED || !process.env.STRIPE_SECRET_KEY) {
+      return res.status(503).json({ error: 'Stripe is not enabled on this server' });
+    }
+    if (!stripe) {
+      return res.status(500).json({ error: 'Stripe client is not configured on server' });
     }
 
     const line_items = Array.isArray(items) && items.length
@@ -68,6 +107,10 @@ export const createCheckoutSession = async (req, res) => {
 };
 
 export const handleWebhook = async (req, res) => {
+  if (!process.env.STRIPE_ENABLED || !process.env.STRIPE_WEBHOOK_SECRET) {
+    return res.status(503).send('Stripe webhook is not enabled');
+  }
+
   const signature = req.headers['stripe-signature'];
   const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
 
@@ -120,8 +163,11 @@ export const createRazorpayOrder = async (req, res) => {
   try {
     const { amount, currency = 'INR', orderId, items } = req.body || {};
 
-    if (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET) {
-      return res.status(500).json({ error: 'Razorpay keys not configured on server' });
+    if (!process.env.RAZORPAY_ENABLED || !process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET) {
+      return res.status(503).json({ error: 'Razorpay is not enabled on this server' });
+    }
+    if (!razorInstance) {
+      return res.status(500).json({ error: 'Razorpay client is not configured on server' });
     }
 
     const numericAmount = Number(amount || 0);
@@ -137,6 +183,15 @@ export const createRazorpayOrder = async (req, res) => {
     if (orderId) {
       const localOrder = await findOrder(orderId);
       if (!localOrder) return res.status(404).json({ error: 'Order not found' });
+      const serviceability = await checkDeliveryServiceability({
+        country: localOrder.shippingAddress?.country,
+        state: localOrder.shippingAddress?.state,
+        city: localOrder.shippingAddress?.city,
+        pincode: localOrder.shippingAddress?.postalCode,
+      });
+      if (!serviceability.valid || !serviceability.serviceable) {
+        return res.status(400).json({ error: 'Payment is unavailable for the selected delivery address' });
+      }
       const expectedAmount = Math.round(Number(localOrder.totalAmount) * 100);
       if (expectedAmount !== numericAmount) {
         return res.status(400).json({ error: 'Payment amount does not match the order total' });
@@ -166,25 +221,33 @@ export const verifyRazorpayPayment = async (req, res) => {
   try {
     const { razorpay_order_id, razorpay_payment_id, razorpay_signature, orderId } = req.body || {};
 
+    if (!process.env.RAZORPAY_ENABLED || !process.env.RAZORPAY_KEY_SECRET) {
+      return res.status(503).json({ success: false, error: 'Razorpay is not enabled on this server' });
+    }
+
     if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
       return res.status(400).json({ success: false, error: 'Missing payment verification fields' });
     }
 
-    const expectedSignature = crypto
-      .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET || '')
-      .update(`${razorpay_order_id}|${razorpay_payment_id}`)
-      .digest('hex');
+    const isValidSignature = verifyRazorpaySignature(
+      process.env.RAZORPAY_KEY_SECRET,
+      razorpay_order_id,
+      razorpay_payment_id,
+      razorpay_signature,
+    );
 
-    const expectedBuffer = Buffer.from(expectedSignature, 'hex');
-    const providedBuffer = Buffer.from(String(razorpay_signature), 'hex');
-    if (expectedBuffer.length !== providedBuffer.length || !crypto.timingSafeEqual(expectedBuffer, providedBuffer)) {
-      console.error('Razorpay signature mismatch', { expectedSignature, razorpay_signature });
+    if (!isValidSignature) {
+      console.error('Razorpay signature mismatch', { razorpay_order_id, razorpay_payment_id, razorpay_signature });
       return res.status(400).json({ success: false, error: 'Invalid signature' });
     }
 
-    // Mark order as paid in DB if orderId provided
     if (orderId) {
       try {
+        const existingPayment = await Payment.findOne({ paymentId: razorpay_payment_id }).lean();
+        if (existingPayment) {
+          return res.json({ success: true, order: { orderNumber: existingPayment.orderId } });
+        }
+
         const order = await findOrder(orderId);
         if (!order) throw new Error('Order not found');
         if (order.paymentStatus === 'PAID' && order.paymentTransactionId === razorpay_payment_id) {

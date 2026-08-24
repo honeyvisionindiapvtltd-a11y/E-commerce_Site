@@ -2,6 +2,13 @@
 // This is used only when the API is unavailable
 export const products = [];
 
+export const productIdOf = (value) => {
+  if (!value || typeof value !== "object") return value ?? null;
+
+  const candidate = value.productId ?? value.id ?? value._id ?? value.product ?? null;
+  return candidate && typeof candidate === "object" ? productIdOf(candidate) : candidate;
+};
+
 // Product bundle recommendations are now managed by the backend API
 export const bundleByProductId = {};
 

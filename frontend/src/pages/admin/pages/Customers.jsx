@@ -4,6 +4,8 @@ import PageHeader from "../components/PageHeader";
 import Toolbar from "../components/Toolbar";
 import Table from "../components/Table";
 
+const API_BASE = import.meta.env.VITE_API_URL || "/api";
+
 const getAuthToken = () => {
   try {
     const raw = localStorage.getItem("honey-vision-commerce");
@@ -18,7 +20,7 @@ const getAuthToken = () => {
 const loadCustomers = async () => {
   const token = getAuthToken();
   const headers = token ? { Authorization: `Bearer ${token}` } : {};
-  const response = await fetch("/api/auth/customers", { headers });
+  const response = await fetch(`${API_BASE}/auth/customers`, { headers });
 
   if (!response.ok) {
     throw new Error("Unable to load customers");
@@ -66,7 +68,7 @@ export default function Customers() {
   const toggleCustomer = async (customer) => {
     const nextStatus = customer.status === "Active" ? "Blocked" : "Active";
     const token = getAuthToken();
-    const response = await fetch(`/api/auth/customers/${customer.id}/status`, {
+    const response = await fetch(`${API_BASE}/auth/customers/${customer.id}/status`, {
       method: "PUT",
       headers: {
         "Content-Type": "application/json",

@@ -15,6 +15,8 @@ import Reports from "./pages/Reports";
 import AdminUsers from "./pages/AdminUsers";
 import Settings from "./pages/Settings";
 import DeliveryAgents from "./pages/DeliveryAgents";
+import DeliveryZones from "./pages/DeliveryZones";
+import SupportTickets from "./pages/SupportTickets";
 
 export default function AdminRoutes() {
   return (
@@ -31,11 +33,13 @@ export default function AdminRoutes() {
         <Route path="reviews" element={<Reviews />} />
         <Route path="delivery" element={<Delivery />} />
         <Route path="delivery-agents" element={<DeliveryAgents />} />
+        <Route path="delivery-zones" element={<DeliveryZones />} />
         <Route path="payments" element={<Payments />} />
         <Route path="blogs" element={<Blogs />} />
         <Route path="reports" element={<Reports />} />
         <Route path="admin-users" element={<AdminUsers />} />
         <Route path="settings" element={<Settings />} />
+        <Route path="support" element={<SupportTickets />} />
       </Route>
       <Route path="*" element={<Navigate to="/admin" replace />} />
     </Routes>

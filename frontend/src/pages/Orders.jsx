@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from "react-router-dom";
 import { ArrowRight, CreditCard, PackageCheck, Search, Filter, ChevronRight, Loader } from "lucide-react";
-import { useCommerce } from "../context/CommerceContext";
+import { useCommerce } from "../context/index.js";
 import useRealtimeUpdates from '../hooks/useRealtimeUpdates';
 import useNotifications from '../hooks/useNotifications';
 import { ORDER_STATUSES } from '../services/orderTrackingService';

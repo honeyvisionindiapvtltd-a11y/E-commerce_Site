@@ -1,8 +1,9 @@
 import jwt from "jsonwebtoken";
 import "dotenv/config";
 import User from "../models/User.js";
+import { getJwtSecret } from "../config/env.js";
 
-const jwtSecret = process.env.JWT_SECRET || "honeyvision_secret_key_2024";
+const jwtSecret = getJwtSecret();
 
 // ==========================================
 // AUTHENTICATION MIDDLEWARE
@@ -77,6 +78,25 @@ export const requireDeliveryAgentOrAdmin = (req, res, next) => {
   }
 
   next();
+};
+
+export const requireOwnershipOrAdmin = (resourceUserId, req, res) => {
+  if (!req.user) {
+    return false;
+  }
+
+  const isOwner = resourceUserId && String(resourceUserId) === String(req.user._id);
+  const isAdmin = req.user.role === "admin";
+
+  if (!isOwner && !isAdmin) {
+    res.status(403).json({
+      success: false,
+      message: "Access denied",
+    });
+    return false;
+  }
+
+  return true;
 };
 
 // ==========================================

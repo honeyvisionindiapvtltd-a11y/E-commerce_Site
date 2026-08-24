@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useCommerce } from '../context/CommerceContext';
+import { useCommerce } from '../context/index.js';
 import ProductCard from './ProductCard';
 import QuickView from './QuickView';
 import { money } from '../lib/products';

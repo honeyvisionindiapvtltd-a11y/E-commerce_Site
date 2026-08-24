@@ -42,6 +42,26 @@ export const createOrder = async (req, res) => {
       });
     }
 
+    const normalizedShippingAddress = {
+      name: shippingAddress.name || shippingAddress.fullName,
+      phone: shippingAddress.phone,
+      addressLine1: shippingAddress.addressLine1 || shippingAddress.line1 || shippingAddress.address,
+      addressLine2: shippingAddress.addressLine2 || shippingAddress.line2 || "",
+      landmark: shippingAddress.landmark || "",
+      district: shippingAddress.district || "",
+      city: shippingAddress.city,
+      state: shippingAddress.state,
+      postalCode: shippingAddress.postalCode || shippingAddress.pincode || shippingAddress.pinCode || shippingAddress.pin,
+      pincode: shippingAddress.pincode || shippingAddress.postalCode || shippingAddress.pinCode || shippingAddress.pin,
+      country: shippingAddress.country || "India",
+      latitude: Number.isFinite(Number(shippingAddress.latitude)) ? Number(shippingAddress.latitude) : undefined,
+      longitude: Number.isFinite(Number(shippingAddress.longitude)) ? Number(shippingAddress.longitude) : undefined,
+    };
+
+    if (!normalizedShippingAddress.name || !normalizedShippingAddress.addressLine1 || !normalizedShippingAddress.city || !normalizedShippingAddress.state || !/^\d{6}$/.test(String(normalizedShippingAddress.postalCode || ""))) {
+      return res.status(400).json({ success: false, message: "A complete valid shipping address is required." });
+    }
+
     let subtotal = 0;
 
     const orderItems = [];
@@ -125,7 +145,7 @@ export const createOrder = async (req, res) => {
           ? "pending"
           : "pending",
 
-      shippingAddress,
+      shippingAddress: normalizedShippingAddress,
 
       deliveryType,
 

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useCommerce } from '../context/CommerceContext';
+import { useCommerce } from '../context/index.js';
 
 export default function DeliveryChecker({ productId = null, title = 'Check delivery availability' }) {
   const { deliveryPin, checkDeliveryByPincode, checkDeliveryByLocation, setDeliveryPin } = useCommerce();

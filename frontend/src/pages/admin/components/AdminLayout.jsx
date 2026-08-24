@@ -1,9 +1,9 @@
 import { useMemo, useState } from "react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
-import { useCommerce } from "../../../context/CommerceContext";
+import { useCommerce } from "../../../context/index.js";
 import {
   Activity, BarChart3, Bell, Box, ChevronDown, ClipboardList,
-  CreditCard, FileText, HelpCircle, LayoutDashboard, LogOut, Menu,
+  CreditCard, FileText, HelpCircle, LayoutDashboard, LogOut, MapPin, Menu,
   Package, Percent, Settings, ShieldCheck, ShoppingCart, Star, Truck,
   User, Users, UserRoundCog, X
 } from "lucide-react";
@@ -16,7 +16,7 @@ const groups = [
     ["Inventory","/admin/inventory",Box]
   ]},
   {title:"MARKETING", items:[["Coupons & Offers","/admin/coupons",Percent],["Reviews","/admin/reviews",Star]]},
-  {title:"OPERATIONS", items:[["Delivery","/admin/delivery",Truck],["Delivery Agents","/admin/delivery-agents",UserRoundCog],["Payments","/admin/payments",CreditCard]]},
+  {title:"OPERATIONS", items:[["Delivery","/admin/delivery",Truck],["Delivery Agents","/admin/delivery-agents",UserRoundCog],["Delivery Zones","/admin/delivery-zones",MapPin],["Payments","/admin/payments",CreditCard],["Support Tickets","/admin/support",HelpCircle]]},
   {title:"CONTENT & REPORTS", items:[["Website & Blogs","/admin/blogs",FileText],["Reports","/admin/reports",BarChart3]]},
   {title:"ADMINISTRATION", items:[["Admin Users","/admin/admin-users",ShieldCheck],["Settings","/admin/settings",Settings]]}
 ];

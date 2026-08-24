@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { useCommerce } from "../context/CommerceContext";
+import { useCommerce } from "../context/index.js";
+import DeliveryAvailability from "../components/DeliveryAvailability";
 import { money, normalizeProduct } from "../lib/products";
 import {
   Heart,
@@ -16,6 +17,8 @@ import {
   ChevronRight,
   GitCompareArrows,
 } from "lucide-react";
+
+const API_BASE = import.meta.env.VITE_API_URL || "/api";
 
 export default function ProductDetails() {
   const { productId } = useParams();
@@ -39,7 +42,7 @@ export default function ProductDetails() {
       }
 
       try {
-        const response = await fetch(`/api/products/${productId}`);
+        const response = await fetch(`${API_BASE}/products/${productId}`);
         if (!response.ok) throw new Error("Product not found");
 
         const data = await response.json();
@@ -288,6 +291,10 @@ export default function ProductDetails() {
             {shareStatus && (
               <p className="mt-4 text-sm text-green-600">{shareStatus}</p>
             )}
+
+            <div className="mt-6">
+              <DeliveryAvailability />
+            </div>
           </div>
         </div>
 

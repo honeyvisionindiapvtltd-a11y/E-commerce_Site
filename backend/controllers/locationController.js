@@ -1,6 +1,7 @@
 import { reverseGeocodeCoordinates } from '../services/geocodingService.js';
 import { isValidLatitude, isValidLongitude, parseLatitude, parseLongitude, normalizePincode, isValidPincode } from '../middleware/validation.js';
 import { verifyDeliveryByPincode, findDeliveryDocument } from '../services/deliveryService.js';
+import { checkDeliveryServiceability } from '../services/deliveryServiceabilityService.js';
 
 export async function checkLocation(req, res) {
   const latitude = parseLatitude(req.body.latitude);
@@ -13,14 +14,15 @@ export async function checkLocation(req, res) {
 
   try {
     const location = await reverseGeocodeCoordinates(latitude, longitude);
+    const serviceability = await checkDeliveryServiceability(location);
     const delivery = await verifyDeliveryByPincode(location.pincode, productId);
 
     return res.json({
       success: true,
-      serviceable: delivery.serviceable,
+      serviceable: serviceability.valid && serviceability.serviceable,
       location,
-      delivery: delivery.delivery,
-      message: delivery.serviceable
+      delivery: serviceability.valid && serviceability.serviceable ? delivery.delivery : null,
+      message: serviceability.valid && serviceability.serviceable
         ? 'Delivery is available at your location.'
         : 'Sorry, delivery is currently not available at this location.',
     });
@@ -39,16 +41,22 @@ export async function checkPincode(req, res) {
   }
 
   const deliveryDocument = await findDeliveryDocument(pincode, productId);
-  const serviceable = Boolean(deliveryDocument?.serviceable && deliveryDocument?.active);
+  const serviceability = await checkDeliveryServiceability({
+    country: req.query.country || '',
+    state: req.query.state || '',
+    city: req.query.city || '',
+    pincode,
+  });
+  const serviceable = serviceability.valid && serviceability.serviceable;
 
   return res.json({
     success: true,
     serviceable,
     location: {
       pincode,
-      city: deliveryDocument?.city || '',
-      state: deliveryDocument?.state || '',
-      country: deliveryDocument?.country || 'India',
+      city: serviceability.location?.city || '',
+      state: serviceability.location?.state || '',
+      country: serviceability.location?.country || 'India',
     },
     delivery: serviceable
       ? {

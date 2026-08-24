@@ -6,6 +6,7 @@ import {
   getMyOrders,
   getOrderByNumber,
   getOrderTracking,
+  updateOrderDestination,
   updateOrderStatus,
   updateOrderTracking,
   addTrackingEvent,
@@ -32,7 +33,7 @@ router.get("/my-orders", protect, getMyOrders);
 router.post("/:orderNumber/cancel", protect, cancelOrder);
 
 // Debug: List all orders (for testing)
-router.get("/debug/all-orders", async (req, res) => {
+router.get("/debug/all-orders", protect, requireAdmin, async (req, res) => {
   try {
     const Order = (await import("../models/Order.js")).default;
     const orders = await Order.find().select("orderNumber status totalAmount createdAt user").limit(50);
@@ -68,6 +69,7 @@ router.get("/:orderNumber", protect, getOrderByNumber);
 
 // Get order tracking information
 router.get("/:orderNumber/tracking", protect, getOrderTracking);
+router.patch("/:orderNumber/destination", protect, updateOrderDestination);
 
 // ======================================================
 // ADMIN ROUTES - Order Management

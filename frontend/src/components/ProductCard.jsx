@@ -1,7 +1,8 @@
 import { Link } from 'react-router-dom';
 import { Heart, Star } from 'lucide-react';
 import { money } from '../lib/products';
-import { useCommerce } from '../context/CommerceContext';
+import { useCommerce } from '../context/index.js';
+import { productIdOf } from '../lib/products';
 
 export default function ProductCard({ product, onQuickView = () => {} }) {
   const { addToCart, toggleWishlist, wishlist } = useCommerce();
@@ -46,7 +47,7 @@ export default function ProductCard({ product, onQuickView = () => {} }) {
         <p className="mt-2 text-xs font-medium text-green-700">{product.delivery}</p>
 
         <div className="mt-4 flex gap-2">
-          <button onClick={() => addToCart(product.id)} disabled={isOutOfStock} aria-label={isOutOfStock ? `${product.name} is out of stock` : `Add ${product.name} to cart`} className="flex-1 rounded-lg bg-[#071426] px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-slate-300">{isOutOfStock ? 'Out of stock' : 'Add to cart'}</button>
+          <button onClick={() => addToCart(productIdOf(product))} disabled={isOutOfStock} aria-label={isOutOfStock ? `${product.name} is out of stock` : `Add ${product.name} to cart`} className="flex-1 rounded-lg bg-[#071426] px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-slate-300">{isOutOfStock ? 'Out of stock' : 'Add to cart'}</button>
           <button onClick={() => onQuickView(product)} aria-label={`Quick view ${product.name}`} className="w-12 rounded-lg border border-slate-200 bg-white">Quick</button>
         </div>
       </div>

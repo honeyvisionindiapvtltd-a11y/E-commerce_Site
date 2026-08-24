@@ -4,9 +4,10 @@ import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import nodemailer from 'nodemailer';
 import User from '../models/User.js';
+import { getJwtSecret } from '../config/env.js';
 
 const router = Router();
-const jwtSecret = process.env.JWT_SECRET || 'honeyvision-default-secret';
+const jwtSecret = getJwtSecret();
 const jwtExpiresIn = '7d';
 
 const getSafeUser = (user) => ({

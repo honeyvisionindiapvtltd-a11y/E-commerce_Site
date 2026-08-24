@@ -1,6 +1,6 @@
 import { X } from 'lucide-react';
 import { money } from '../lib/products';
-import { useCommerce } from '../context/CommerceContext';
+import { useCommerce } from '../context/index.js';
 
 export default function QuickView({ product, onClose }) {
   const { addToCart } = useCommerce();

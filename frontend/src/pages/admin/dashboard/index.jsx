@@ -7,8 +7,10 @@ import StatCard from "./StatCard";
 import { loadAdminData } from "../adminData";
 import { adminList } from "../api";
 import { products as projectProducts } from "../../../lib/products";
-import { useCommerce } from "../../../context/CommerceContext";
+import { useCommerce } from "../../../context/index.js";
 import { getStatusLabel } from "../../../services/orderTrackingService";
+
+const API_BASE = import.meta.env.VITE_API_URL || "/api";
 
 const productImages = {
   "4MP AI CCTV Camera": "https://res.cloudinary.com/vhrkwyzs/image/upload/v1786174380/blog2_fyfiq2.png",
@@ -125,7 +127,7 @@ export default function DashboardIndex() {
       try {
         const headers = { Authorization: `Bearer ${authToken}` };
         const [ordersResponse, products, categories] = await Promise.all([
-          fetch("/api/admin/orders?limit=100", { headers }),
+          fetch(`${API_BASE}/admin/orders?limit=100`, { headers }),
           adminList("products"),
           adminList("categories"),
         ]);

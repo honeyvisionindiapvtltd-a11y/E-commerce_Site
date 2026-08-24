@@ -1,0 +1,118 @@
+import { createElement } from "react";
+import { AuthProvider, useAuth } from "./AuthContext";
+import { CartProvider, useCart } from "./CartContext";
+import { WishlistProvider, useWishlist } from "./WishlistContext";
+import { ProfileProvider, useProfile } from "./ProfileContext";
+import { UIProvider, useUI } from "./UIContext";
+import { CatalogProvider, useCatalog } from "./CatalogContext";
+import { DeliveryProvider, useDelivery } from "./DeliveryContext";
+import { OrdersProvider, useOrders } from "./OrdersContext";
+
+/**
+ * CommerceProvider - Main wrapper for all commerce-related contexts
+ * Replaces the monolithic CommerceContext with a modular architecture
+ */
+export function CommerceProvider({ children }) {
+  const providers = [
+    AuthProvider,
+    CartProvider,
+    WishlistProvider,
+    ProfileProvider,
+    UIProvider,
+    CatalogProvider,
+    DeliveryProvider,
+    OrdersProvider,
+  ];
+
+  return providers.reduceRight(
+    (content, Provider) => createElement(Provider, null, content),
+    children
+  );
+}
+
+/**
+ * useCommerce - Compatibility hook that assembles the old useCommerce interface
+ * This allows existing components to continue working without immediate refactoring
+ */
+export function useCommerce() {
+  const auth = useAuth();
+  const cartCtx = useCart();
+  const wishlistCtx = useWishlist();
+  const profileCtx = useProfile();
+  const uiCtx = useUI();
+  const catalogCtx = useCatalog();
+  const deliveryCtx = useDelivery();
+  const ordersCtx = useOrders();
+
+  return {
+    // Auth
+    isLoggedIn: auth.isLoggedIn,
+    user: auth.user,
+    authToken: auth.authToken,
+    login: auth.login,
+    register: auth.register,
+    logout: auth.logout,
+    loginWithGoogle: auth.loginWithGoogle,
+    requestPasswordReset: auth.requestPasswordReset,
+    resetPassword: auth.resetPassword,
+
+    // Cart
+    cart: cartCtx.cart,
+    addToCart: cartCtx.addToCart,
+    removeFromCart: cartCtx.removeFromCart,
+    setQuantity: cartCtx.setQuantity,
+    clearCart: cartCtx.clearCart,
+
+    // Wishlist
+    wishlist: wishlistCtx.wishlist,
+    toggleWishlist: wishlistCtx.toggleWishlist,
+    clearWishlist: wishlistCtx.clearWishlist,
+    moveWishlistToCart: (productIds) => wishlistCtx.moveToCart(productIds, cartCtx.addToCart),
+
+    // Profile
+    profile: profileCtx.profile,
+    addresses: profileCtx.addresses,
+    paymentMethods: profileCtx.paymentMethods,
+    fetchProfile: profileCtx.fetchProfile,
+    updateProfile: profileCtx.updateProfile,
+    fetchAddresses: profileCtx.fetchAddresses,
+    addAddress: profileCtx.addAddress,
+    updateAddress: profileCtx.updateAddress,
+    removeAddress: profileCtx.removeAddress,
+    setDefaultAddress: profileCtx.setDefaultAddress,
+    validateAddress: profileCtx.validateAddress,
+    refreshAddresses: profileCtx.fetchAddresses,
+    addPaymentMethod: profileCtx.addPaymentMethod,
+    removePaymentMethod: profileCtx.removePaymentMethod,
+    setDefaultPaymentMethod: profileCtx.setDefaultPaymentMethod,
+
+    // UI
+    notifications: uiCtx.notifications,
+    accountSettings: uiCtx.accountSettings,
+    toggleNotification: uiCtx.toggleNotification,
+    toggleAccountSetting: uiCtx.toggleAccountSetting,
+
+    // Catalog
+    products: catalogCtx.products,
+
+    // Delivery
+    deliveryPin: deliveryCtx.deliveryPin,
+    deliveryLocation: deliveryCtx.deliveryLocation,
+    couponApplied: deliveryCtx.couponApplied,
+    setCouponApplied: deliveryCtx.setCouponApplied,
+    setDeliveryPin: deliveryCtx.setDeliveryPin,
+    checkDeliveryByPincode: deliveryCtx.checkDeliveryByPincode,
+    checkDeliveryByLocation: deliveryCtx.checkDeliveryByLocation,
+
+    // Orders
+    orders: ordersCtx.orders,
+    installationBookings: ordersCtx.installationBookings,
+    placeOrder: ordersCtx.placeOrder,
+    fetchOrders: ordersCtx.fetchOrders,
+    fetchInstallations: ordersCtx.fetchInstallations,
+    addInstallationBooking: ordersCtx.addInstallationBooking,
+
+    // Internal helpers
+    requestJson: auth.requestJson,
+  };
+}

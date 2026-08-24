@@ -9,6 +9,8 @@ import {
   Clock3,
 } from "lucide-react";
 
+const API_BASE = import.meta.env.VITE_API_URL || "/api";
+
 const formatPrice = (value) => {
   return `₹${Number(value || 0).toLocaleString("en-IN")}`;
 };
@@ -53,7 +55,7 @@ export default function PaymentSuccess() {
 
   useEffect(() => {
     if (!order && orderId) {
-      fetch(`/api/payments/order/${encodeURIComponent(orderId)}`)
+      fetch(`${API_BASE}/payments/order/${encodeURIComponent(orderId)}`)
         .then(async (resp) => {
           if (!resp.ok) {
             const body = await resp.json().catch(() => ({}));

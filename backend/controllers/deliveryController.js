@@ -455,6 +455,8 @@ export const updateDeliveryLocation = async (req, res) => {
     const accuracy = req.body?.accuracy === undefined || req.body?.accuracy === null
       ? null
       : Number(req.body.accuracy);
+    const heading = req.body?.heading === undefined || req.body?.heading === null ? null : Number(req.body.heading);
+    const speed = req.body?.speed === undefined || req.body?.speed === null ? null : Number(req.body.speed);
 
     if (!isFiniteNumber(latitude) || latitude < -90 || latitude > 90) {
       return res.status(400).json({ success: false, message: "Latitude must be between -90 and 90" });
@@ -465,12 +467,18 @@ export const updateDeliveryLocation = async (req, res) => {
     if (accuracy !== null && (!isFiniteNumber(accuracy) || accuracy < 0)) {
       return res.status(400).json({ success: false, message: "Accuracy must be a non-negative number" });
     }
+    if (heading !== null && (!isFiniteNumber(heading) || heading < 0 || heading > 360)) {
+      return res.status(400).json({ success: false, message: "Heading must be between 0 and 360" });
+    }
+    if (speed !== null && (!isFiniteNumber(speed) || speed < 0)) {
+      return res.status(400).json({ success: false, message: "Speed must be a non-negative number" });
+    }
     if (latitude === 0 && longitude === 0) {
       return res.status(400).json({ success: false, message: "Zero coordinates are not valid delivery location data" });
     }
 
     const updatedAt = new Date();
-    order.deliveryLocation = { latitude, longitude, accuracy, updatedAt };
+    order.deliveryLocation = { deliveryAgentId: req.user._id, latitude, longitude, accuracy, heading, speed, updatedAt };
     await order.save();
 
     if (process.env.NODE_ENV !== "production") {

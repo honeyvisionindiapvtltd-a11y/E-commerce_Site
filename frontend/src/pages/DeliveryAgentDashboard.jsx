@@ -1,12 +1,23 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { CheckCircle2, KeyRound, LogOut, MapPin, Navigation, Package, Phone, Play, RefreshCw, Truck, X } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { useCommerce } from "../context/CommerceContext";
+import { useCommerce } from "../context/index.js";
+import LiveDeliveryMap from "../components/LiveDeliveryMap";
 import { isValidLocation } from "../lib/deliveryLocation";
+import { LOCATION_DELAYED_THRESHOLD_MS } from "../utils/locationUtils";
+import { geocodeAddress } from "../utils/locationUtils";
 
 const API_BASE = import.meta.env.VITE_API_URL || "/api";
 const LOCATION_MIN_INTERVAL_MS = 15000;
 const LOCATION_MIN_DISTANCE_METERS = 50;
+
+const geocodeCustomerAddress = async (order) => {
+  try {
+    return await geocodeAddress(order.shippingAddress);
+  } catch {
+    return null;
+  }
+};
 
 const distanceInMeters = (first, second) => {
   const earthRadius = 6371000;
@@ -43,6 +54,7 @@ export default function DeliveryAgentDashboard() {
   const [loading, setLoading] = useState(true);
   const [workingOrder, setWorkingOrder] = useState(null);
   const [error, setError] = useState("");
+  const [customerLocations, setCustomerLocations] = useState({});
   const [completionOrder, setCompletionOrder] = useState(null);
   const [completionOtp, setCompletionOtp] = useState("");
   const [completionNotes, setCompletionNotes] = useState("");
@@ -51,10 +63,31 @@ export default function DeliveryAgentDashboard() {
   const [failureReason, setFailureReason] = useState("");
   const [failureNotes, setFailureNotes] = useState("");
   const [failureError, setFailureError] = useState("");
+  const retryLocationAccess = () => {
+    if (!navigator.geolocation) {
+      setError("Geolocation is not supported by this browser.");
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      () => {
+        setError("");
+      },
+      () => {
+        setError("Location permission is required to share your live delivery location.");
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 20000,
+        maximumAge: 10000,
+      },
+    );
+  };
   const [successMessage, setSuccessMessage] = useState("");
   const [developmentOtps, setDevelopmentOtps] = useState({});
   const [locationStates, setLocationStates] = useState({});
   const [locationDebug, setLocationDebug] = useState({});
+  const [currentAgentLocation, setCurrentAgentLocation] = useState(null);
   const locationWatchesRef = useRef(new Map());
   const locationMetaRef = useRef(new Map());
 
@@ -80,6 +113,39 @@ export default function DeliveryAgentDashboard() {
     const initialLoad = window.setTimeout(loadOrders, 0);
     return () => window.clearTimeout(initialLoad);
   }, [authToken, loadOrders]);
+
+  useEffect(() => {
+    let active = true;
+
+    const resolveCustomerLocations = async () => {
+      const nextLocations = {};
+
+      for (const order of orders.filter((entry) => entry.status === "OUT_FOR_DELIVERY")) {
+        const direct = getCustomerLocation(order);
+        if (direct) {
+          nextLocations[order.orderNumber] = direct;
+          continue;
+        }
+
+        const geocoded = await geocodeCustomerAddress(order);
+        if (active && geocoded) {
+          nextLocations[order.orderNumber] = geocoded;
+        }
+      }
+
+      if (active) {
+        setCustomerLocations((current) => ({ ...current, ...nextLocations }));
+      }
+    };
+
+    if (orders.length) {
+      resolveCustomerLocations();
+    }
+
+    return () => {
+      active = false;
+    };
+  }, [orders]);
 
   useEffect(() => {
     const activeOrderNumbers = new Set(orders.filter((order) => order.status === "OUT_FOR_DELIVERY").map((order) => order.orderNumber));
@@ -132,6 +198,13 @@ export default function DeliveryAgentDashboard() {
           latitude: position.coords.latitude,
           longitude: position.coords.longitude,
         };
+        setCurrentAgentLocation({
+          ...coordinates,
+          accuracy: position.coords.accuracy,
+          heading: position.coords.heading,
+          speed: position.coords.speed,
+          updatedAt: new Date().toISOString(),
+        });
         if (import.meta.env.DEV) {
           setLocationDebug((current) => ({
             ...current,
@@ -165,8 +238,11 @@ export default function DeliveryAgentDashboard() {
               Authorization: `Bearer ${authToken}`,
             },
             body: JSON.stringify({
+              orderNumber,
               ...coordinates,
               accuracy: position.coords.accuracy,
+              heading: position.coords.heading,
+              speed: position.coords.speed,
             }),
           });
           const payload = await response.json().catch(() => ({}));
@@ -251,6 +327,21 @@ export default function DeliveryAgentDashboard() {
     locationWatchesRef.current.forEach((watchId) => navigator.geolocation?.clearWatch(watchId));
     locationWatchesRef.current.clear();
     locationMetaRef.current.clear();
+  }, []);
+
+  useEffect(() => {
+    const freshnessTimer = window.setInterval(() => {
+      const now = Date.now();
+      locationMetaRef.current.forEach((meta, orderNumber) => {
+        if (now - meta.sentAt >= LOCATION_DELAYED_THRESHOLD_MS) {
+          setLocationStates((current) => current[orderNumber] === "active"
+            ? { ...current, [orderNumber]: "delayed" }
+            : current);
+        }
+      });
+    }, 30000);
+
+    return () => window.clearInterval(freshnessTimer);
   }, []);
 
   const handleLogout = () => {
@@ -387,7 +478,7 @@ export default function DeliveryAgentDashboard() {
         <div className="grid gap-5 lg:grid-cols-2">
           {visibleOrders.map((order) => {
             const busy = workingOrder === order.orderNumber;
-            const customerLocation = getCustomerLocation(order);
+            const customerLocation = customerLocations[order.orderNumber] || getCustomerLocation(order);
             return (
               <article key={order._id || order.orderNumber} className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
                 <div className="flex items-start justify-between gap-4">
@@ -409,6 +500,7 @@ export default function DeliveryAgentDashboard() {
                       {{
                         starting: "Getting current location...",
                         active: "Location sharing active",
+                        delayed: "Location update delayed. Trying to refresh your location...",
                         denied: "Location permission denied. Delivery can continue without GPS.",
                         unsupported: "This browser does not support GPS. Delivery can continue.",
                         timeout: "GPS timed out. Waiting for another location.",
@@ -419,6 +511,11 @@ export default function DeliveryAgentDashboard() {
                         "not-assigned": "This order is no longer assigned to this delivery agent.",
                       }[locationStates[order.orderNumber]] || "Waiting for GPS permission..."}
                     </p>
+                    {['denied', 'timeout', 'unavailable', 'unsupported'].includes(locationStates[order.orderNumber]) && (
+                      <button type="button" onClick={retryLocationAccess} className="mt-2 inline-flex items-center gap-2 rounded-lg bg-slate-900 px-3 py-2 text-[11px] font-semibold text-white">
+                        <Navigation size={13} /> Retry location access
+                      </button>
+                    )}
                   </div>
                 )}
                 {import.meta.env.DEV && order.status === "OUT_FOR_DELIVERY" && (
@@ -456,14 +553,24 @@ export default function DeliveryAgentDashboard() {
                     </span>
                   )}
                   {order.status === "OUT_FOR_DELIVERY" && customerLocation ? (
+                  <>
                     <button
                       type="button"
-                      onClick={() => window.open(`https://www.google.com/maps/dir/?api=1&destination=${customerLocation.latitude},${customerLocation.longitude}`, "_blank", "noopener,noreferrer")}
+                      onClick={() => window.open(`https://www.google.com/maps/dir/?api=1&destination=${customerLocation.latitude},${customerLocation.longitude}&travelmode=driving`, "_blank", "noopener,noreferrer")}
                       className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
                     >
-                      <Navigation size={15} /> Navigate to customer
+                      <Navigation size={15} /> Start navigation
                     </button>
-                  ) : null}
+                    <div className="mt-4">
+                      <LiveDeliveryMap
+                        agentLocation={currentAgentLocation}
+                        customerLocation={customerLocation}
+                        order={order}
+                        isTracking
+                      />
+                    </div>
+                  </>
+                ) : null}
                   {order.status === "OUT_FOR_DELIVERY" && !customerLocation && (
                     <span className="inline-flex items-center gap-2 text-xs text-slate-500">
                       <Navigation size={14} /> Customer coordinates unavailable

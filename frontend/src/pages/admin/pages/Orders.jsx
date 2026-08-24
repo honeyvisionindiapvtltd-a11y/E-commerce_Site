@@ -1,11 +1,13 @@
 ﻿import { useEffect, useState } from "react";
 import { Eye } from "lucide-react";
-import { useCommerce } from "../../../context/CommerceContext";
+import { useCommerce } from "../../../context/index.js";
 import { ORDER_STATUSES, getStatusLabel } from "../../../services/orderTrackingService";
 import PageHeader from "../components/PageHeader";
 import Toolbar from "../components/Toolbar";
 import Table from "../components/Table";
 import Modal from "../components/Modal";
+
+const API_BASE = import.meta.env.VITE_API_URL || "/api";
 
 const badge = (status) => ({
   ORDER_PLACED: "bg-amber-50 text-amber-600",
@@ -59,7 +61,7 @@ export default function Orders() {
 
   const refreshRows = async () => {
     try {
-      const response = await fetch("/api/admin/orders?limit=100", {
+      const response = await fetch(`${API_BASE}/admin/orders?limit=100`, {
         headers: { Authorization: `Bearer ${authToken}` },
       });
       if (response.ok) {
@@ -75,7 +77,7 @@ export default function Orders() {
     let active = true;
     const loadRows = async () => {
       try {
-        const response = await fetch("/api/admin/orders?limit=100", {
+        const response = await fetch(`${API_BASE}/admin/orders?limit=100`, {
           headers: { Authorization: `Bearer ${authToken}` },
         });
         if (response.ok) {
@@ -93,7 +95,7 @@ export default function Orders() {
 
   const update = async (id, status) => {
     try {
-      const response = await fetch(`/api/admin/orders/${encodeURIComponent(id)}/status`, {
+      const response = await fetch(`${API_BASE}/admin/orders/${encodeURIComponent(id)}/status`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",

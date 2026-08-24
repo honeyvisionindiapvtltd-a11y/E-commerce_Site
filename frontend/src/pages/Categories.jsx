@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
+const API_BASE = import.meta.env.VITE_API_URL || "/api";
 import {
   ChevronRight,
   ChevronDown,
@@ -34,7 +35,7 @@ export default function Categories() {
 
     const loadCategories = async () => {
       try {
-        const response = await fetch("/api/categories/tree");
+        const response = await fetch(`${API_BASE}/categories/tree`);
         if (!response.ok) throw new Error("Unable to load categories");
 
         const data = await response.json();

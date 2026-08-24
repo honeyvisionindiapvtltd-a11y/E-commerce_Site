@@ -10,10 +10,69 @@ import { updateOrderTracking } from '../services/orderTrackingService.js';
 import inventoryService from '../services/inventoryService.js';
 import { protect, requireAdmin } from '../middleware/authMiddleware.js';
 import User from '../models/User.js';
+import DeliveryZone from '../models/DeliveryZone.js';
 
 const router = express.Router();
 
 router.use(protect, requireAdmin);
+
+router.get('/delivery-zones', async (req, res) => {
+  try {
+    const filter = {};
+    if (req.query.city) filter.city = new RegExp(`^${String(req.query.city).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i');
+    if (req.query.pincode) filter.pincode = String(req.query.pincode).trim();
+    if (req.query.active !== undefined) filter.active = req.query.active === 'true';
+    if (req.query.serviceable !== undefined) filter.serviceable = req.query.serviceable === 'true';
+    const zones = await DeliveryZone.find(filter).sort({ city: 1, pincode: 1 }).lean();
+    res.json({ success: true, zones });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Failed to fetch delivery zones' });
+  }
+});
+
+router.get('/delivery-zones/:id', async (req, res) => {
+  const zone = await DeliveryZone.findById(req.params.id).lean();
+  if (!zone) return res.status(404).json({ success: false, message: 'Delivery zone not found' });
+  return res.json({ success: true, zone });
+});
+
+router.post('/delivery-zones', async (req, res) => {
+  try {
+    const zone = await DeliveryZone.create(req.body);
+    return res.status(201).json({ success: true, zone });
+  } catch (error) {
+    const duplicate = error.code === 11000;
+    return res.status(duplicate ? 409 : 400).json({ success: false, message: duplicate ? 'A zone already exists for this city and PIN code' : error.message });
+  }
+});
+
+router.put('/delivery-zones/:id', async (req, res) => {
+  try {
+    const zone = await DeliveryZone.findByIdAndUpdate(req.params.id, req.body, { new: true, runValidators: true });
+    if (!zone) return res.status(404).json({ success: false, message: 'Delivery zone not found' });
+    return res.json({ success: true, zone });
+  } catch (error) {
+    return res.status(error.code === 11000 ? 409 : 400).json({ success: false, message: error.code === 11000 ? 'A zone already exists for this city and PIN code' : error.message });
+  }
+});
+
+router.patch('/delivery-zones/:id/status', async (req, res) => {
+  const zone = await DeliveryZone.findByIdAndUpdate(req.params.id, { active: Boolean(req.body.active) }, { new: true, runValidators: true });
+  if (!zone) return res.status(404).json({ success: false, message: 'Delivery zone not found' });
+  return res.json({ success: true, zone });
+});
+
+router.patch('/delivery-zones/:id/serviceability', async (req, res) => {
+  const zone = await DeliveryZone.findByIdAndUpdate(req.params.id, { serviceable: Boolean(req.body.serviceable) }, { new: true, runValidators: true });
+  if (!zone) return res.status(404).json({ success: false, message: 'Delivery zone not found' });
+  return res.json({ success: true, zone });
+});
+
+router.delete('/delivery-zones/:id', async (req, res) => {
+  const zone = await DeliveryZone.findByIdAndDelete(req.params.id);
+  if (!zone) return res.status(404).json({ success: false, message: 'Delivery zone not found' });
+  return res.json({ success: true, message: 'Delivery zone deleted' });
+});
 
 /**
  * GET /api/admin/products

@@ -10,7 +10,7 @@ import {
 } from "lucide-react";
 
 import { Link, useNavigate } from "react-router-dom";
-import { useCommerce } from "../context/CommerceContext";
+import { useCommerce } from "../context/index.js";
 
 const RegisterImage = "https://res.cloudinary.com/vhrkwyzs/image/upload/v1786189630/register_gbw9qh.png";
 

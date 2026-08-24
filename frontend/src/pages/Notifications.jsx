@@ -1,5 +1,5 @@
 import { Bell, Mail, MessageSquareText, Smartphone, ShieldCheck } from "lucide-react";
-import { useCommerce } from "../context/CommerceContext";
+import { useCommerce } from "../context/index.js";
 
 const iconMap = {
   mail: Mail,

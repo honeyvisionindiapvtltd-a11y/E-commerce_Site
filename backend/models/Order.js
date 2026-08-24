@@ -93,6 +93,11 @@ const addressSchema = new mongoose.Schema(
       required: true,
     },
 
+    fullName: {
+      type: String,
+      default: "",
+    },
+
     phone: {
       type: String,
       required: true,
@@ -104,6 +109,16 @@ const addressSchema = new mongoose.Schema(
     },
 
     addressLine2: {
+      type: String,
+      default: "",
+    },
+
+    landmark: {
+      type: String,
+      default: "",
+    },
+
+    district: {
       type: String,
       default: "",
     },
@@ -121,6 +136,38 @@ const addressSchema = new mongoose.Schema(
     postalCode: {
       type: String,
       required: true,
+    },
+
+    pincode: {
+      type: String,
+      default: "",
+    },
+
+    latitude: {
+      type: Number,
+      min: -90,
+      max: 90,
+    },
+
+    longitude: {
+      type: Number,
+      min: -180,
+      max: 180,
+    },
+
+    locationResolved: {
+      type: Boolean,
+      default: false,
+    },
+
+    googlePlaceId: {
+      type: String,
+      default: "",
+    },
+
+    formattedAddress: {
+      type: String,
+      default: "",
     },
 
     country: {
@@ -157,6 +204,19 @@ const orderSchema = new mongoose.Schema(
     shippingAddress: {
       type: addressSchema,
       required: true,
+    },
+
+    deliveryDetails: {
+      serviceable: { type: Boolean, default: true },
+      country: { type: String, default: "India" },
+      state: { type: String, default: "Odisha" },
+      city: { type: String, default: "" },
+      pincode: { type: String, default: "" },
+      deliveryCharge: { type: Number, min: 0, default: 0 },
+      estimatedDeliveryDays: {
+        min: { type: Number, min: 0, default: 1 },
+        max: { type: Number, min: 0, default: 2 },
+      },
     },
 
     paymentMethod: {
@@ -304,9 +364,12 @@ const orderSchema = new mongoose.Schema(
     },
 
     deliveryLocation: {
+      deliveryAgentId: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
       latitude: { type: Number, default: null },
       longitude: { type: Number, default: null },
       accuracy: { type: Number, default: null },
+      heading: { type: Number, default: null },
+      speed: { type: Number, default: null },
       updatedAt: { type: Date, default: null },
     },
 

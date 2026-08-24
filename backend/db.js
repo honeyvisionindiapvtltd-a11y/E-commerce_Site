@@ -5,10 +5,10 @@ dotenv.config();
 
 const dbName = process.env.DB_NAME || 'honeyvision';
 const defaultLocalUri = `mongodb://127.0.0.1:27017/${dbName}`;
-const directUri = process.env.MONGODB_DIRECT_URI || defaultLocalUri;
+const directUri = process.env.MONGODB_DIRECT_URI;
 const serverUri = process.env.MONGODB_URI || process.env.MONGO_URI;
-const remoteAtlasUri = serverUri && /mongodb\.(net|com)|mongodb\+srv/i.test(serverUri);
-const uri = directUri && directUri.trim() ? directUri.trim() : remoteAtlasUri ? defaultLocalUri : (serverUri || defaultLocalUri).trim();
+const fallbackUri = process.env.NODE_ENV === 'production' ? '' : defaultLocalUri;
+const uri = (directUri && directUri.trim()) || (serverUri && serverUri.trim()) || fallbackUri;
 
 const client = new MongoClient(uri, {
   serverApi: {

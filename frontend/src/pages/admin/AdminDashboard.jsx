@@ -15,7 +15,7 @@ import {
 } from 'lucide-react';
 import useRealtimeUpdates from '../../hooks/useRealtimeUpdates';
 import { ORDER_STATUSES, getStatusLabel } from '../../services/orderTrackingService';
-import { useCommerce } from '../../context/CommerceContext';
+import { useCommerce } from '../../context/index.js';
 
 const API_BASE = import.meta.env.VITE_API_URL || '/api';
 

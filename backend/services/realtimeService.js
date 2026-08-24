@@ -12,11 +12,22 @@ import Order from '../models/Order.js';
 let io;
 const connectedUsers = new Map(); // userId -> socket ids
 const userRooms = new Map(); // userId -> room names
+const localFrontendOrigins = [
+  'http://localhost:5173',
+  'http://127.0.0.1:5173',
+  'http://192.168.31.5:5173',
+];
+const configuredFrontendOrigins = String(process.env.FRONTEND_URL || '')
+  .split(',').map((origin) => origin.trim()).filter(Boolean);
+const allowedOrigins = new Set([...localFrontendOrigins, ...configuredFrontendOrigins]);
 
 export const initializeRealtime = (server) => {
   io = new Server(server, {
     cors: {
-      origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+      origin: (origin, callback) => {
+        if (!origin || allowedOrigins.has(origin)) return callback(null, true);
+        return callback(new Error('Origin is not allowed by Socket.IO CORS'));
+      },
       methods: ['GET', 'POST'],
       credentials: true,
     },
@@ -32,10 +43,7 @@ export const initializeRealtime = (server) => {
         return next(new Error('Authentication required'));
       }
 
-      const payload = jwt.verify(
-        token,
-        process.env.JWT_SECRET || 'honeyvision_secret_key_2024'
-      );
+      const payload = jwt.verify(token, process.env.JWT_SECRET);
       const user = await User.findById(payload.userId).select('_id role status').exec();
 
       if (!user || user.status && user.status !== 'Active') {
@@ -185,6 +193,9 @@ export const emitDeliveryLocationUpdate = (orderId, userId, location) => {
     latitude: location.latitude,
     longitude: location.longitude,
     accuracy: location.accuracy,
+    heading: location.heading,
+    speed: location.speed,
+    deliveryAgentId: location.deliveryAgentId,
     updatedAt: location.updatedAt,
   };
 

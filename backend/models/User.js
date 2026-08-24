@@ -22,6 +22,31 @@ const userProfileSchema = new mongoose.Schema(
   { _id: false }
 );
 
+const addressSchema = new mongoose.Schema(
+  {
+    label: { type: String, default: '', trim: true },
+    type: { type: String, default: 'Home', trim: true },
+    fullName: { type: String, required: true, trim: true },
+    phone: { type: String, required: true, trim: true },
+    addressLine1: { type: String, required: true, trim: true },
+    addressLine2: { type: String, default: '', trim: true },
+    landmark: { type: String, default: '', trim: true },
+    city: { type: String, required: true, trim: true },
+    district: { type: String, default: '', trim: true },
+    state: { type: String, required: true, trim: true },
+    country: { type: String, default: 'India', trim: true },
+    pincode: { type: String, required: true, trim: true },
+    latitude: { type: Number, min: -90, max: 90 },
+    longitude: { type: Number, min: -180, max: 180 },
+    locationResolved: { type: Boolean, default: false },
+    googlePlaceId: { type: String, default: '', trim: true },
+    formattedAddress: { type: String, default: '', trim: true },
+    addressType: { type: String, enum: ['HOME', 'WORK', 'OTHER'], default: 'HOME' },
+    isDefault: { type: Boolean, default: false },
+  },
+  { timestamps: true }
+);
+
 const userSchema = new mongoose.Schema(
   {
     name: { type: String, required: true, trim: true },
@@ -39,6 +64,7 @@ const userSchema = new mongoose.Schema(
     passwordResetToken: { type: String, default: '' },
     passwordResetExpires: { type: Date },
     profile: { type: userProfileSchema, default: () => ({}) },
+    addresses: { type: [addressSchema], default: () => [] },
   },
   {
     timestamps: true,

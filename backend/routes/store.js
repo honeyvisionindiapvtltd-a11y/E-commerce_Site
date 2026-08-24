@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { getDB } from '../db.js';
 import { findDeliveryDocument } from '../services/deliveryService.js';
 import { normalizePincode, isValidPincode } from '../middleware/validation.js';
+import { protect } from '../middleware/authMiddleware.js';
 
 const router = Router();
 
@@ -119,24 +120,21 @@ router.post('/orders', async (req, res) => {
   res.status(201).json(order);
 });
 
-router.get('/installations', async (req, res) => {
-  const { userId } = req.query;
-  const filter = {};
-  if (userId) {
-    filter.userId = String(userId);
-  }
+router.get('/installations', protect, async (req, res) => {
+  const filter = { userId: String(req.user._id) };
 
   const installations = await getInstallationsCollection().find(filter).sort({ createdAt: -1 }).toArray();
   res.json(installations);
 });
 
-router.post('/installations', async (req, res) => {
+router.post('/installations', protect, async (req, res) => {
+  const { userId: _ignoredUserId, ...bookingData } = req.body || {};
   const booking = {
+    ...bookingData,
     id: `INSTALL-${Date.now().toString().slice(-6)}`,
-    userId: req.body.userId || null,
+    userId: String(req.user._id),
     createdAt: new Date().toISOString(),
     status: 'requested',
-    ...req.body,
   };
 
   await getInstallationsCollection().insertOne(booking);

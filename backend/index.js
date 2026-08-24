@@ -6,7 +6,8 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import mongoose from 'mongoose';
 import dbConfig from './config/db.js';
-import { connectDB as connectMongoClient } from './db.js';
+import { validateEnvironment } from './config/env.js';
+import { connectDB as connectNativeMongoClient } from './db.js';
 import healthRoutes from './routes/health.js';
 import authRoutes from './routes/auth.js';
 import storeRoutes from './routes/store.js';
@@ -24,26 +25,45 @@ import webhookRoutes from './routes/webhooks.js';
 import { initializeRealtime } from './services/realtimeService.js';
 import deliveryRoutes from './routes/deliveryRoutes.js';
 import returnRoutes from './routes/returnRoutes.js';
+import deliveryServiceabilityRoutes from './routes/deliveryServiceabilityRoutes.js';
+import userRoutes from './routes/users.js';
+import supportRoutes from './routes/supportRoutes.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 dotenv.config({ path: path.resolve(__dirname, './.env') });
 
+validateEnvironment();
+
 const app = express();
 const PORT = Number(process.env.PORT) || 5000;
+const localFrontendOrigins = [
+  'http://localhost:5173',
+  'http://127.0.0.1:5173',
+  'http://192.168.31.5:5173',
+];
+const configuredFrontendOrigins = String(process.env.FRONTEND_URL || '')
+  .split(',').map((origin) => origin.trim()).filter(Boolean);
+const allowedOrigins = new Set([...localFrontendOrigins, ...configuredFrontendOrigins]);
 
 const connectDatabase = async () => {
   try {
     await mongoose.connect(dbConfig.mongoUri, { serverSelectionTimeoutMS: 15000 });
     console.log('MongoDB connected');
   } catch (error) {
-    console.warn('MongoDB connection failed:', error.message);
-    console.warn('Continuing without MongoDB. Some features may be unavailable until the database is reachable.');
+    console.error('MongoDB connection failed:', error.message);
+    if (process.env.NODE_ENV === 'production') {
+      throw error;
+    }
+    console.warn('Continuing in non-production mode without MongoDB.');
   }
 };
 
-app.use(cors());
+app.use(cors({ origin: (origin, callback) => {
+  if (!origin || allowedOrigins.has(origin)) return callback(null, true);
+  return callback(new Error('Origin is not allowed by CORS'));
+}, credentials: true }));
 
 // Stripe requires the raw body to validate webhooks. Mount webhook before body parsers.
 app.post('/api/payments/webhook', express.raw({ type: 'application/json' }), handleWebhook);
@@ -52,6 +72,8 @@ app.use('/api/webhooks', webhookRoutes);
 app.use(express.json());
 app.use('/api', healthRoutes);
 app.use('/api/auth', authRoutes);
+app.use('/api/users', userRoutes);
+app.use('/api/support', supportRoutes);
 app.use('/api/categories', categoryRoutes);
 app.use('/api/products', productRoutes);
 app.use(
@@ -67,20 +89,20 @@ app.use('/api', storeRoutes);
 app.use('/api', locationRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/delivery', deliveryRoutes);
+app.use('/api/delivery', deliveryServiceabilityRoutes);
 app.use('/api/returns', returnRoutes);
 
 // Start server with robust DB/connect logic
 const startServer = async () => {
   try {
-    // connect mongoose (for models)
     await connectDatabase();
   } catch (err) {
-    console.warn('Warning: Mongoose connection failed, continuing without Mongoose.', err.message);
+    console.error('Fatal: MongoDB connection failed during startup.', err.message);
+    process.exit(1);
   }
 
   try {
-    // connect native MongoDB client if available
-    await connectMongoClient();
+    await connectNativeMongoClient();
   } catch (err) {
     console.warn('Warning: MongoClient connection failed or MONGODB_URI not set, continuing without native client.', err.message);
   }
@@ -104,8 +126,9 @@ const startServer = async () => {
     const server = http.createServer(app);
     initializeRealtime(server);
 
-    server.listen(port, () => {
+    server.listen(port, '0.0.0.0', () => {
       console.log(`HoneyVision API listening on http://localhost:${port}`);
+      console.log(`Network access: http://192.168.31.5:${port}`);
       console.log('Socket.io server initialized');
     });
 

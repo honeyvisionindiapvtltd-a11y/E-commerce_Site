@@ -40,10 +40,12 @@ export default function Payments() {
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState("All");
 
-  const refreshRows = async () => {
-    const liveOrders = [];
-    try {
-      const response = await fetch("/api/orders");
+    const API_BASE = import.meta.env.VITE_API_URL || "/api";
+
+    const refreshRows = async () => {
+      const liveOrders = [];
+      try {
+        const response = await fetch(`${API_BASE}/orders`);
       if (response.ok) {
         const payload = await response.json();
         if (Array.isArray(payload)) liveOrders.push(...payload);
@@ -67,7 +69,7 @@ export default function Payments() {
     const loadRows = async () => {
       const liveOrders = [];
       try {
-        const response = await fetch("/api/orders");
+        const response = await fetch(`${API_BASE}/orders`);
         if (response.ok) {
           const payload = await response.json();
           if (Array.isArray(payload)) liveOrders.push(...payload);

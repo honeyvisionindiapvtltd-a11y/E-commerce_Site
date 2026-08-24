@@ -3,6 +3,8 @@ import { useParams } from 'react-router-dom';
 import { Package, Truck, CheckCircle2, Clock, MapPin } from 'lucide-react';
 import { ORDER_STATUSES } from '../services/orderTrackingService';
 
+const API_BASE = import.meta.env.VITE_API_URL || '/api';
+
 const STATUS_STEPS = [
   { key: ORDER_STATUSES.ORDER_PLACED, label: 'Order Placed', icon: Package },
   { key: ORDER_STATUSES.PAYMENT_CONFIRMED, label: 'Payment Confirmed', icon: CheckCircle2 },
@@ -32,7 +34,7 @@ export default function TrackOrder() {
         setLoading(true);
         setError('');
 
-        const response = await fetch(`/api/tracking/${trackingNumber}`);
+        const response = await fetch(`${API_BASE}/tracking/${trackingNumber}`);
         const data = await response.json();
 
         if (!response.ok) {

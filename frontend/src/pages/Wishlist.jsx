@@ -1,7 +1,7 @@
 ﻿import { useMemo } from "react";import { Link, useNavigate } from "react-router-dom";
 import { Heart, ShoppingCart, Trash2 , CheckSquare} from "lucide-react";
 import { FaCheckCircle } from "react-icons/fa";
-import { useCommerce } from "../context/CommerceContext";
+import { useCommerce } from "../context/index.js";
 
 const formatPrice = (value) => `₹${value.toLocaleString()}`;
 

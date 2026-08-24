@@ -1,6 +1,6 @@
 import { Lock, ShieldCheck, UserCog, BellRing } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { useCommerce } from "../context/CommerceContext";
+import { useCommerce } from "../context/index.js";
 
 const iconMap = {
   1: UserCog,

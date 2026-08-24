@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Eye, Pencil, Plus, Power, Search, Truck } from "lucide-react";
-import { useCommerce } from "../../../context/CommerceContext";
+import { useCommerce } from "../../../context/index.js";
 import PageHeader from "../components/PageHeader";
 import Table from "../components/Table";
 import Modal from "../components/Modal";

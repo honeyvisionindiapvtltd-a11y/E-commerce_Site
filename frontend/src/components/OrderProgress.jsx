@@ -14,6 +14,14 @@ import { ORDER_STATUSES } from "../services/orderTrackingService";
  * Visual progress indicator showing order journey
  */
 export const OrderProgress = ({ status, estimatedDeliveryDate }) => {
+  const isFailure = status === ORDER_STATUSES.FAILED_DELIVERY;
+  const isDelivered = status === ORDER_STATUSES.DELIVERED;
+  const statusCopy = {
+    [ORDER_STATUSES.OUT_FOR_DELIVERY]: "Your delivery agent is on the way",
+    [ORDER_STATUSES.DELIVERED]: "Your order has been delivered successfully.",
+    [ORDER_STATUSES.FAILED_DELIVERY]: "Delivery Attempt Unsuccessful",
+  };
+
   const steps = [
     {
       id: ORDER_STATUSES.ORDER_PLACED,
@@ -62,7 +70,6 @@ export const OrderProgress = ({ status, estimatedDeliveryDate }) => {
   // Find current step index
   const currentStepIndex = steps.findIndex((step) => step.id === status);
 
-  // Check if order is cancelled
   const isCancelled = status === ORDER_STATUSES.CANCELLED;
 
   if (isCancelled) {
@@ -79,9 +86,50 @@ export const OrderProgress = ({ status, estimatedDeliveryDate }) => {
     );
   }
 
+  if (isFailure) {
+    return (
+      <div className="rounded-lg border border-red-200 bg-red-50 p-6">
+        <div className="flex items-center gap-3">
+          <AlertCircle className="text-red-600" size={24} />
+          <div>
+            <p className="font-semibold text-red-950">Delivery Attempt Unsuccessful</p>
+            <p className="text-sm text-red-800">The order was not marked as delivered.</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="rounded-lg bg-white p-6 shadow-sm">
-      <h3 className="mb-6 text-lg font-bold text-gray-900">Delivery Progress</h3>
+      <div className="mb-6 flex items-center justify-between gap-3">
+        <h3 className="text-lg font-bold text-gray-900">Delivery Progress</h3>
+        {(statusCopy[status] || isFailure || isDelivered) && (
+          <span
+            className={`inline-flex items-center rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.18em] ${
+              isFailure
+                ? "bg-red-100 text-red-700"
+                : isDelivered
+                  ? "bg-emerald-100 text-emerald-700"
+                  : "bg-sky-100 text-sky-700"
+            }`}
+          >
+            {isFailure ? "Attention" : isDelivered ? "Delivered" : "Live"}
+          </span>
+        )}
+      </div>
+
+      {statusCopy[status] && (
+        <p className={`mb-6 rounded-xl border px-3 py-2 text-sm ${
+          isFailure
+            ? "border-red-200 bg-red-50 text-red-800"
+            : isDelivered
+              ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+              : "border-sky-200 bg-sky-50 text-sky-800"
+        }`}>
+          {statusCopy[status]}
+        </p>
+      )}
 
       {/* Progress Bar */}
       <div className="mb-8">

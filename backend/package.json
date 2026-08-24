@@ -5,6 +5,9 @@
   "scripts": {
     "dev": "node index.js",
     "start": "node index.js",
+    "test:serviceability": "node test-serviceability.js",
+    "test:delivery-zones": "node test-delivery-zones.js",
+    "seed:delivery-zones": "node scripts/seedDeliveryZones.js",
     "seed-admin": "node scripts/seedAdmin.js",
     "hash-passwords": "node scripts/hashPasswords.js",
     "import-json-catalog": "node scripts/importJsonCatalog.js"

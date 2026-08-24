@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowLeft,
   RefreshCw,
@@ -18,7 +18,7 @@ import {
   ReceiptText,
 } from "lucide-react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
-import { useCommerce } from "../context/CommerceContext";
+import { useCommerce } from "../context/index.js";
 import useOrderTracking from "../hooks/useOrderTracking";
 import OrderStatusBadge from "../components/OrderStatusBadge";
 import OrderProgress from "../components/OrderProgress";
@@ -26,6 +26,16 @@ import TrackingTimeline from "../components/TrackingTimeline";
 import DeliveryAgentCard from "../components/DeliveryAgentCard";
 import LiveDeliveryMap from "../components/LiveDeliveryMap";
 import { isValidLocation } from "../lib/deliveryLocation";
+import {
+  DELIVERY_NEARBY_DISTANCE_METERS,
+  calculateDistanceMeters,
+  estimateDurationMinutes,
+  geocodeAddress,
+  getLocationFreshness,
+  toLocationPoint,
+} from "../utils/locationUtils";
+
+const API_BASE = import.meta.env.VITE_API_URL || "/api";
 
 const money = (value) => `₹${Number(value || 0).toLocaleString("en-IN")}`;
 
@@ -88,16 +98,22 @@ export default function OrderTracking() {
   const { id: routeOrderNumber } = useParams();
   const location = useLocation();
   const navigate = useNavigate();
-  const { authToken } = useCommerce();
+  const { authToken, addresses } = useCommerce();
 
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [liveRouteSummary, setLiveRouteSummary] = useState(null);
   const [showAllEvents, setShowAllEvents] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [nearbyNotification, setNearbyNotification] = useState(false);
   const [returnReason, setReturnReason] = useState("");
   const [returnDescription, setReturnDescription] = useState("");
   const [returnSubmitting, setReturnSubmitting] = useState(false);
   const [returnMessage, setReturnMessage] = useState("");
   const liveLocationRef = useRef(null);
+  const destinationResolutionRef = useRef(new Set());
+  const [resolvedDestination, setResolvedDestination] = useState(null);
+  const nearbyOrdersRef = useRef(new Set());
+  const [freshnessNow, setFreshnessNow] = useState(0);
 
   const queryOrderNumber = new URLSearchParams(location.search).get("order");
   const orderNumber = routeOrderNumber || queryOrderNumber;
@@ -163,6 +179,93 @@ export default function OrderTracking() {
     tracking?.updatedAt ||
     events?.[0]?.createdAt ||
     events?.[0]?.timestamp;
+
+  const locationFreshness = useMemo(
+    () => getLocationFreshness(tracking?.deliveryLocation, freshnessNow),
+    [freshnessNow, tracking?.deliveryLocation],
+  );
+
+  const customerDestination = useMemo(() => {
+    const shippingAddress = order?.shippingAddress;
+    const candidate = shippingAddress?.locationResolved === false
+      ? null
+      : shippingAddress?.coordinates || shippingAddress?.location || shippingAddress;
+    return toLocationPoint(candidate) || toLocationPoint(resolvedDestination);
+  }, [order?.shippingAddress, resolvedDestination]);
+
+  const agentPoint = toLocationPoint(tracking?.deliveryLocation);
+  const agentDistanceToCustomer = agentPoint && customerDestination
+    ? calculateDistanceMeters(agentPoint, customerDestination)
+    : null;
+
+  useEffect(() => {
+    if (!order?.shippingAddress || customerDestination) return undefined;
+    const shippingAddress = order.shippingAddress;
+    const repairKey = String(order.orderNumber || orderNumber);
+    if (destinationResolutionRef.current.has(repairKey)) return undefined;
+    destinationResolutionRef.current.add(repairKey);
+
+    let active = true;
+    const savedAddress = addresses.find((address) => {
+      const savedPin = address.pincode || address.pin || address.postalCode;
+      const orderPin = shippingAddress.pincode || shippingAddress.postalCode;
+      return savedPin && orderPin && String(savedPin) === String(orderPin)
+        && String(address.city || "").trim().toLowerCase() === String(shippingAddress.city || "").trim().toLowerCase();
+    });
+    const savedPoint = toLocationPoint(savedAddress);
+    const resolveDestination = async () => {
+      const point = savedPoint || await geocodeAddress(shippingAddress).catch(() => null);
+      if (!active || !point) return;
+      setResolvedDestination(point);
+      try {
+        await fetch(`${API_BASE}/orders/${encodeURIComponent(repairKey)}/destination`, {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          body: JSON.stringify(point),
+        });
+      } catch {
+        // Keep the resolved point for this session if persistence is unavailable.
+      }
+    };
+    resolveDestination();
+    return () => { active = false; };
+  }, [addresses, customerDestination, order, orderNumber, token]);
+
+  useEffect(() => {
+    if (!order || order.status !== "OUT_FOR_DELIVERY" || !tracking?.deliveryLocation || !customerDestination) {
+      const resetId = window.setTimeout(() => setNearbyNotification(false), 0);
+      return () => window.clearTimeout(resetId);
+    }
+
+    const distance = calculateDistanceMeters(tracking.deliveryLocation, customerDestination);
+    if (distance === null) {
+      return;
+    }
+
+    if (distance <= DELIVERY_NEARBY_DISTANCE_METERS) {
+      const orderKey = String(order.orderNumber || orderNumber);
+      if (!nearbyOrdersRef.current.has(orderKey)) {
+        nearbyOrdersRef.current.add(orderKey);
+        setNearbyNotification(true);
+      }
+    }
+  }, [customerDestination, order, orderNumber, tracking?.deliveryLocation]);
+
+  useEffect(() => {
+    if (!order || !tracking?.deliveryLocation || order.status !== "OUT_FOR_DELIVERY") return undefined;
+
+    const initialUpdate = window.setTimeout(() => setFreshnessNow(Date.now()), 0);
+    const intervalId = window.setInterval(() => setFreshnessNow(Date.now()), 30000);
+    return () => {
+      window.clearTimeout(initialUpdate);
+      window.clearInterval(intervalId);
+    };
+  }, [order, tracking]);
+
+  const shouldShowLiveDeliveryCard = order?.status === "OUT_FOR_DELIVERY";
 
   const handleCopyTrackingNumber = async () => {
     if (!trackingNumber || !navigator.clipboard) return;
@@ -610,7 +713,7 @@ export default function OrderTracking() {
               </section>
             )}
 
-            {order?.status === "OUT_FOR_DELIVERY" && (
+            {shouldShowLiveDeliveryCard && (
               <section ref={liveLocationRef} className="rounded-2xl border border-sky-200 bg-sky-50 p-5 shadow-sm">
                 <button
                   type="button"
@@ -636,9 +739,61 @@ export default function OrderTracking() {
                 </button>
                 {isValidLocation(tracking?.deliveryLocation) ? (
                   <>
-                    <LiveDeliveryMap deliveryLocation={tracking.deliveryLocation} />
+                    <LiveDeliveryMap
+                      agentLocation={tracking.deliveryLocation}
+                      customerLocation={customerDestination}
+                      order={order}
+                      isTracking
+                      onRouteSummary={setLiveRouteSummary}
+                    />
+                    <div className="mt-4 rounded-2xl border border-sky-200 bg-white p-4 shadow-sm">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-sky-700">Live delivery</p>
+                          <h4 className="mt-1 text-lg font-bold text-[#071426]">Your order is on the way</h4>
+                        </div>
+                        <span className={`inline-flex items-center gap-2 rounded-full px-2 py-1 text-[10px] font-semibold ${
+                          locationFreshness.state === "live"
+                            ? "bg-emerald-50 text-emerald-700"
+                            : locationFreshness.state === "delayed"
+                              ? "bg-amber-50 text-amber-700"
+                              : "bg-slate-100 text-slate-700"
+                        }`}>
+                          <span className={`h-2 w-2 rounded-full ${
+                            locationFreshness.state === "live"
+                              ? "bg-emerald-500"
+                              : locationFreshness.state === "delayed"
+                                ? "bg-amber-500"
+                                : "bg-slate-500"
+                          }`} />
+                          {locationFreshness.label}
+                        </span>
+                      </div>
+                      <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                        <div className="rounded-xl bg-sky-50 p-3">
+                          <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-sky-700">Distance</p>
+                          <p className="mt-2 text-lg font-bold text-[#071426]">
+                            {liveRouteSummary?.distanceText || (agentDistanceToCustomer !== null ? `Approximately ${(agentDistanceToCustomer / 1000).toFixed(1)} km away` : "Distance unavailable")}
+                          </p>
+                        </div>
+                        <div className="rounded-xl bg-amber-50 p-3">
+                          <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-amber-700">ETA</p>
+                          <p className="mt-2 text-lg font-bold text-[#071426]">
+                            {liveRouteSummary?.durationText || (agentDistanceToCustomer !== null ? `Approx. ${estimateDurationMinutes(agentDistanceToCustomer)} min` : "ETA unavailable")}
+                          </p>
+                        </div>
+                      </div>
+
+                      {nearbyNotification && (
+                        <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-900">
+                          <span className="font-bold">🎉 Your delivery agent is nearby!</span>
+                          <span className="ml-1">Less than {DELIVERY_NEARBY_DISTANCE_METERS} meters away.</span>
+                        </div>
+                      )}
+                    </div>
                     <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-sky-900/70">
-                      <span className="font-semibold text-emerald-700">Location sharing active</span>
+                      <span className="font-semibold text-emerald-700">{locationFreshness.label}</span>
+                      <span>{locationFreshness.detail}</span>
                       <span>Last updated: {formatDateTime(tracking.deliveryLocation.updatedAt)}</span>
                       {Number.isFinite(tracking.deliveryLocation.accuracy) && (
                         <span>Accuracy: approximately {Math.round(tracking.deliveryLocation.accuracy)} m</span>
@@ -647,8 +802,8 @@ export default function OrderTracking() {
                   </>
                 ) : (
                   <div className="mt-4 rounded-xl border border-sky-200 bg-white px-4 py-5 text-sm text-sky-900/70">
-                    <p className="font-semibold text-sky-800">Preparing live delivery tracking...</p>
-                    <p className="mt-1">Waiting for the delivery agent&apos;s location.</p>
+                    <p className="font-semibold text-sky-800">Waiting for the delivery agent&apos;s live location...</p>
+                    <p className="mt-1">The delivery agent&apos;s location will appear here as soon as GPS updates arrive.</p>
                   </div>
                 )}
                 {import.meta.env.DEV && locationDebug && (

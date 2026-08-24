@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { Truck } from "lucide-react";
 import { adminList, adminUpdate } from "../api";
-import { useCommerce } from "../../../context/CommerceContext";
+import { useCommerce } from "../../../context/index.js";
 import PageHeader from "../components/PageHeader";
 import Toolbar from "../components/Toolbar";
 import Table from "../components/Table";
@@ -82,7 +82,7 @@ export default function Delivery() {
     try {
       const [stored, agentResponse] = await Promise.all([
         adminList("delivery"),
-        fetch("/api/delivery/agents", { headers: { Authorization: `Bearer ${authToken}` } }),
+        fetch(`${API_BASE}/delivery/agents`, { headers: { Authorization: `Bearer ${authToken}` } }),
       ]);
       const agentPayload = await agentResponse.json();
       setAgents(agentPayload.agents || []);
@@ -99,7 +99,7 @@ export default function Delivery() {
       try {
         const [stored, agentResponse] = await Promise.all([
           adminList("delivery"),
-          fetch("/api/delivery/agents", { headers: { Authorization: `Bearer ${authToken}` } }),
+          fetch(`${API_BASE}/delivery/agents`, { headers: { Authorization: `Bearer ${authToken}` } }),
         ]);
         const agentPayload = await agentResponse.json();
         if (!agentResponse.ok) throw new Error(agentPayload.message || "Unable to load agents");

@@ -37,10 +37,14 @@ const resolveMongoUri = () => {
     const uri = remoteUri.trim();
     if (/localhost|127\.0\.0\.1/.test(uri)) return uri;
     if (!/mongodb\.(net|com)|mongodb\+srv/i.test(uri)) return uri;
+    return uri;
+  }
+
+  if (process.env.NODE_ENV !== 'production') {
     return defaultLocalUri;
   }
 
-  return defaultLocalUri;
+  return '';
 };
 
 const rawUri = resolveMongoUri();
