@@ -15,7 +15,7 @@ import {
 import { useMemo } from "react";
 import { Link } from "react-router-dom";
 import ProductCard from "../components/ProductCard";
-import { useCommerce } from "../context/CommerceContext";
+import { useCommerce } from "../context/index.js";
 import { money, recommendationsFor } from "../lib/products";
 import { computeTotals } from "../lib/orderTotals";
 

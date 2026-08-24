@@ -11,7 +11,7 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import { useCommerce } from "../context/CommerceContext";
+import { useCommerce } from "../context/index.js";
 import { money, normalizeProduct } from "../lib/products";
 
 const buildComparePool = (products = []) =>
