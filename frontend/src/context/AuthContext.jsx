@@ -115,10 +115,20 @@ export function AuthProvider({ children }) {
 
   const loginWithGoogle = useCallback(
     async (credential) => {
-      void credential;
-      throw new Error("Google login is not configured on the backend.");
+      const data = await requestJson("/auth/google", {
+        method: "POST",
+        body: JSON.stringify({ credential }),
+      });
+
+      setAuthState({
+        isLoggedIn: true,
+        user: data.user || null,
+        authToken: data.token || null,
+      });
+
+      return data.user;
     },
-    []
+    [requestJson, setAuthState]
   );
 
   const requestPasswordReset = useCallback(

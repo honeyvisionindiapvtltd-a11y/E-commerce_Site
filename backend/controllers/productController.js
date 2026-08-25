@@ -672,10 +672,7 @@ const createProduct = async (req, res) => {
 
 const updateProduct = async (req, res) => {
   try {
-    const product =
-      await Product.findById(
-        req.params.id
-      );
+    const product = await Product.findById(req.params.id);
 
     if (!product) {
       return res.status(404).json({
@@ -684,23 +681,45 @@ const updateProduct = async (req, res) => {
       });
     }
 
-    // ========================================================
-    // CATEGORY VALIDATION
-    // ========================================================
+    const safeBody = { ...req.body };
 
-    if (
-      req.body.category ||
-      req.body.subCategory
-    ) {
-      const categoryId =
-        req.body.category ||
-        product.category;
+    const normalizeObjectIdValue = (value) => {
+      if (value === null || value === undefined || value === "") return null;
+      const text = String(value).trim();
+      return text || null;
+    };
 
-      const categoryExists =
-        await Category.findOne({
-          _id: categoryId,
-          isActive: true,
-        });
+    const normalizeStringArray = (value) => {
+      if (!value) return [];
+      if (Array.isArray(value)) {
+        return value
+          .map((item) => String(item).trim())
+          .filter(Boolean)
+          .filter((item) => item !== "undefined" && item !== "null");
+      }
+      if (typeof value === "string") {
+        return value
+          .split(/[\n,]+/)
+          .map((item) => item.trim())
+          .filter(Boolean);
+      }
+      return [];
+    };
+
+    const normalizeRelatedProducts = (value) => {
+      const items = normalizeStringArray(value);
+      return items.filter((item) => /^[0-9a-fA-F]{24}$/.test(item));
+    };
+
+    const nextCategory = normalizeObjectIdValue(safeBody.category);
+    const nextSubCategory = normalizeObjectIdValue(safeBody.subCategory);
+
+    if (nextCategory || nextSubCategory) {
+      const categoryId = nextCategory || product.category;
+      const categoryExists = await Category.findOne({
+        _id: categoryId,
+        isActive: true,
+      });
 
       if (!categoryExists) {
         return res.status(400).json({
@@ -709,40 +728,27 @@ const updateProduct = async (req, res) => {
         });
       }
 
-      if (req.body.subCategory) {
-        const subCategoryExists =
-          await Category.findOne({
-            _id: req.body.subCategory,
-            parentCategory:
-              categoryExists._id,
-            isActive: true,
-          });
+      if (nextSubCategory) {
+        const subCategoryExists = await Category.findOne({
+          _id: nextSubCategory,
+          parentCategory: categoryExists._id,
+          isActive: true,
+        });
 
         if (!subCategoryExists) {
           return res.status(400).json({
             success: false,
-            message:
-              "Subcategory does not belong to selected category",
+            message: "Subcategory does not belong to selected category",
           });
         }
       }
     }
 
-    // ========================================================
-    // SKU DUPLICATE CHECK
-    // ========================================================
-
-    if (
-      req.body.sku &&
-      req.body.sku !== product.sku
-    ) {
-      const existingSKU =
-        await Product.findOne({
-          sku: req.body.sku,
-          _id: {
-            $ne: product._id,
-          },
-        });
+    if (safeBody.sku && safeBody.sku !== product.sku) {
+      const existingSKU = await Product.findOne({
+        sku: safeBody.sku,
+        _id: { $ne: product._id },
+      });
 
       if (existingSKU) {
         return res.status(400).json({
@@ -752,70 +758,73 @@ const updateProduct = async (req, res) => {
       }
     }
 
-    // ========================================================
-    // SLUG DUPLICATE CHECK
-    // ========================================================
-
-    if (
-      req.body.slug &&
-      req.body.slug !== product.slug
-    ) {
-      const existingSlug =
-        await Product.findOne({
-          slug: req.body.slug,
-          _id: {
-            $ne: product._id,
-          },
-        });
+    if (safeBody.slug && safeBody.slug !== product.slug) {
+      const existingSlug = await Product.findOne({
+        slug: safeBody.slug,
+        _id: { $ne: product._id },
+      });
 
       if (existingSlug) {
         return res.status(400).json({
           success: false,
-          message:
-            "Product slug already exists",
+          message: "Product slug already exists",
         });
       }
     }
 
-    // ========================================================
-    // UPDATE
-    // ========================================================
+    if (safeBody.tags !== undefined) {
+      safeBody.tags = normalizeStringArray(safeBody.tags);
+    }
 
-    Object.assign(
-      product,
-      req.body
-    );
+    if (safeBody.images !== undefined) {
+      safeBody.images = normalizeStringArray(safeBody.images);
+    }
+
+    if (safeBody.thumbnail !== undefined) {
+      const thumbnail = String(safeBody.thumbnail || "").trim();
+      safeBody.thumbnail = thumbnail || "";
+    }
+
+    if (safeBody.relatedProducts !== undefined) {
+      safeBody.relatedProducts = normalizeRelatedProducts(safeBody.relatedProducts);
+    }
+
+    if (safeBody.category !== undefined) {
+      safeBody.category = nextCategory || undefined;
+    }
+
+    if (safeBody.subCategory !== undefined) {
+      safeBody.subCategory = nextSubCategory || null;
+    }
+
+    if (safeBody.stock !== undefined) safeBody.stock = Number(safeBody.stock || 0);
+    if (safeBody.price !== undefined) safeBody.price = Number(safeBody.price || 0);
+    if (safeBody.mrp !== undefined) safeBody.mrp = Number(safeBody.mrp || 0);
+    if (safeBody.gstPercentage !== undefined) safeBody.gstPercentage = Number(safeBody.gstPercentage || 0);
+    if (safeBody.lowStockThreshold !== undefined) safeBody.lowStockThreshold = Number(safeBody.lowStockThreshold || 0);
+    if (safeBody.installationPrice !== undefined) safeBody.installationPrice = Number(safeBody.installationPrice || 0);
+    if (safeBody.rating !== undefined) safeBody.rating = Number(safeBody.rating || 0);
+    if (safeBody.reviewCount !== undefined) safeBody.reviewCount = Number(safeBody.reviewCount || 0);
+
+    Object.assign(product, safeBody);
+
+    if (!product.slug) {
+      product.slug = product.name?.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || product.slug;
+    }
 
     await product.save();
 
-    // ========================================================
-    // POPULATE UPDATED PRODUCT
-    // ========================================================
-
-    const updatedProduct =
-      await Product.findById(
-        product._id
-      )
-        .populate(
-          "category",
-          "name slug parentCategory"
-        )
-        .populate(
-          "subCategory",
-          "name slug parentCategory"
-        );
+    const updatedProduct = await Product.findById(product._id)
+      .populate("category", "name slug parentCategory")
+      .populate("subCategory", "name slug parentCategory");
 
     res.status(200).json({
       success: true,
-      message:
-        "Product updated successfully",
+      message: "Product updated successfully",
       product: updatedProduct,
     });
   } catch (error) {
-    console.error(
-      "UPDATE PRODUCT ERROR:",
-      error
-    );
+    console.error("UPDATE PRODUCT ERROR:", error);
 
     res.status(500).json({
       success: false,

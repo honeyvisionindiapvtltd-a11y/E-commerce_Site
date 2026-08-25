@@ -88,24 +88,39 @@ export async function adminList(key) {
   }
 }
 
-export async function adminListProducts() {
+export async function adminListProducts({ page = 1, limit = 100, all = false } = {}) {
+  if (!all) {
+    const response = await request(`/admin/products?page=${page}&limit=${limit}`);
+    const products = Array.isArray(response.products) ? response.products : [];
+
+    return {
+      ...response,
+      products,
+      count: products.length,
+      totalProducts: Number(response.totalProducts ?? products.length),
+      totalPages: Number(response.totalPages || 1),
+      currentPage: Number(response.currentPage || page),
+    };
+  }
+
   const products = [];
-  let page = 1;
-  let lastResponse;
+  let currentPage = page;
+  let lastResponse = null;
 
   do {
-    const response = await request(`/products?page=${page}&limit=100&includeInactive=true`);
-    lastResponse = response;
+    const response = await request(`/admin/products?page=${currentPage}&limit=${limit}`);
+    lastResponse = response || {};
     products.push(...(Array.isArray(response.products) ? response.products : []));
-    page += 1;
-  } while (page <= Number(lastResponse.totalPages || 1));
+    currentPage += 1;
+  } while (currentPage <= Number(lastResponse.totalPages || currentPage));
 
   return {
     ...lastResponse,
     products,
     count: products.length,
     totalProducts: Number(lastResponse.totalProducts ?? products.length),
-    totalPages: 1,
+    totalPages: Number(lastResponse.totalPages || 1),
+    currentPage: Number(lastResponse.currentPage || page),
   };
 }
 
