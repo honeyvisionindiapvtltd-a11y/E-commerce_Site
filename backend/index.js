@@ -28,6 +28,7 @@ import returnRoutes from './routes/returnRoutes.js';
 import deliveryServiceabilityRoutes from './routes/deliveryServiceabilityRoutes.js';
 import userRoutes from './routes/users.js';
 import supportRoutes from './routes/supportRoutes.js';
+import chatRoutes from './routes/chatRoutes.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -74,6 +75,7 @@ app.use('/api', healthRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/support', supportRoutes);
+app.use('/api/chat', chatRoutes);
 app.use('/api/categories', categoryRoutes);
 app.use('/api/products', productRoutes);
 app.use(

@@ -5,7 +5,7 @@ import {
   Activity, BarChart3, Bell, Box, ChevronDown, ClipboardList,
   CreditCard, FileText, HelpCircle, LayoutDashboard, LogOut, MapPin, Menu,
   Package, Percent, Settings, ShieldCheck, ShoppingCart, Star, Truck,
-  User, Users, UserRoundCog, X
+  User, Users, UserRoundCog, X, MessageCircle
 } from "lucide-react";
 
 const groups = [
@@ -16,7 +16,7 @@ const groups = [
     ["Inventory","/admin/inventory",Box]
   ]},
   {title:"MARKETING", items:[["Coupons & Offers","/admin/coupons",Percent],["Reviews","/admin/reviews",Star]]},
-  {title:"OPERATIONS", items:[["Delivery","/admin/delivery",Truck],["Delivery Agents","/admin/delivery-agents",UserRoundCog],["Delivery Zones","/admin/delivery-zones",MapPin],["Payments","/admin/payments",CreditCard],["Support Tickets","/admin/support",HelpCircle]]},
+  {title:"OPERATIONS", items:[["Delivery","/admin/delivery",Truck],["Delivery Agents","/admin/delivery-agents",UserRoundCog],["Delivery Zones","/admin/delivery-zones",MapPin],["Payments","/admin/payments",CreditCard],["Live Chats","/admin/live-chats",MessageCircle],["Support Tickets","/admin/support",HelpCircle]]},
   {title:"CONTENT & REPORTS", items:[["Website & Blogs","/admin/blogs",FileText],["Reports","/admin/reports",BarChart3]]},
   {title:"ADMINISTRATION", items:[["Admin Users","/admin/admin-users",ShieldCheck],["Settings","/admin/settings",Settings]]}
 ];

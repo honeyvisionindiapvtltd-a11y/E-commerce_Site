@@ -204,3 +204,15 @@ export async function adminUpdateSettings(patch) {
   saveAdminData(data);
   return data.settings;
 }
+
+export async function adminListChats(status) {
+  return request(`/chat/admin/conversations${status ? `?status=${encodeURIComponent(status)}` : ""}`);
+}
+
+export async function adminAcceptChat(id) {
+  return request(`/chat/admin/conversations/${encodeURIComponent(id)}/accept`, { method: "POST", body: JSON.stringify({}) });
+}
+
+export async function adminUpdateChatStatus(id, status) {
+  return request(`/chat/admin/conversations/${encodeURIComponent(id)}/status`, { method: "PATCH", body: JSON.stringify({ status }) });
+}

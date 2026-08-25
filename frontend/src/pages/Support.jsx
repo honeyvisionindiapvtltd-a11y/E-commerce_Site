@@ -4,7 +4,6 @@ import {
   CheckCircle2,
   ChevronDown,
   CircleHelp,
-  Clock3,
   CreditCard,
   Headphones,
   Mail,
@@ -38,6 +37,7 @@ const categories = [
   { key: "warranty", title: "Warranty & AMC", description: "Warranty information and annual maintenance", icon: ShieldCheck, keywords: "warranty amc maintenance guarantee" },
   { key: "account", title: "Account & Login", description: "Login, password, and account help", icon: User, keywords: "account login password profile" },
   { key: "technical", title: "Technical Support", description: "Help with HoneyVision products", icon: Headphones, keywords: "technical camera nvr product help" },
+  { key: "contact", title: "Contact Support", description: "Talk to our support team about any issue", icon: Mail, keywords: "contact human agent email support" },
 ];
 
 const faqs = [
@@ -68,6 +68,15 @@ const orderIssues = [
   { key: "installation", label: "Installation issue" },
   { key: "damaged", label: "Product damaged" },
   { key: "other", label: "Other issue" },
+];
+
+const quickSuggestions = ["Track my order", "Cancel an order", "Installation help", "Return & refund", "Warranty", "Payment issue"];
+
+const smartSuggestions = [
+  { match: /not arriv|where.*order|track|delay|late/i, title: "Delivery help", text: "Check the latest delivery timeline before opening a ticket.", action: "Track Order", href: "/orders" },
+  { match: /pay|charged|refund|transaction/i, title: "Payment help", text: "Payment status and refund timing are available in your order details.", action: "View Orders", href: "/orders" },
+  { match: /install|technician|setup/i, title: "Installation help", text: "Find booking details or request assistance from our service team.", action: "Installation", href: "/installation/history" },
+  { match: /warrant|camera|nvr|dvr|lock|technical/i, title: "Product support", text: "Have your model and invoice details ready for faster technical support.", action: "Product Support", href: "#categories" },
 ];
 
 const faqCategoryByKey = {
@@ -109,7 +118,14 @@ export default function Support() {
   };
 
   useEffect(() => {
-    loadOrders();
+    if (!isLoggedIn) return;
+    requestJson("/orders/my-orders")
+      .then((data) => {
+        const nextOrders = Array.isArray(data) ? data : data.orders || [];
+        setLiveOrders(nextOrders);
+        setOrdersState({ status: "success", message: "" });
+      })
+      .catch(() => setOrdersState({ status: "error", message: "" }));
   }, [isLoggedIn, requestJson]);
 
   const loadTickets = async () => {
@@ -127,7 +143,10 @@ export default function Support() {
   };
 
   useEffect(() => {
-    loadTickets();
+    if (!isLoggedIn) return;
+    getMySupportTickets(requestJson)
+      .then((data) => setTicketsState({ status: "success", tickets: data.tickets || [] }))
+      .catch(() => setTicketsState({ status: "error", tickets: [] }));
   }, [isLoggedIn, requestJson]);
 
   const recentOrders = useMemo(() => {
@@ -167,6 +186,10 @@ export default function Support() {
               <input id="support-search" value={query} onChange={(event) => setQuery(event.target.value)} className="min-w-0 flex-1 bg-transparent px-3 py-3 text-sm text-slate-900 outline-none sm:text-base" placeholder="Search for help with orders, delivery, returns, payments..." />
               {query && <button type="button" onClick={() => setQuery("")} className="rounded-xl p-2 text-slate-500 hover:bg-slate-100" aria-label="Clear support search"><X size={19} /></button>}
             </div>
+            <div className="mt-4 flex max-w-3xl flex-wrap gap-2" aria-label="Popular support searches">
+              {quickSuggestions.map((suggestion) => <button key={suggestion} type="button" onClick={() => setQuery(suggestion)} className="rounded-full border border-white/15 bg-white/10 px-3 py-2 text-xs font-bold text-white transition hover:border-[#f4b400] hover:bg-[#f4b400] hover:text-[#071426]">{suggestion}</button>)}
+            </div>
+            {query && <SmartSuggestions query={query} />}
             {query && <SearchResults results={searchResults} onCategorySelect={(key) => { setActiveCategory(key); setQuery(""); }} />}
           </div>
         </div>
@@ -208,15 +231,16 @@ export default function Support() {
 function SectionHeading({ eyebrow, title, subtitle }) { return <div><p className="text-xs font-black uppercase tracking-[.18em] text-[#b27800]">{eyebrow}</p><h2 className="mt-2 text-3xl font-black tracking-tight text-[#071426] sm:text-4xl">{title}</h2><p className="mt-2 text-sm leading-6 text-slate-600 sm:text-base">{subtitle}</p></div>; }
 function CategoryCard({ category, active, onClick }) { const Icon = category.icon; return <button type="button" onClick={onClick} className={`group rounded-2xl border p-5 text-left shadow-sm transition hover:-translate-y-1 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-[#f4b400] ${active ? "border-[#f4b400] bg-[#fff8df]" : "border-slate-200 bg-white"}`}><span className={`grid h-11 w-11 place-items-center rounded-xl ${active ? "bg-[#f4b400] text-[#071426]" : "bg-[#edf3f7] text-[#0b4162]"}`}><Icon size={22} /></span><span className="mt-5 block text-base font-extrabold">{category.title}</span><span className="mt-2 block text-sm leading-5 text-slate-500">{category.description}</span><span className="mt-4 inline-flex items-center gap-1 text-xs font-black text-[#0b4162]">Explore help <ArrowRight size={14} className="transition group-hover:translate-x-1" /></span></button>; }
 function SearchResults({ results, onCategorySelect }) { if (!results.categories.length && !results.faqs.length) return <div className="mt-3 rounded-2xl bg-white p-5 text-sm text-slate-600 shadow-lg"><p className="font-bold text-slate-900">We couldn't find an answer.</p><p className="mt-1">Try another phrase or browse help categories below.</p></div>; return <div className="mt-3 grid gap-3 rounded-2xl bg-white p-4 text-slate-900 shadow-lg sm:grid-cols-2">{results.categories.slice(0, 4).map((item) => <button type="button" key={item.key} onClick={() => onCategorySelect(item.key)} className="rounded-xl bg-slate-50 p-3 text-left hover:bg-[#fff8df]"><span className="text-sm font-extrabold">{item.title}</span><span className="mt-1 block text-xs text-slate-500">Support category</span></button>)}{results.faqs.slice(0, 4).map((item) => <a key={item.question} href="#faqs" className="rounded-xl bg-slate-50 p-3 text-left hover:bg-[#fff8df]"><span className="text-sm font-extrabold">{item.question}</span><span className="mt-1 block text-xs text-slate-500">{item.category} FAQ</span></a>)}</div>; }
+function SmartSuggestions({ query }) { const suggestion = smartSuggestions.find((item) => item.match.test(query)); if (!suggestion) return null; return <div className="mt-3 max-w-3xl rounded-2xl border border-[#f4b400]/30 bg-[#fff8df] p-4 text-[#071426] shadow-lg"><div className="flex items-start gap-3"><CheckCircle2 className="mt-0.5 shrink-0 text-[#b27800]" size={19} /><div className="min-w-0"><p className="text-sm font-black">Suggested solution: {suggestion.title}</p><p className="mt-1 text-xs leading-5 text-slate-600">{suggestion.text}</p><Link to={suggestion.href} className="mt-3 inline-flex items-center gap-1 text-xs font-black text-[#0b4162]">{suggestion.action} <ArrowRight size={13} /></Link></div></div></div>; }
 function SignInPrompt() { return <div className="mt-6 flex flex-col items-start justify-between gap-5 rounded-3xl border border-[#f2d67a] bg-[#fff8df] p-6 sm:flex-row sm:items-center sm:p-8"><div><h3 className="text-lg font-black">Sign in to get help with your orders</h3><p className="mt-2 text-sm text-slate-600">Your order history and support options will appear here.</p></div><Link to="/login" className="inline-flex items-center gap-2 rounded-xl bg-[#071426] px-5 py-3 text-sm font-extrabold text-white hover:bg-[#0d3150]">Sign In <ArrowRight size={16} /></Link></div>; }
 function OrderSkeleton() { return <div className="mt-6 grid gap-4 lg:grid-cols-2">{[1, 2].map((item) => <div key={item} className="h-44 animate-pulse rounded-2xl bg-slate-200" />)}</div>; }
 function InlineError({ onRetry }) { return <div className="mt-6 flex items-center justify-between rounded-2xl border border-red-200 bg-red-50 p-5 text-sm text-red-800"><span>We couldn't load your support information.</span><button type="button" onClick={onRetry} className="font-bold underline">Try Again</button></div>; }
 function EmptyOrders() { return <div className="mt-6 rounded-3xl border border-dashed border-slate-300 bg-white p-8 text-center"><Package className="mx-auto text-slate-300" size={35} /><h3 className="mt-3 font-black">You don't have any recent orders.</h3><Link to="/products" className="mt-4 inline-flex items-center gap-2 text-sm font-bold text-[#0b4162]">Continue Shopping <ArrowRight size={15} /></Link></div>; }
 function OrderCard({ order, onHelp }) { const item = order.items?.[0] || {}; const image = item.product?.thumbnail || item.thumbnail || item.image; return <article className="flex flex-col justify-between gap-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:shadow-md sm:flex-row sm:items-center"><div className="flex min-w-0 gap-4"><div className="grid h-16 w-16 shrink-0 place-items-center overflow-hidden rounded-xl bg-slate-100">{image ? <img src={image} alt="" className="h-full w-full object-contain" /> : <Package className="text-slate-400" size={25} />}</div><div className="min-w-0"><p className="truncate font-extrabold">{item.product?.name || item.name || "HoneyVision order"}</p><p className="mt-1 text-xs text-slate-500">Order {order.orderNumber || order.id || "Unavailable"}</p><p className="mt-1 text-xs text-slate-500">{formatDate(order.createdAt)} <span className="px-1">·</span> {formatMoney(order.totalAmount ?? order.total)}</p><span className="mt-2 inline-flex rounded-full bg-[#e8f4ed] px-2.5 py-1 text-xs font-bold text-emerald-700">{String(order.status || order.paymentStatus || "In progress").replaceAll("_", " ")}</span></div></div><button type="button" onClick={onHelp} className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#071426] px-4 py-3 text-sm font-extrabold text-white hover:bg-[#0d3150]">Get Help <ArrowRight size={16} /></button></article>; }
 function FAQItem({ faq }) { const [open, setOpen] = useState(false); return <div className="rounded-2xl border border-slate-200 bg-white"><button type="button" onClick={() => setOpen((value) => !value)} aria-expanded={open} className="flex w-full items-center justify-between gap-4 p-5 text-left font-extrabold"><span><span className="mr-2 text-xs font-black uppercase tracking-wide text-[#b27800]">{faq.category}</span>{faq.question}</span><ChevronDown className={`shrink-0 transition ${open ? "rotate-180" : ""}`} size={19} /></button>{open && <div className="px-5 pb-5 text-sm leading-6 text-slate-600">{faq.answer}</div>}</div>; }
-function ContactSupport({ onModeChange }) { return <section className="rounded-3xl bg-[#0b3150] p-6 text-white sm:p-9"><div className="flex flex-col justify-between gap-8 lg:flex-row lg:items-center"><div><p className="text-xs font-black uppercase tracking-[.18em] text-[#f4b400]">Human support</p><h2 className="mt-2 text-3xl font-black">Still need help?</h2><p className="mt-2 max-w-xl text-sm leading-6 text-slate-300">Our support team is here to help you. Choose the channel that works best for your issue.</p></div><div className="grid gap-3 sm:grid-cols-3"><ContactOption icon={MessageCircle} title="Chat Support" description="Chat with our team" action="Start Chat" onClick={() => onModeChange("chat")} /><ContactOption icon={Phone} title="Call Support" description="Request a callback" action="Request a Call" onClick={() => onModeChange("callback")} /><ContactOption icon={Mail} title="Email Support" description="Send your issue" action="Send Email" href={`mailto:${supportEmail}`} /></div></div></section>; }
+function ContactSupport({ onModeChange }) { return <section className="rounded-3xl bg-[#0b3150] p-6 text-white sm:p-9"><div className="flex flex-col justify-between gap-8 lg:flex-row lg:items-center"><div><p className="text-xs font-black uppercase tracking-[.18em] text-[#f4b400]">Human support</p><h2 className="mt-2 text-3xl font-black">Still need help?</h2><p className="mt-2 max-w-xl text-sm leading-6 text-slate-300">Our support team is here to help you. Choose the channel that works best for your issue.</p></div><div className="grid gap-3 sm:grid-cols-3"><ContactOption icon={MessageCircle} title="Chat Support" description="Chat with our team" action="Start Chat" onClick={() => window.dispatchEvent(new Event("honeyvision:open-chat"))} /><ContactOption icon={Phone} title="Call Support" description="Request a callback" action="Request a Call" onClick={() => onModeChange("callback")} /><ContactOption icon={Mail} title="Email Support" description="Send your issue" action="Send Email" href={`mailto:${supportEmail}`} /></div></div></section>; }
 function ContactOption({ icon: Icon, title, description, action, onClick, href }) { const content = <><Icon className="text-[#f4b400]" size={22} /><p className="mt-4 text-sm font-extrabold">{title}</p><p className="mt-1 text-xs text-slate-300">{description}</p><span className="mt-4 inline-flex items-center gap-1 text-xs font-bold text-[#f4b400]">{action} <ArrowRight size={13} /></span></>; return href ? <a href={href} className="rounded-2xl border border-white/10 bg-white/5 p-4 transition hover:bg-white/10">{content}</a> : <button type="button" onClick={onClick} className="rounded-2xl border border-white/10 bg-white/5 p-4 text-left transition hover:bg-white/10">{content}</button>; }
-function SupportTickets({ state, onRetry, requestJson, onChanged }) { return <section className="rounded-3xl border border-slate-200 bg-white p-6 sm:p-8"><div className="flex items-start justify-between gap-4"><div><p className="text-xs font-black uppercase tracking-[.18em] text-[#b27800]">Your support history</p><h2 className="mt-2 text-2xl font-black">My Support Requests</h2></div><Send className="text-[#0b4162]" size={23} /></div>{state.status === "loading" ? <div className="mt-6 h-24 animate-pulse rounded-2xl bg-slate-100" /> : state.status === "error" ? <InlineError onRetry={onRetry} /> : state.tickets.length ? <div className="mt-6 space-y-3">{state.tickets.map((ticket) => <TicketRow key={ticket.ticketNumber} ticket={ticket} requestJson={requestJson} onChanged={onChanged} />)}</div> : <div className="mt-6 rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-6 text-sm text-slate-600">You have no support requests yet. Choose Get Help on an order to create one.</div>}</section>; }
+function SupportTickets({ state, onRetry, requestJson, onChanged }) { return <section className="rounded-3xl border border-slate-200 bg-white p-6 sm:p-8"><div className="flex flex-wrap items-start justify-between gap-4"><div><p className="text-xs font-black uppercase tracking-[.18em] text-[#b27800]">Your support history</p><h2 className="mt-2 text-2xl font-black">My Support Requests</h2><p className="mt-2 text-sm text-slate-500">Follow replies and status updates in one place.</p></div><Link to="/support/tickets" className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-extrabold text-[#0b4162] hover:border-[#f4b400]">View all <ArrowRight size={16} /></Link></div>{state.status === "loading" ? <div className="mt-6 h-24 animate-pulse rounded-2xl bg-slate-100" /> : state.status === "error" ? <InlineError onRetry={onRetry} /> : state.tickets.length ? <div className="mt-6 space-y-3">{state.tickets.slice(0, 3).map((ticket) => <TicketRow key={ticket.ticketNumber} ticket={ticket} requestJson={requestJson} onChanged={onChanged} />)}</div> : <div className="mt-6 rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-6 text-sm text-slate-600">You have no support requests yet. Choose Get Help on an order to create one.</div>}</section>; }
 function TicketRow({ ticket, requestJson, onChanged }) { const [open, setOpen] = useState(false); const [message, setMessage] = useState(""); const [feedback, setFeedback] = useState(""); const submit = async (event) => { event.preventDefault(); if (!message.trim()) return; try { await addSupportTicketMessage(requestJson, ticket.ticketNumber, message); setMessage(""); setFeedback("Reply sent."); setOpen(false); onChanged(); } catch { setFeedback("We couldn't send your reply."); } }; return <article className="rounded-2xl border border-slate-200 p-4"><button type="button" onClick={() => setOpen((value) => !value)} className="flex w-full flex-wrap items-center justify-between gap-3 text-left"><span><span className="block text-xs font-black uppercase tracking-wide text-[#b27800]">{ticket.ticketNumber}</span><span className="mt-1 block font-extrabold">{ticket.subject}</span><span className="mt-1 block text-xs text-slate-500">{ticket.category} {ticket.orderNumber && `· Order ${ticket.orderNumber}`}</span></span><span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-700">{ticket.status}</span></button>{open && <form onSubmit={submit} className="mt-4 border-t border-slate-100 pt-4"><p className="text-sm leading-6 text-slate-600">{ticket.description}</p><label className="mt-4 grid gap-2 text-sm font-bold">Add a message<textarea value={message} onChange={(event) => setMessage(event.target.value)} rows={3} className="rounded-xl border border-slate-300 px-3 py-2 font-normal outline-none focus:border-[#0b4162]" /></label><button type="submit" className="mt-3 rounded-xl bg-[#071426] px-4 py-2.5 text-sm font-bold text-white">Send Reply</button>{feedback && <p className="mt-2 text-sm font-bold text-slate-600">{feedback}</p>}</form>}</article>; }
 
 function OrderSupportModal({ order, installationBookings = [], requestJson, onTicketCreated, onClose }) {

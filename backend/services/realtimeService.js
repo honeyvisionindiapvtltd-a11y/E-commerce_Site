@@ -3,6 +3,8 @@ import 'dotenv/config';
 import jwt from 'jsonwebtoken';
 import User from '../models/User.js';
 import Order from '../models/Order.js';
+import ChatConversation from '../models/ChatConversation.js';
+import ChatMessage from '../models/ChatMessage.js';
 
 /**
  * Real-time Service using Socket.io
@@ -115,6 +117,20 @@ export const initializeRealtime = (server) => {
       socket.join(`product:${productId}`);
       console.log(`Socket subscribed to product: ${productId}`);
     });
+
+    socket.on('chat:join', async (conversationId) => {
+      if (!conversationId) return socket.emit('chat:error', { message: 'Conversation is required.' });
+      const conversation = await ChatConversation.findById(conversationId).select('customer assignedAgent');
+      const allowed = conversation && (String(conversation.customer) === String(socket.user._id)
+        || socket.user.role === 'admin'
+        || String(conversation.assignedAgent) === String(socket.user._id));
+      if (!allowed) return socket.emit('chat:error', { message: 'You are not authorized to join this conversation.' });
+      socket.join(`chat:${conversationId}`);
+    });
+
+    socket.on('chat:leave', (conversationId) => socket.leave(`chat:${conversationId}`));
+    socket.on('chat:typing', (conversationId) => socket.to(`chat:${conversationId}`).emit('chat:typing', { conversationId, userType: socket.user.role === 'admin' ? 'agent' : 'customer' }));
+    socket.on('chat:stopTyping', (conversationId) => socket.to(`chat:${conversationId}`).emit('chat:stopTyping', { conversationId }));
 
     socket.on('disconnect', () => {
       // Remove user from connected users map
@@ -262,6 +278,17 @@ export const emitChatMessage = (conversationId, senderId, message) => {
     message,
     timestamp: new Date(),
   });
+};
+
+export const emitChatEvent = (event, conversation, message) => {
+  if (!io) return;
+  const payload = {
+    conversationId: String(conversation._id || conversation),
+    conversation: conversation.toObject ? conversation.toObject() : undefined,
+    message: message?.toObject ? message.toObject() : message,
+  };
+  io.to(`chat:${payload.conversationId}`).emit(event, payload);
+  if (event === 'chat:conversationUpdate' || event === 'chat:agentAssigned' || event === 'chat:resolved' || event === 'chat:closed') io.to('admins').emit(event, payload);
 };
 
 /**

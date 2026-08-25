@@ -12,6 +12,7 @@ import inventoryRoutes from './routes/inventory.js';
 import { initializeRealtime } from './services/realtimeService.js';
 import deliveryRoutes from './routes/deliveryRoutes.js';
 import supportRoutes from './routes/supportRoutes.js';
+import chatRoutes from './routes/chatRoutes.js';
 
 dotenv.config();
 
@@ -46,6 +47,7 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/inventory', inventoryRoutes);
 app.use('/api/delivery', deliveryRoutes);
 app.use('/api/support', supportRoutes);
+app.use('/api/chat', chatRoutes);
 
 // Create HTTP server for Socket.io
 const server = http.createServer(app);

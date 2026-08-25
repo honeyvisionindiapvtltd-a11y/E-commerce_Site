@@ -33,6 +33,8 @@ import AccountSettings from './pages/AccountSettings.jsx'
 import DealerLocator from './pages/DealerLocator.jsx'
 import ComboDeals from './pages/ComboDeals.jsx'
 import Support from './pages/Support.jsx'
+import SupportTickets from './pages/SupportTickets.jsx'
+import SupportTicketDetails from './pages/SupportTicketDetails.jsx'
 import Compare from './pages/Compare.jsx'
 import Login from './pages/Login.jsx'
 import ForgotPassword from './pages/ForgotPassword.jsx'
@@ -49,9 +51,9 @@ import GetStarted from './pages/GetStarted.jsx'
 import ServiceDetail from './pages/ServiceDetail.jsx'
 import NotFound from './pages/NotFound.jsx'
 import Register from './pages/Register.jsx'
-import AdminDashboard from "./pages/admin/AdminDashboard";
 import AdminRoutes from "./pages/admin/AdminRoutes.jsx";
 import TrackOrder from "./pages/TrackOrder";
+import ChatWidget from "./components/chat/ChatWidget.jsx";
 import './App.css'
 
 const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
@@ -113,6 +115,8 @@ function App() {
           <Route path="/dealer-locator" element={<DealerLocator />} />
           <Route path="/combo-deals" element={<ComboDeals />} />
           <Route path="/support" element={<Support />} />
+          <Route path="/support/tickets" element={<SupportTickets />} />
+          <Route path="/support/tickets/:ticketId" element={<SupportTicketDetails />} />
           <Route path="/compare" element={<Compare />} />
           <Route path="/login" element={<Login />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
@@ -149,6 +153,7 @@ function App() {
         notifications={notifications} 
         onRemove={removeNotification} 
       />
+      {!isAdminRoute && !isDeliveryAgentRoute && <ChatWidget />}
     </div>
   );
 
