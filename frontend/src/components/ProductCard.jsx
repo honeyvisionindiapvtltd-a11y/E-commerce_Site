@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Heart, Star } from 'lucide-react';
 import { money } from '../lib/products';
@@ -6,8 +7,24 @@ import { productIdOf } from '../lib/products';
 
 export default function ProductCard({ product, onQuickView = () => {} }) {
   const { addToCart, toggleWishlist, wishlist } = useCommerce();
+  const [notifyOpen, setNotifyOpen] = useState(false);
+  const [notifyEmail, setNotifyEmail] = useState('');
   const isWishlisted = wishlist.includes(product.id);
   const isOutOfStock = Number(product.stock) <= 0;
+  const supportEmail = 'support@honeyvision.in';
+  const supportPhone = '919876543210';
+  const requestMessage = encodeURIComponent(
+    `Hi Honey Vision, I want to request the product "${product.name}". Please let me know if it is available or if you can suggest a similar alternative.`
+  );
+
+  const handleNotifySubmit = () => {
+    const email = notifyEmail.trim();
+    const text = encodeURIComponent(
+      `Hi Honey Vision, I would like to be notified when "${product.name}" is available. ${email ? `My email is ${email}.` : ''} Please contact me.`
+    );
+
+    window.location.href = `mailto:${supportEmail}?subject=${encodeURIComponent(`Notify me: ${product.name}`)}&body=${text}`;
+  };
 
   return (
     <article className="group relative rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:-translate-y-1 hover:shadow-lg">
@@ -50,6 +67,57 @@ export default function ProductCard({ product, onQuickView = () => {} }) {
           <button onClick={() => addToCart(productIdOf(product))} disabled={isOutOfStock} aria-label={isOutOfStock ? `${product.name} is out of stock` : `Add ${product.name} to cart`} className="flex-1 rounded-lg bg-[#071426] px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-slate-300">{isOutOfStock ? 'Out of stock' : 'Add to cart'}</button>
           <button onClick={() => onQuickView(product)} aria-label={`Quick view ${product.name}`} className="w-12 rounded-lg border border-slate-200 bg-white">Quick</button>
         </div>
+
+        {isOutOfStock && (
+          <div className="mt-3 space-y-2">
+            {!notifyOpen ? (
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setNotifyOpen(true)}
+                  className="flex-1 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-center text-xs font-semibold text-slate-700 transition hover:border-amber-400 hover:bg-amber-50"
+                >
+                  Notify me
+                </button>
+                <a
+                  href={`https://wa.me/${supportPhone}?text=${requestMessage}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex-1 rounded-lg bg-emerald-500 px-3 py-2 text-center text-xs font-semibold text-white transition hover:bg-emerald-400"
+                >
+                  WhatsApp
+                </a>
+              </div>
+            ) : (
+              <div className="rounded-xl border border-amber-200 bg-amber-50 p-3">
+                <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-600">Email address</label>
+                <input
+                  type="email"
+                  value={notifyEmail}
+                  onChange={(event) => setNotifyEmail(event.target.value)}
+                  placeholder="you@example.com"
+                  className="mt-2 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 outline-none focus:border-amber-400"
+                />
+                <div className="mt-3 flex gap-2">
+                  <button
+                    type="button"
+                    onClick={handleNotifySubmit}
+                    className="flex-1 rounded-lg bg-[#071426] px-3 py-2 text-xs font-semibold text-white"
+                  >
+                    Send request
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setNotifyOpen(false)}
+                    className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700"
+                  >
+                    Close
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </article>
   );

@@ -54,6 +54,9 @@ export default function Products() {
   const [filterOpen, setFilterOpen] =
     useState(false);
 
+  const [brandOptions, setBrandOptions] =
+    useState([]);
+
   const [apiTotal, setApiTotal] =
     useState(0);
 
@@ -71,7 +74,7 @@ export default function Products() {
     searchParams.get("subCategory") || "";
 
   const searchQuery =
-    searchParams.get("q") || "";
+    searchParams.get("q") || searchParams.get("search") || "";
 
   const selectedBrand =
     searchParams.get("brand") || "";
@@ -235,6 +238,10 @@ export default function Products() {
       );
     }
 
+    if (searchParams.get("search") && !searchQuery.trim()) {
+      query.set("q", searchParams.get("search"));
+    }
+
     if (selectedBrand) {
       query.set(
         "brand",
@@ -289,6 +296,21 @@ export default function Products() {
   // ==========================================
   // LOAD PRODUCTS
   // ==========================================
+
+  useEffect(() => {
+    if (!Array.isArray(products) || products.length === 0) {
+      setBrandOptions([]);
+      return;
+    }
+
+    const uniqueBrands = [...new Set(
+      products
+        .map((product) => product.brand || product.brandName || product.manufacturer)
+        .filter(Boolean)
+    )].sort((a, b) => a.localeCompare(b));
+
+    setBrandOptions(uniqueBrands);
+  }, [products]);
 
   useEffect(() => {
     let mounted = true;
@@ -561,6 +583,20 @@ export default function Products() {
     updateParams({
       sort:
         event.target.value,
+      page: 1,
+    });
+  };
+
+  const handleBrandChange = (event) => {
+    updateParams({
+      brand: event.target.value,
+      page: 1,
+    });
+  };
+
+  const handleInStockToggle = () => {
+    updateParams({
+      inStock: inStock ? "" : "true",
       page: 1,
     });
   };
@@ -898,6 +934,24 @@ export default function Products() {
                   </button>
 
                   <div className="relative">
+                    <select
+                      value={selectedBrand || ""}
+                      onChange={handleBrandChange}
+                      className="h-11 appearance-none rounded-xl border border-slate-200 bg-white py-2 pl-4 pr-10 text-sm font-semibold text-slate-700 outline-none transition focus:border-amber-400 focus:ring-2 focus:ring-amber-100"
+                    >
+                      <option value="">All Brands</option>
+                      {brandOptions.map((brand) => (
+                        <option key={brand} value={brand}>{brand}</option>
+                      ))}
+                    </select>
+
+                    <ChevronDown
+                      size={16}
+                      className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-400"
+                    />
+                  </div>
+
+                  <div className="relative">
 
                     <select
                       value={sort}
@@ -928,6 +982,11 @@ export default function Products() {
                       className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-400"
                     />
                   </div>
+
+                  <label className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold text-slate-700">
+                    <input type="checkbox" checked={inStock} onChange={handleInStockToggle} className="h-4 w-4 accent-amber-500" />
+                    In stock only
+                  </label>
                 </div>
 
                 <div className="flex items-center justify-between gap-3">

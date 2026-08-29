@@ -19,13 +19,20 @@ export default function Home() {
 
       <ShopByCategory />
       <BenefitsStrip />
-      <PromotionalBanners />     
-       <TrendingProduct />
-        <FeaturedSection />
-        <InstallationSection />
-         <ServicesOffers />
-        {/* <Testimonals /> */}
-        <BlogSection />
+
+      <div className="bg-white">
+        <TrendingProduct />
+      </div>
+
+      <div className="bg-slate-50 py-2">
+        <PromotionalBanners />
+      </div>
+
+      <FeaturedSection />
+      <InstallationSection />
+      <ServicesOffers />
+      {/* <Testimonals /> */}
+      <BlogSection />
     </>
   );
 }

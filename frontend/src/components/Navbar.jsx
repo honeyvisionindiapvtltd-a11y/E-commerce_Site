@@ -39,9 +39,9 @@ export default function Navbar() {
   const [showCategories, setShowCategories] = useState(false);
   const navigate = useNavigate();
   const searchRef = useRef(null);
-  const { cart, wishlist, deliveryPin, isLoggedIn, user, products } = useCommerce();
+  const { cart = [], wishlist = [], deliveryPin = '751001', isLoggedIn = false, user = null, products = [] } = useCommerce();
   const cartCount = useMemo(
-    () => cart.filter((item) => Number(item.quantity || 0) > 0).reduce((total, item) => total + Number(item.quantity || 0), 0),
+    () => (Array.isArray(cart) ? cart : []).filter((item) => Number(item.quantity || 0) > 0).reduce((total, item) => total + Number(item.quantity || 0), 0),
     [cart]
   );
 
@@ -80,7 +80,7 @@ export default function Navbar() {
       type: 'product',
       label: product.name,
       meta: `${product.category || 'Product'} • ${product.brand || 'HoneyVision'}`,
-      to: `/products?search=${encodeURIComponent(product.name)}`,
+      to: `/products?q=${encodeURIComponent(product.name)}`,
     }));
   }, [products, query]);
 
@@ -107,7 +107,7 @@ export default function Navbar() {
       return;
     }
 
-    navigate({ pathname: '/products', search: `?search=${encodeURIComponent(trimmed)}` });
+    navigate({ pathname: '/products', search: `?q=${encodeURIComponent(trimmed)}` });
     setShowSuggestions(false);
     setMenuOpen(false);
   };
@@ -116,7 +116,7 @@ export default function Navbar() {
     setQuery(value);
     setShowSuggestions(false);
     setShowCategories(false);
-    navigate({ pathname: '/products', search: `?search=${encodeURIComponent(value)}` });
+    navigate({ pathname: '/products', search: `?q=${encodeURIComponent(value)}` });
   };
 
   const handleCategorySelect = ({ categorySlug, subCategorySlug } = {}) => {
@@ -187,21 +187,21 @@ export default function Navbar() {
 
         {/* Desktop search */}
         <div ref={searchRef} className="relative hidden flex-1 lg:block">
-          <form onSubmit={submitSearch} className="flex h-12 w-full items-center overflow-hidden rounded-xl border border-yellow-400 bg-white shadow-[0_8px_24px_rgba(251,191,36,0.18)] ring-1 ring-yellow-200">
+          <form onSubmit={submitSearch} className="flex h-10 w-full items-center overflow-hidden rounded-lg border border-yellow-400 bg-white shadow-[0_6px_16px_rgba(251,191,36,0.12)] ring-1 ring-yellow-200">
             <button
               type="button"
               onClick={() => {
                 setShowCategories((value) => !value);
                 setShowSuggestions(false);
               }}
-              className="flex min-w-42.5 items-center justify-between border-r border-slate-200 bg-slate-100 px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-200"
+              className="flex min-w-[110px] items-center justify-between border-r border-slate-200 bg-slate-100 px-2.5 text-[11px] font-semibold text-slate-700 transition hover:bg-slate-200"
             >
               <span className="truncate">All Categories</span>
               <ChevronDown size={17} className={`ml-2 shrink-0 transition-transform ${showCategories ? "rotate-180" : "rotate-0"}`} />
             </button>
 
             <div className="flex min-w-0 flex-1 items-center">
-              <Search size={18} className="ml-4 mr-2 text-slate-400" />
+              <Search size={15} className="ml-2.5 mr-2 text-slate-400" />
               <input
                 type="search"
                 placeholder="Search for products, brands and more..."
@@ -211,13 +211,13 @@ export default function Navbar() {
                   setQuery(event.target.value);
                   setShowSuggestions(true);
                 }}
-                className="w-full border-0 bg-transparent px-0 py-3 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none"
+                className="w-full border-0 bg-transparent px-0 py-1.5 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none"
               />
             </div>
 
             <button
               type="submit"
-              className="grid h-full w-14 place-items-center bg-linear-to-b from-yellow-400 to-yellow-500 text-slate-950 transition hover:from-yellow-300 hover:to-yellow-400"
+              className="grid h-full w-11 place-items-center bg-linear-to-b from-yellow-400 to-yellow-500 text-slate-950 transition hover:from-yellow-300 hover:to-yellow-400"
               aria-label="Search"
             >
               <Search size={22} />
@@ -248,13 +248,13 @@ export default function Navbar() {
                 suggestions.length > 0 ? (
                   <div className="space-y-1">
                     {suggestions.map((item) => (
-                      <button
+                      <Link
                         key={item.to}
-                        type="button"
+                        to={item.to}
+                        onMouseDown={(event) => event.preventDefault()}
                         onClick={() => {
                           setShowSuggestions(false);
                           setShowCategories(false);
-                          navigate(item.to);
                         }}
                         className="flex w-full items-center justify-between rounded-xl px-3 py-2 text-left transition hover:bg-slate-100"
                       >
@@ -265,7 +265,7 @@ export default function Navbar() {
                         <span className="rounded-full bg-yellow-50 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-yellow-700">
                           {item.type}
                         </span>
-                      </button>
+                      </Link>
                     ))}
                   </div>
                 ) : (
@@ -288,6 +288,7 @@ export default function Navbar() {
                       <button
                         key={term}
                         type="button"
+                        onMouseDown={(event) => event.preventDefault()}
                         onClick={() => handleSuggestionClick(term)}
                         className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs text-slate-700 transition hover:border-yellow-300 hover:bg-yellow-50 hover:text-slate-900"
                       >
@@ -324,8 +325,8 @@ export default function Navbar() {
 
       {/* Mobile search */}
       <div ref={searchRef} className="relative mx-3 mb-3 sm:mx-6 lg:hidden">
-        <form onSubmit={submitSearch} className="flex h-11 items-center overflow-hidden rounded-xl border border-yellow-400 bg-white shadow-[0_8px_22px_rgba(251,191,36,0.12)]">
-          <Search size={18} className="ml-3 mr-2 text-slate-400" />
+        <form onSubmit={submitSearch} className="flex h-10 items-center overflow-hidden rounded-lg border border-yellow-400 bg-white shadow-[0_6px_18px_rgba(251,191,36,0.10)]">
+          <Search size={16} className="ml-2.5 mr-2 text-slate-400" />
           <input
             type="search"
             placeholder="Search products..."
@@ -340,7 +341,7 @@ export default function Navbar() {
 
           <button
             type="submit"
-            className="grid h-full w-12 place-items-center bg-linear-to-b from-yellow-400 to-yellow-500 text-slate-950"
+            className="grid h-full w-10 place-items-center bg-linear-to-b from-yellow-400 to-yellow-500 text-slate-950"
             aria-label="Search"
           >
             <Search size={18} />
@@ -350,13 +351,13 @@ export default function Navbar() {
         {showSuggestions && query.trim() && suggestions.length > 0 && (
           <div className="absolute left-0 right-0 top-[calc(100%+8px)] z-50 rounded-2xl border border-slate-200 bg-white p-2 shadow-xl">
             {suggestions.map((item) => (
-              <button
+              <Link
                 key={item.to}
-                type="button"
+                to={item.to}
+                onMouseDown={(event) => event.preventDefault()}
                 onClick={() => {
                   setShowSuggestions(false);
                   setShowCategories(false);
-                  navigate(item.to);
                 }}
                 className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left hover:bg-slate-100"
               >
@@ -364,7 +365,7 @@ export default function Navbar() {
                   <p className="text-sm font-medium text-slate-800">{item.label}</p>
                   <p className="text-[11px] text-slate-500">{item.meta}</p>
                 </div>
-              </button>
+              </Link>
             ))}
           </div>
         )}

@@ -12,6 +12,7 @@ import Products from './pages/Products.jsx'
 import Categories from './pages/Categories.jsx'
 import Category from './pages/Category.jsx'
 import ProductDetails from './pages/ProductDetails.jsx'
+import Brands from './pages/Brands.jsx'
 import Solutions from './pages/Solutions.jsx'
 import Technology from './pages/Technology.jsx'
 import Services from './pages/Services.jsx'
@@ -77,6 +78,7 @@ function App() {
           <Route path="/" element={<Home />} />
           <Route path="/about" element={<About />} />
           <Route path="/products" element={<Products />} />
+          <Route path="/brands" element={<Brands />} />
           <Route path="/products/category/:categorySlug" element={<Category />} />
           <Route path="/products/:productId" element={<ProductDetails />} />
           <Route

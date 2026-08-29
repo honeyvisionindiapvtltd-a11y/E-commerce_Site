@@ -57,14 +57,14 @@ export function useCommerce() {
     resetPassword: auth.resetPassword,
 
     // Cart
-    cart: cartCtx.cart,
+    cart: Array.isArray(cartCtx.cart) ? cartCtx.cart : [],
     addToCart: cartCtx.addToCart,
     removeFromCart: cartCtx.removeFromCart,
     setQuantity: cartCtx.setQuantity,
     clearCart: cartCtx.clearCart,
 
     // Wishlist
-    wishlist: wishlistCtx.wishlist,
+    wishlist: Array.isArray(wishlistCtx.wishlist) ? wishlistCtx.wishlist : [],
     toggleWishlist: wishlistCtx.toggleWishlist,
     clearWishlist: wishlistCtx.clearWishlist,
     moveWishlistToCart: (productIds) => wishlistCtx.moveToCart(productIds, cartCtx.addToCart),
@@ -93,7 +93,7 @@ export function useCommerce() {
     toggleAccountSetting: uiCtx.toggleAccountSetting,
 
     // Catalog
-    products: catalogCtx.products,
+    products: Array.isArray(catalogCtx.products) ? catalogCtx.products : [],
 
     // Delivery
     deliveryPin: deliveryCtx.deliveryPin,

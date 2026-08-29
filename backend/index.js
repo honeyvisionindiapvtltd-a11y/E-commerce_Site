@@ -41,8 +41,12 @@ const app = express();
 const PORT = Number(process.env.PORT) || 5000;
 const localFrontendOrigins = [
   'http://localhost:5173',
+  'http://localhost:5174',
   'http://127.0.0.1:5173',
+  'http://127.0.0.1:5174',
   'http://192.168.31.5:5173',
+  'http://192.168.31.5:5174',
+  'http://192.168.31.6:5174',
 ];
 const configuredFrontendOrigins = String(process.env.FRONTEND_URL || '')
   .split(',').map((origin) => origin.trim()).filter(Boolean);

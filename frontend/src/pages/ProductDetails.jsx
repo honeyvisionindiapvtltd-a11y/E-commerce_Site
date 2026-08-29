@@ -19,6 +19,8 @@ import {
 } from "lucide-react";
 
 const API_BASE = import.meta.env.VITE_API_URL || "/api";
+const SUPPORT_EMAIL = "support@honeyvision.in";
+const SUPPORT_PHONE = "919876543210";
 
 export default function ProductDetails() {
   const { productId } = useParams();
@@ -30,6 +32,7 @@ export default function ProductDetails() {
   const [quantity, setQuantity] = useState(1);
   const [activeTab, setActiveTab] = useState("overview");
   const [shareStatus, setShareStatus] = useState("");
+  const [recentlyViewed, setRecentlyViewed] = useState([]);
 
   useEffect(() => {
     let ignore = false;
@@ -85,6 +88,20 @@ export default function ProductDetails() {
     setImageIndex(idx >= 0 ? idx : 0);
   }, [selectedImage]);
 
+  useEffect(() => {
+    if (!product?.id) return;
+
+    try {
+      const key = "honeyvision_recently_viewed";
+      const saved = JSON.parse(window.localStorage.getItem(key) || "[]");
+      const next = [product.id, ...saved.filter((id) => id !== product.id)].slice(0, 6);
+      window.localStorage.setItem(key, JSON.stringify(next));
+      setRecentlyViewed(products.filter((item) => next.includes(item.id) && item.id !== product.id).slice(0, 4));
+    } catch {
+      setRecentlyViewed([]);
+    }
+  }, [product?.id, products]);
+
   const inWishlist = product ? wishlist.includes(product.id) : false;
   const relatedProducts = products.filter((item) => item.id !== product?.id).slice(0, 4);
 
@@ -137,6 +154,10 @@ export default function ProductDetails() {
     if (!product) return;
     navigate(`/compare?compare=${product.id}`);
   };
+
+  const requestMessage = encodeURIComponent(
+    `Hi Honey Vision, I want a different product or need help because ${product?.name || "this item"} is not available / out of stock. Please contact me.`
+  );
 
   if (loading) {
     return (
@@ -288,6 +309,31 @@ export default function ProductDetails() {
               </button>
             </div>
 
+            <div className="mt-6 rounded-2xl border border-amber-200 bg-amber-50 p-4">
+              <p className="text-sm font-semibold text-slate-800">
+                {product.stock > 0 ? "Need a different product or custom requirement?" : "This item is unavailable right now."}
+              </p>
+              <p className="mt-2 text-sm text-slate-600">
+                Contact our team directly for alternative models, out-of-stock items, or custom requirements.
+              </p>
+              <div className="mt-4 flex flex-wrap gap-3">
+                <a
+                  href={`mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent(`Product enquiry: ${product.name}`)}&body=${requestMessage}`}
+                  className="inline-flex items-center justify-center rounded-lg bg-[#071426] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800"
+                >
+                  Email Us
+                </a>
+                <a
+                  href={`https://wa.me/${SUPPORT_PHONE}?text=${requestMessage}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center justify-center rounded-lg bg-emerald-500 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-400"
+                >
+                  WhatsApp Us
+                </a>
+              </div>
+            </div>
+
             {shareStatus && (
               <p className="mt-4 text-sm text-green-600">{shareStatus}</p>
             )}
@@ -297,6 +343,25 @@ export default function ProductDetails() {
             </div>
           </div>
         </div>
+
+        {recentlyViewed.length > 0 && (
+          <div className="mt-10 bg-white rounded-3xl shadow-lg p-8">
+            <div className="mb-6 flex items-center justify-between gap-3">
+              <h2 className="text-2xl font-bold text-[#071426]">Recently viewed</h2>
+              <Link to="/products" className="text-sm font-semibold text-blue-600 hover:text-amber-500">Browse all products →</Link>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+              {recentlyViewed.map((item) => (
+                <Link key={item.id} to={`/products/${item.id}`} className="group rounded-2xl border border-slate-200 p-3 transition hover:-translate-y-1 hover:border-amber-300 hover:shadow-md">
+                  <img src={item.image} alt={item.name} className="h-32 w-full rounded-xl object-contain" />
+                  <h3 className="mt-3 text-sm font-semibold text-slate-800 line-clamp-2">{item.name}</h3>
+                  <p className="mt-2 text-base font-bold text-[#071426]">{money(item.price || 0)}</p>
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
 
         <div className="mt-8 bg-white rounded-3xl shadow-lg p-8">
           <h2 className="text-2xl font-bold text-[#071426] mb-6">Delivery & Services</h2>

@@ -314,6 +314,33 @@ export default function Products() {
   }, [rows, search, filter, sort]);
 
   const totalPages = Math.max(1, Math.ceil(filteredRows.length / PAGE_SIZE));
+  const visiblePageNumbers = useMemo(() => {
+    if (totalPages <= 7) {
+      return Array.from({ length: totalPages }, (_, index) => index + 1);
+    }
+
+    const pages = new Set([1, totalPages, page]);
+    for (let offset = 1; offset <= 2; offset += 1) {
+      pages.add(page - offset);
+      pages.add(page + offset);
+    }
+
+    const sorted = [...pages]
+      .filter((value) => value >= 1 && value <= totalPages)
+      .sort((a, b) => a - b);
+
+    const result = [];
+    for (let index = 0; index < sorted.length; index += 1) {
+      const value = sorted[index];
+      const previous = sorted[index - 1];
+      if (previous !== undefined && value - previous > 1) {
+        result.push("ellipsis");
+      }
+      result.push(value);
+    }
+
+    return result;
+  }, [page, totalPages]);
   const currentPageRows = filteredRows.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   const openNewForm = () => {
@@ -458,7 +485,6 @@ export default function Products() {
       setOpen(false);
       setEdit(null);
       setForm(blankForm);
-      setPage(1);
       await loadProducts();
     } catch (saveError) {
       setError(saveError.message || "Failed to save product.");
@@ -482,7 +508,6 @@ export default function Products() {
       await adminDelete("products", product.id);
       setSuccess("Product deleted successfully");
       await loadProducts();
-      setPage(1);
     } catch (deleteError) {
       setError(deleteError.message || "Failed to delete product.");
     } finally {
@@ -637,9 +662,34 @@ export default function Products() {
           <Table columns={columns} rows={currentPageRows} empty="No products found." />
 
           {filteredRows.length > PAGE_SIZE && (
-            <div className="mt-4 flex items-center justify-between gap-2 text-xs text-slate-600">
+            <div className="mt-4 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-600">
               <button type="button" onClick={() => setPage((current) => Math.max(1, current - 1))} disabled={page === 1} className="rounded-lg border border-slate-200 px-3 py-2 disabled:cursor-not-allowed disabled:opacity-50">Previous</button>
-              <span>Page {page} of {totalPages}</span>
+
+              <div className="flex flex-wrap items-center justify-center gap-1.5">
+                {visiblePageNumbers.map((pageNumber, index) => {
+                  if (pageNumber === "ellipsis") {
+                    return (
+                      <span key={`ellipsis-${index}`} className="px-1 text-slate-400">…</span>
+                    );
+                  }
+
+                  return (
+                    <button
+                      key={pageNumber}
+                      type="button"
+                      onClick={() => setPage(pageNumber)}
+                      className={`min-w-9 rounded-lg border px-2.5 py-2 transition ${
+                        pageNumber === page
+                          ? "border-[#071426] bg-[#071426] text-white"
+                          : "border-slate-200 bg-white text-slate-600 hover:bg-slate-100"
+                      }`}
+                    >
+                      {pageNumber}
+                    </button>
+                  );
+                })}
+              </div>
+
               <button type="button" onClick={() => setPage((current) => Math.min(totalPages, current + 1))} disabled={page >= totalPages} className="rounded-lg border border-slate-200 px-3 py-2 disabled:cursor-not-allowed disabled:opacity-50">Next</button>
             </div>
           )}
