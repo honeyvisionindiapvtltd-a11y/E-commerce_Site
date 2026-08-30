@@ -7,14 +7,15 @@ import Table from "../components/Table";
 const API_BASE = import.meta.env.VITE_API_URL || "/api";
 
 const getAuthToken = () => {
-  try {
-    const raw = localStorage.getItem("honey-vision-commerce");
-    if (!raw) return null;
-    const parsed = JSON.parse(raw);
-    return parsed.authToken || null;
-  } catch {
-    return null;
+  for (const key of ["hv-auth", "honey-vision-commerce"]) {
+    try {
+      const parsed = JSON.parse(localStorage.getItem(key) || "{}");
+      if (parsed.authToken) return parsed.authToken;
+    } catch {
+      // Try the legacy storage key before reporting an unauthenticated request.
+    }
   }
+  return null;
 };
 
 const loadCustomers = async () => {
@@ -109,9 +110,20 @@ export default function Customers() {
               </div>
             ),
           },
-          { key: "phone", label: "Phone" },
+          { key: "phone", label: "Phone", render: (row) => row.phone || "Not provided" },
+          {
+            key: "authProvider",
+            label: "Sign-in",
+            render: (row) => row.authProvider === "google" ? "Google" : "Email / Password",
+          },
+          {
+            key: "lastLoginAt",
+            label: "Last Login",
+            render: (row) => row.lastLoginAt ? new Date(row.lastLoginAt).toLocaleString() : "Not recorded",
+          },
+          { key: "location", label: "Location", render: (row) => <span className="block max-w-40 truncate" title={row.location}>{row.location || "Not provided"}</span> },
           { key: "orders", label: "Orders" },
-          { key: "spent", label: "Total Spent", render: (row) => `₹${row.spent.toLocaleString()}` },
+          { key: "spent", label: "Total Spent", render: (row) => `₹${Number(row.spent || 0).toLocaleString("en-IN")}` },
           { key: "joined", label: "Joined" },
           {
             key: "status",

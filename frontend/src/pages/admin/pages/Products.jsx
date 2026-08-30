@@ -87,6 +87,41 @@ const toFormValues = (product = null) => ({
   category: product?.categoryId || product?.category?._id || product?.category || "",
   subCategory: product?.subCategoryId || product?.subCategory?._id || product?.subCategory || "",
   brand: product?.brand || "Honey Vision",
+  series: product?.series || "",
+  productFamily: product?.productFamily || "",
+  model: product?.model || "",
+  modelVersion: product?.modelVersion || "",
+  hardwareVersion: product?.hardwareVersion || "",
+  firmwareVersion: product?.firmwareVersion || "",
+  cameraType: product?.cameraType || "",
+  technology: product?.technology || "",
+  connectivity: product?.connectivity || "",
+  resolution: product?.resolution || "",
+  megapixels: product?.megapixels ?? "",
+  lens: product?.lens || "",
+  lensType: product?.lensType || "",
+  nightVision: Boolean(product?.nightVision),
+  nightVisionType: product?.nightVisionType || "",
+  nightVisionRange: product?.nightVisionRange || "",
+  aiEnabled: Boolean(product?.aiEnabled),
+  aiFeatures: Array.isArray(product?.aiFeatures) ? product.aiFeatures.join(", ") : "",
+  microphone: Boolean(product?.microphone),
+  speaker: Boolean(product?.speaker),
+  twoWayAudio: Boolean(product?.twoWayAudio),
+  storageType: product?.storageType || "",
+  maxStorage: product?.maxStorage || "",
+  indoorOutdoor: product?.indoorOutdoor || "",
+  weatherproof: Boolean(product?.weatherproof),
+  ipRating: product?.ipRating || "",
+  ikRating: product?.ikRating || "",
+  powerType: product?.powerType || "",
+  poe: Boolean(product?.poe),
+  poeStandard: product?.poeStandard || "",
+  wifi: Boolean(product?.wifi),
+  fourG: Boolean(product?.fourG),
+  onvif: Boolean(product?.onvif),
+  rtsp: Boolean(product?.rtsp),
+  applications: Array.isArray(product?.applications) ? product.applications.join(", ") : "",
   productType: product?.productType || "physical",
   shortDescription: product?.shortDescription || "",
   description: product?.description || "",
@@ -123,6 +158,41 @@ const blankForm = {
   category: "",
   subCategory: "",
   brand: "Honey Vision",
+  series: "",
+  productFamily: "",
+  model: "",
+  modelVersion: "",
+  hardwareVersion: "",
+  firmwareVersion: "",
+  cameraType: "",
+  technology: "",
+  connectivity: "",
+  resolution: "",
+  megapixels: "",
+  lens: "",
+  lensType: "",
+  nightVision: false,
+  nightVisionType: "",
+  nightVisionRange: "",
+  aiEnabled: false,
+  aiFeatures: "",
+  microphone: false,
+  speaker: false,
+  twoWayAudio: false,
+  storageType: "",
+  maxStorage: "",
+  indoorOutdoor: "",
+  weatherproof: false,
+  ipRating: "",
+  ikRating: "",
+  powerType: "",
+  poe: false,
+  poeStandard: "",
+  wifi: false,
+  fourG: false,
+  onvif: false,
+  rtsp: false,
+  applications: "",
   productType: "physical",
   shortDescription: "",
   description: "",
@@ -233,6 +303,8 @@ export default function Products() {
     () => categoryOptions.find((category) => categoryMatch(category, form.category)) || null,
     [categoryOptions, form.category]
   );
+
+  const isCctvProduct = selectedCategory?.slug === "cctv-cameras";
 
   const subCategories = useMemo(
     () => (selectedCategory?.subcategories || []).map((subcategory) => ({ ...subcategory, id: subcategory._id || subcategory.id })),
@@ -449,6 +521,23 @@ export default function Products() {
       recommended: Boolean(form.recommended),
       isActive: form.status === "Active",
     };
+
+    if (isCctvProduct) {
+      Object.assign(payload, {
+        series: form.series.trim(), productFamily: form.productFamily.trim(), model: form.model.trim(),
+        modelVersion: form.modelVersion.trim(), hardwareVersion: form.hardwareVersion.trim(), firmwareVersion: form.firmwareVersion.trim(),
+        cameraType: form.cameraType.trim(), technology: form.technology.trim(), connectivity: form.connectivity.trim(),
+        resolution: form.resolution.trim(), megapixels: form.megapixels === "" ? null : toNumber(form.megapixels, 0),
+        lens: form.lens.trim(), lensType: form.lensType.trim(), nightVision: Boolean(form.nightVision),
+        nightVisionType: form.nightVisionType.trim(), nightVisionRange: form.nightVisionRange.trim(), aiEnabled: Boolean(form.aiEnabled),
+        aiFeatures: ensureArray(form.aiFeatures), microphone: Boolean(form.microphone), speaker: Boolean(form.speaker),
+        twoWayAudio: Boolean(form.twoWayAudio), storageType: form.storageType.trim(), maxStorage: form.maxStorage.trim(),
+        indoorOutdoor: form.indoorOutdoor.trim(), weatherproof: Boolean(form.weatherproof), ipRating: form.ipRating.trim(),
+        ikRating: form.ikRating.trim(), powerType: form.powerType.trim(), poe: Boolean(form.poe), poeStandard: form.poeStandard.trim(),
+        wifi: Boolean(form.wifi), fourG: Boolean(form.fourG), onvif: Boolean(form.onvif), rtsp: Boolean(form.rtsp),
+        applications: ensureArray(form.applications),
+      });
+    }
 
     if (!payload.slug) payload.slug = makeSlug(form.name);
     return payload;
@@ -745,6 +834,48 @@ export default function Products() {
               </select>
             </Field>
           </div>
+
+          {isCctvProduct && (
+            <div className="space-y-4 rounded-xl border border-amber-200 bg-amber-50/50 p-4">
+              <div>
+                <div className="text-xs font-semibold uppercase tracking-wide text-amber-700">CCTV Specifications</div>
+                <p className="mt-1 text-[11px] text-slate-500">Optional product attributes for camera catalog filtering. Leave unknown values blank.</p>
+              </div>
+              <div className="grid gap-4 md:grid-cols-3">
+                {[
+                  ["series", "Series"], ["productFamily", "Product Family"], ["model", "Model Number"],
+                  ["modelVersion", "Model Version"], ["hardwareVersion", "Hardware Version"], ["firmwareVersion", "Firmware Version"],
+                  ["cameraType", "Camera Type"], ["technology", "Technology"], ["connectivity", "Connectivity"],
+                  ["resolution", "Resolution"], ["megapixels", "Megapixels"], ["lens", "Lens"], ["lensType", "Lens Type"],
+                  ["nightVisionType", "Night Vision Type"], ["nightVisionRange", "Night Vision Range"], ["ipRating", "IP Rating"],
+                  ["ikRating", "IK Rating"], ["storageType", "Storage Type"], ["maxStorage", "Maximum Storage"],
+                  ["indoorOutdoor", "Indoor / Outdoor"], ["powerType", "Power Type"], ["poeStandard", "PoE Standard"],
+                ].map(([key, label]) => (
+                  <Field key={key} label={label}>
+                    <input type={key === "megapixels" ? "number" : "text"} min={key === "megapixels" ? "0" : undefined} value={form[key]} onChange={(event) => setForm({ ...form, [key]: event.target.value })} className={inputClass} />
+                  </Field>
+                ))}
+                <Field label="AI Features">
+                  <input value={form.aiFeatures} onChange={(event) => setForm({ ...form, aiFeatures: event.target.value })} className={inputClass} placeholder="Human Detection, Vehicle Detection" />
+                </Field>
+                <Field label="Applications">
+                  <input value={form.applications} onChange={(event) => setForm({ ...form, applications: event.target.value })} className={inputClass} placeholder="Home, Office, Retail" />
+                </Field>
+              </div>
+              <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+                {[
+                  ["nightVision", "Night Vision"], ["aiEnabled", "AI Enabled"], ["microphone", "Microphone"],
+                  ["speaker", "Speaker"], ["twoWayAudio", "Two-Way Audio"], ["weatherproof", "Weatherproof"],
+                  ["poe", "PoE"], ["wifi", "Wi-Fi"], ["fourG", "4G / SIM"], ["onvif", "ONVIF"], ["rtsp", "RTSP"],
+                ].map(([key, label]) => (
+                  <label key={key} className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700">
+                    <input type="checkbox" checked={Boolean(form[key])} onChange={(event) => setForm({ ...form, [key]: event.target.checked })} />
+                    {label}
+                  </label>
+                ))}
+              </div>
+            </div>
+          )}
 
           <div className="grid gap-4 md:grid-cols-2">
             <Field label="Short Description">

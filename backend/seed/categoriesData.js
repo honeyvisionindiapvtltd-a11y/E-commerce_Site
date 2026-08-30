@@ -66,6 +66,51 @@ export const categoriesData = [
         slug: "ai-cameras",
         description: "AI Cameras - CCTV Cameras",
       },
+      {
+        name: "Analog / HD Cameras",
+        slug: "analog-hd-cameras",
+        description: "Dome, Bullet, Turret and PTZ analog or HD cameras",
+      },
+      {
+        name: "IP / Network Cameras",
+        slug: "ip-network-cameras",
+        description: "IP Dome, IP Bullet, IP Turret, IP PTZ and PoE cameras",
+      },
+      {
+        name: "4G / SIM Cameras",
+        slug: "4g-sim-cameras",
+        description: "4G, 4G PTZ and 4G Solar cameras",
+      },
+      {
+        name: "AI & Smart Cameras",
+        slug: "ai-smart-cameras",
+        description: "Human detection, face recognition, people counting and intrusion detection",
+      },
+      {
+        name: "PTZ & Long Range",
+        slug: "ptz-long-range",
+        description: "PTZ, Speed Dome, Long Range and Laser PTZ cameras",
+      },
+      {
+        name: "Night Vision",
+        slug: "night-vision-cameras",
+        description: "IR, Color Night Vision, Full Color and Starlight cameras",
+      },
+      {
+        name: "Specialized Cameras",
+        slug: "specialized-cameras",
+        description: "Thermal, ANPR, Fisheye, Panoramic, Multi-Sensor and Explosion-Proof cameras",
+      },
+      {
+        name: "Solar & Battery Cameras",
+        slug: "solar-battery-cameras",
+        description: "Solar, Battery and Solar + 4G cameras",
+      },
+      {
+        name: "Application-Based Cameras",
+        slug: "application-based-cameras",
+        description: "Home, Office, Retail, Warehouse, Industrial, ATM, Elevator and Traffic cameras",
+      },
     ],
   },
 

@@ -34,6 +34,8 @@ import {
   Boxes,
   Settings,
   Star,
+  Home,
+  Store,
 } from "lucide-react";
 
 
@@ -44,102 +46,79 @@ import {
 const comboProducts = [
   {
     id: 1,
-    category: "Computers",
-    badge: "Best Seller",
-    badgeColor: "yellow",
-
-    name: "Office Essential Combo",
-
-    description: "Complete Solution for Work",
-
-    image: "/images/combos/office-combo.png",
-
-    features: [
-      "Desktop PC (i5, 16GB, 512GB SSD)",
-      '22" Full HD Monitor',
-      "Keyboard & Mouse",
-      "Wi-Fi Router",
-      "1TB External HDD",
-    ],
-
-    price: 41999,
-    mrp: 52999,
-    discount: "21% OFF",
-  },
-
-  {
-    id: 2,
-    category: "Laptops",
-    badge: "Most Popular",
-    badgeColor: "blue",
-
-    name: "Student Study Combo",
-
-    description: "Perfect for Students",
-
-    image: "/images/combos/student-combo.png",
-
-    features: [
-      "Laptop (i3, 8GB, 512GB SSD)",
-      "Backpack",
-      "Wireless Mouse",
-      "Headset",
-      "Pen Drive 32GB",
-    ],
-
-    price: 36999,
-    mrp: 46999,
-    discount: "21% OFF",
-  },
-
-  {
-    id: 3,
-    category: "Printers",
-    badge: "Great Value",
-    badgeColor: "purple",
-
-    name: "Home Office Combo",
-
-    description: "Work From Home Made Easy",
-
-    image: "/images/combos/home-office-combo.png",
-
-    features: [
-      "All-in-One Ink Tank Printer",
-      "Wi-Fi Router",
-      "A4 Paper Ream (500 Sheets)",
-      "USB Cable",
-      "Pen Drive 64GB",
-    ],
-
-    price: 18999,
-    mrp: 24999,
-    discount: "24% OFF",
-  },
-
-  {
-    id: 4,
     category: "CCTV & Security",
-    badge: "Power Combo",
-    badgeColor: "green",
-
-    name: "Complete Security Combo",
-
-    description: "Smart Security for Home & Office",
-
-    image: "/images/combos/security-combo.png",
-
+    badge: "Must Have",
+    badgeColor: "yellow",
+    name: "Home Guardian Combo",
+    description: "Complete home surveillance package",
+    image: "https://res.cloudinary.com/vhrkwyzs/image/upload/v1788004814/home_guardian_combo_vlpoek.png",
     features: [
-      "4 × 2MP Full HD Cameras",
-      "8 Channel DVR",
-      "1TB Surveillance HDD",
-      "Coaxial Cable 90m",
-      "Power Supply",
+      "4 × 2MP HD CCTV cameras",
+      "8-channel DVR with recording",
+      "1TB surveillance hard disk",
+      "90m coaxial cable set",
+      "Power supply + installation support",
     ],
-
     price: 24999,
     mrp: 32999,
     discount: "24% OFF",
+  },
+  {
+    id: 2,
+    category: "CCTV & Security",
+    badge: "Top Pick",
+    badgeColor: "blue",
+    name: "Office Security Pro Combo",
+    description: "Secure your workspace with confidence",
+    image: "https://res.cloudinary.com/vhrkwyzs/image/upload/v1788004814/Office_Security_Pro_Combo_pjiris.png",
+    features: [
+      "6 × 4MP smart cameras",
+      "16-channel NVR system",
+      "2TB storage for footage",
+      "PoE network setup",
+      "Remote mobile monitoring",
+    ],
+    price: 42999,
+    mrp: 56999,
+    discount: "25% OFF",
+  },
+  {
+    id: 3,
+    category: "CCTV & Security",
+    badge: "Best Value",
+    badgeColor: "purple",
+    name: "Retail Watch Combo",
+    description: "Loss prevention for shops & counters",
+    image: "https://res.cloudinary.com/vhrkwyzs/image/upload/v1788004814/Retail_Watch_Combo_te2xba.png",
+    features: [
+      "8 × 2MP indoor/outdoor cameras",
+      "8-channel DVR + 2TB HDD",
+      "Monitor with playback support",
+      "Cabling + connectors pack",
+      "24/7 camera health monitoring",
+    ],
+    price: 38999,
+    mrp: 49999,
+    discount: "22% OFF",
+  },
+  {
+    id: 4,
+    category: "CCTV & Security",
+    badge: "Popular",
+    badgeColor: "green",
+    name: "Smart Villa Combo",
+    description: "Premium protection for gated property",
+    image: "https://res.cloudinary.com/vhrkwyzs/image/upload/v1788004814/Smart_Villa_Combo_qd2xmc.png",
+    features: [
+      "8 × 4MP weatherproof cameras",
+      "16-channel NVR setup",
+      "Dual HDD support",
+      "Mobile app access & alerts",
+      "Installation + testing included",
+    ],
+    price: 54999,
+    mrp: 69999,
+    discount: "21% OFF",
   },
 ];
 
@@ -154,65 +133,30 @@ const comboCategories = [
     name: "All Combos",
     icon: Boxes,
   },
-
-  {
-    id: "computers",
-    name: "Computers",
-    icon: Monitor,
-  },
-
-  {
-    id: "laptops",
-    name: "Laptops",
-    icon: Laptop,
-  },
-
-  {
-    id: "networking",
-    name: "Networking",
-    icon: Router,
-  },
-
-  {
-    id: "printers",
-    name: "Printers",
-    icon: Printer,
-  },
-
   {
     id: "security",
     name: "CCTV & Security",
     icon: Camera,
   },
-
   {
-    id: "accessories",
-    name: "Accessories",
-    icon: Headset,
+    id: "home-security",
+    name: "Home Security",
+    icon: ShieldCheck,
   },
-
   {
-    id: "storage",
-    name: "Storage",
-    icon: HardDrive,
+    id: "office-security",
+    name: "Office Security",
+    icon: Monitor,
   },
-
   {
-    id: "power",
-    name: "Power Backup",
-    icon: Zap,
+    id: "retail-security",
+    name: "Retail Security",
+    icon: Store,
   },
-
   {
-    id: "software",
-    name: "Software",
-    icon: Settings,
-  },
-
-  {
-    id: "peripherals",
-    name: "Peripherals",
-    icon: Keyboard,
+    id: "smart-villa",
+    name: "Smart Villa",
+    icon: Home,
   },
 ];
 
@@ -223,93 +167,29 @@ const comboCategories = [
 
 const allComboCategories = [
   {
-    title: "Computers Combo",
-
-    description:
-      "Desktops with monitor & accessories",
-
-    image: "/images/combos/categories/computer-combo.png",
+    title: "Home Protection Combo",
+    description: "4 to 8 cameras for apartments and villas",
+    image: "https://res.cloudinary.com/vhrkwyzs/image/upload/v1788005778/home_guairdian_combo_uihzvv.png",
   },
-
   {
-    title: "Laptops Combo",
-
-    description:
-      "Laptops with bags, mouse & accessories",
-
-    image: "/images/combos/categories/laptop-combo.png",
+    title: "Office Security Combo",
+    description: "Business surveillance with NVR and remote alerts",
+    image: "https://res.cloudinary.com/vhrkwyzs/image/upload/v1788005778/security_pro_combo_zhjat8.png",
   },
-
   {
-    title: "Networking Combo",
-
-    description:
-      "Routers, Switches, Access Points & cables",
-
-    image: "/images/combos/categories/networking-combo.png",
+    title: "Retail CCTV Combo",
+    description: "Shop protection with recording and monitoring",
+    image: "https://res.cloudinary.com/vhrkwyzs/image/upload/v1788005778/retail_watch_combo_iamaoi.png",
   },
-
   {
-    title: "CCTV & Security Combo",
-
-    description:
-      "Cameras, DVR/NVR, Hard Disk & accessories",
-
-    image: "/images/combos/categories/cctv-combo.png",
+    title: "Smart Villa Combo",
+    description: "Outdoor coverage, motion detection and app access",
+    image: "https://res.cloudinary.com/vhrkwyzs/image/upload/v1788004814/Smart_Villa_Combo_qd2xmc.png",
   },
-
   {
-    title: "Printers Combo",
-
-    description:
-      "Printers with ink, paper & accessories",
-
-    image: "/images/combos/categories/printer-combo.png",
-  },
-
-  {
-    title: "Storage Combo",
-
-    description:
-      "HDD, SSD, Pen Drive & Memory Cards",
-
-    image: "/images/combos/categories/storage-combo.png",
-  },
-
-  {
-    title: "Accessories Combo",
-
-    description:
-      "Keyboards, Mice, Headsets & more",
-
-    image: "/images/combos/categories/accessories-combo.png",
-  },
-
-  {
-    title: "Power Backup Combo",
-
-    description:
-      "UPS, Inverters & Batteries",
-
-    image: "/images/combos/categories/power-combo.png",
-  },
-
-  {
-    title: "Software Combo",
-
-    description:
-      "OS, Office, Antivirus & Productivity Software",
-
-    image: "/images/combos/categories/software-combo.png",
-  },
-
-  {
-    title: "Peripherals Combo",
-
-    description:
-      "Monitors, Projectors, Webcams & more",
-
-    image: "/images/combos/categories/peripherals-combo.png",
+    title: "4K Surveillance Combo",
+    description: "High-definition monitoring for critical zones",
+    image: "https://res.cloudinary.com/vhrkwyzs/image/upload/v1788004814/home_guardian_combo_vlpoek.png",
   },
 ];
 
@@ -320,7 +200,7 @@ const allComboCategories = [
 
 function ComboDeals() {
   const [selectedCategory, setSelectedCategory] =
-    useState("all");
+    useState("security");
 
   const [sortBy, setSortBy] =
     useState("popularity");
@@ -336,29 +216,24 @@ function ComboDeals() {
 
     if (selectedCategory !== "all") {
       products = products.filter((product) => {
-
-        if (
-          selectedCategory === "computers"
-        ) {
-          return product.category === "Computers";
-        }
-
-        if (
-          selectedCategory === "laptops"
-        ) {
-          return product.category === "Laptops";
-        }
-
-        if (
-          selectedCategory === "printers"
-        ) {
-          return product.category === "Printers";
-        }
-
-        if (
-          selectedCategory === "security"
-        ) {
+        if (selectedCategory === "security") {
           return product.category === "CCTV & Security";
+        }
+
+        if (selectedCategory === "home-security") {
+          return product.name.toLowerCase().includes("home") || product.name.toLowerCase().includes("guardian");
+        }
+
+        if (selectedCategory === "office-security") {
+          return product.name.toLowerCase().includes("office") || product.name.toLowerCase().includes("security pro");
+        }
+
+        if (selectedCategory === "retail-security") {
+          return product.name.toLowerCase().includes("retail") || product.name.toLowerCase().includes("watch");
+        }
+
+        if (selectedCategory === "smart-villa") {
+          return product.name.toLowerCase().includes("villa");
         }
 
         return true;
@@ -444,10 +319,10 @@ function ComboDeals() {
 
               <h1 className="text-4xl font-bold leading-[1.08] tracking-tight sm:text-5xl">
 
-                Smart IT Solutions
+                Must-Have
 
                 <span className="block text-[#f7ad00]">
-                  Combo Deals
+                  CCTV Combo Packages
                 </span>
 
               </h1>
@@ -455,10 +330,10 @@ function ComboDeals() {
 
               <p className="mt-4 max-w-[530px] text-sm leading-6 text-gray-700 sm:text-base">
 
-                Save more with our smart combo offers on all IT
-                products. High quality. Perfect compatibility.
-                Best value for your money. Everything you need,
-                in one perfect combo.
+                Protect your home, office, shop or villa with our
+                most popular CCTV bundles. Each package includes
+                cameras, recording storage, connectivity and easy
+                installation support for complete peace of mind.
 
               </p>
 
@@ -495,8 +370,6 @@ function ComboDeals() {
               </div>
 
             </div>
-
-
 
             {/* =================================================
                 HERO PRODUCTS IMAGE
@@ -642,7 +515,7 @@ function ComboDeals() {
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
 
           <h2 className="text-xl font-bold sm:text-2xl">
-            Popular Combo Packages
+            Popular CCTV Combo Packages
           </h2>
 
 
@@ -716,7 +589,7 @@ function ComboDeals() {
       <section className="mx-auto max-w-[1440px] px-5 pt-5 sm:px-8 lg:px-10">
 
         <h2 className="text-xl font-bold sm:text-2xl">
-          All IT Product Combo Categories
+          CCTV Combo Categories
         </h2>
 
 

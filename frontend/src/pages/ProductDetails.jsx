@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { Link, useParams, useNavigate } from "react-router-dom";
 import { useCommerce } from "../context/index.js";
 import DeliveryAvailability from "../components/DeliveryAvailability";
 import { money, normalizeProduct } from "../lib/products";
@@ -285,6 +285,25 @@ export default function ProductDetails() {
                 </div>
               ))}
             </div>
+
+            {product.category === "CCTV Cameras" && (
+              <div className="mt-8 rounded-2xl border border-slate-200 bg-slate-50 p-5">
+                <h3 className="text-lg font-bold text-[#071426]">Camera specifications</h3>
+                <div className="mt-4 grid grid-cols-2 gap-x-5 gap-y-3 text-sm">
+                  {[
+                    ["Brand", product.brand], ["Series", product.series], ["Model", product.model],
+                    ["Camera Type", product.cameraType], ["Technology", product.technology], ["Resolution", product.resolution],
+                    ["Connectivity", product.connectivity], ["Lens", product.lens], ["Night Vision", product.nightVisionType || (product.nightVision ? "Yes" : "")],
+                    ["Protection", product.ipRating], ["Power", product.powerType], ["Applications", Array.isArray(product.applications) ? product.applications.join(", ") : ""],
+                  ].filter(([, value]) => value !== undefined && value !== null && String(value).trim()).map(([label, value]) => (
+                    <div key={label} className="border-b border-slate-200 pb-2">
+                      <dt className="text-xs text-slate-500">{label}</dt>
+                      <dd className="mt-1 font-semibold text-slate-800">{String(value)}</dd>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             <div className="mt-10">
               <h3 className="font-semibold text-lg mb-4">Quantity</h3>

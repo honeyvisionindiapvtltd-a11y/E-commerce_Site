@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   User,
   Mail,
@@ -29,7 +29,8 @@ export default function Register() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
-  const { register } = useCommerce();
+  const { register, loginWithGoogle } = useCommerce();
+  const googleButtonRef = useRef(null);
 
   const handleChange = (event) => {
     const { name, value } = event.target;
@@ -66,6 +67,56 @@ export default function Register() {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+    if (!clientId || !googleButtonRef.current) return undefined;
+
+    const renderGoogleButton = () => {
+      if (!window.google?.accounts?.id || !googleButtonRef.current) return;
+
+      if (!window.__honeyVisionGoogleInitialized) {
+        window.google.accounts.id.initialize({
+          client_id: clientId,
+          callback: async ({ credential }) => {
+            try {
+              setLoading(true);
+              setError("");
+              await loginWithGoogle(credential);
+              navigate("/");
+            } catch (googleError) {
+              setError(googleError.message || "Google registration failed.");
+            } finally {
+              setLoading(false);
+            }
+          },
+        });
+        window.__honeyVisionGoogleInitialized = true;
+      }
+
+      googleButtonRef.current.innerHTML = "";
+      window.google.accounts.id.renderButton(googleButtonRef.current, {
+        theme: "outline",
+        size: "large",
+        width: 400,
+        text: "signup_with",
+      });
+    };
+
+    const script = document.querySelector('script[src="https://accounts.google.com/gsi/client"]');
+    if (script) {
+      renderGoogleButton();
+    } else {
+      const googleScript = document.createElement("script");
+      googleScript.src = "https://accounts.google.com/gsi/client";
+      googleScript.async = true;
+      googleScript.defer = true;
+      googleScript.onload = renderGoogleButton;
+      document.head.appendChild(googleScript);
+    }
+
+    return undefined;
+  }, [loginWithGoogle, navigate]);
 
   return (
 
@@ -453,40 +504,13 @@ export default function Register() {
               <div className="grid grid-cols-2 gap-4">
 
                 {/* Google */}
-
-                <button className="border border-gray-300 hover:border-yellow-500 hover:bg-yellow-50 rounded-xl py-4 flex items-center justify-center gap-3 transition">
-
-                  <img
-                    src="https://www.svgrepo.com/show/475656/google-color.svg"
-                    alt="Google"
-                    className="w-6 h-6"
-                  />
-
-                  <span className="font-semibold">
-
-                    Google
-
-                  </span>
-
-                </button>
-
-                {/* Facebook */}
-
-                <button className="border border-gray-300 hover:border-blue-500 hover:bg-blue-50 rounded-xl py-4 flex items-center justify-center gap-3 transition">
-
-                  <img
-                    src="https://upload.wikimedia.org/wikipedia/commons/5/51/Facebook_f_logo_%282019%29.svg"
-                    alt="Facebook"
-                    className="w-6 h-6"
-                  />
-
-                  <span className="font-semibold">
-
-                    Facebook
-
-                  </span>
-
-                </button>
+                {import.meta.env.VITE_GOOGLE_CLIENT_ID ? (
+                  <div ref={googleButtonRef} className="col-span-2 flex min-h-11 justify-center" />
+                ) : (
+                  <button type="button" disabled className="col-span-2 w-full rounded-xl border border-gray-300 py-4 font-semibold text-gray-400">
+                    Google registration is not configured
+                  </button>
+                )}
 
               </div>
 

@@ -79,6 +79,15 @@ export default function Products() {
   const selectedBrand =
     searchParams.get("brand") || "";
 
+  const isCctvCategory = categorySlug === "cctv-cameras";
+  const cctvFilterValues = {
+    series: searchParams.get("series") || "",
+    cameraType: searchParams.get("cameraType") || "",
+    technology: searchParams.get("technology") || "",
+    resolution: searchParams.get("resolution") || "",
+    connectivity: searchParams.get("connectivity") || "",
+  };
+
   const minPrice =
     searchParams.get("minPrice") || "";
 
@@ -249,6 +258,12 @@ export default function Products() {
       );
     }
 
+    if (isCctvCategory) {
+      Object.entries(cctvFilterValues).forEach(([key, value]) => {
+        if (value) query.set(key, value);
+      });
+    }
+
     if (minPrice) {
       query.set(
         "minPrice",
@@ -398,6 +413,12 @@ export default function Products() {
     sort,
     page,
     limit,
+    isCctvCategory,
+    cctvFilterValues.series,
+    cctvFilterValues.cameraType,
+    cctvFilterValues.technology,
+    cctvFilterValues.resolution,
+    cctvFilterValues.connectivity,
   ]);
 
   // ==========================================
@@ -455,6 +476,12 @@ export default function Products() {
       });
     }
 
+    if (isCctvCategory) {
+      Object.entries(cctvFilterValues).forEach(([key, value]) => {
+        if (value) list.push({ key, label: `${key}: ${value}` });
+      });
+    }
+
     if (minPrice) {
       list.push({
         key: "minPrice",
@@ -500,6 +527,12 @@ export default function Products() {
     selectedCategory,
     selectedSubCategory,
     selectedBrand,
+    isCctvCategory,
+    cctvFilterValues.series,
+    cctvFilterValues.cameraType,
+    cctvFilterValues.technology,
+    cctvFilterValues.resolution,
+    cctvFilterValues.connectivity,
     minPrice,
     maxPrice,
     inStock,
@@ -593,6 +626,12 @@ export default function Products() {
       page: 1,
     });
   };
+
+  const handleCctvFilterChange = (event) => {
+    updateParams({ [event.target.name]: event.target.value, page: 1 });
+  };
+
+  const cctvOptionsFor = (field) => [...new Set(products.map((product) => product[field]).filter(Boolean))].sort();
 
   const handleInStockToggle = () => {
     updateParams({
@@ -950,6 +989,22 @@ export default function Products() {
                       className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-400"
                     />
                   </div>
+
+                  {isCctvCategory && [
+                    ["series", "All Series"],
+                    ["cameraType", "All Camera Types"],
+                    ["technology", "All Technologies"],
+                    ["resolution", "All Resolutions"],
+                    ["connectivity", "All Connectivity"],
+                  ].map(([name, placeholder]) => (
+                    <div className="relative" key={name}>
+                      <select name={name} value={cctvFilterValues[name]} onChange={handleCctvFilterChange} className="h-11 max-w-48 appearance-none rounded-xl border border-slate-200 bg-white py-2 pl-4 pr-9 text-sm font-semibold text-slate-700 outline-none transition focus:border-amber-400 focus:ring-2 focus:ring-amber-100">
+                        <option value="">{placeholder}</option>
+                        {cctvOptionsFor(name).map((value) => <option key={value} value={value}>{value}</option>)}
+                      </select>
+                      <ChevronDown size={16} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                    </div>
+                  ))}
 
                   <div className="relative">
 

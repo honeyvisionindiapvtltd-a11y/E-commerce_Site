@@ -14,6 +14,26 @@ const getProducts = async (req, res) => {
       category,
       subCategory,
       brand,
+      series,
+      productFamily,
+      model,
+      cameraType,
+      technology,
+      connectivity,
+      resolution,
+      nightVisionType,
+      ipRating,
+      application,
+      aiFeature,
+      microphone,
+      speaker,
+      twoWayAudio,
+      nightVision,
+      aiEnabled,
+      indoorOutdoor,
+      poe,
+      wifi,
+      fourG,
       productType,
       minPrice,
       maxPrice,
@@ -54,6 +74,16 @@ const getProducts = async (req, res) => {
             { name: regex },
             { brand: regex },
             { sku: regex },
+            { series: regex },
+            { productFamily: regex },
+            { model: regex },
+            { cameraType: regex },
+            { technology: regex },
+            { resolution: regex },
+            { aiFeatures: regex },
+            { applications: regex },
+            { "specifications.Resolution": regex },
+            { "specifications.Model": regex },
             { tags: regex },
             { shortDescription: regex },
             { description: regex },
@@ -182,6 +212,40 @@ const getProducts = async (req, res) => {
         $options: "i",
       };
     }
+
+    const setCctvFilter = (field, value) => {
+      const values = String(value || "").split(",").map((item) => item.trim()).filter(Boolean);
+      if (values.length === 1) {
+        filter[field] = { $regex: values[0], $options: "i" };
+      } else if (values.length > 1) {
+        filter[field] = { $in: values.map((item) => new RegExp(item, "i")) };
+      }
+    };
+
+    [
+      ["series", series],
+      ["productFamily", productFamily],
+      ["model", model],
+      ["cameraType", cameraType],
+      ["technology", technology],
+      ["connectivity", connectivity],
+      ["resolution", resolution],
+      ["nightVisionType", nightVisionType],
+      ["ipRating", ipRating],
+      ["indoorOutdoor", indoorOutdoor],
+    ].forEach(([field, value]) => {
+      if (value && String(value).trim()) setCctvFilter(field, value);
+    });
+
+    if (application && String(application).trim()) setCctvFilter("applications", application);
+    if (aiFeature && String(aiFeature).trim()) setCctvFilter("aiFeatures", aiFeature);
+
+    const setBooleanFilter = (field, value) => {
+      if (String(value).toLowerCase() === "true") filter[field] = true;
+    };
+    [["microphone", microphone], ["speaker", speaker], ["twoWayAudio", twoWayAudio],
+      ["nightVision", nightVision], ["aiEnabled", aiEnabled], ["poe", poe],
+      ["wifi", wifi], ["fourG", fourG]].forEach(([field, value]) => setBooleanFilter(field, value));
 
     // ========================================================
     // PRODUCT TYPE
@@ -602,6 +666,41 @@ const createProduct = async (req, res) => {
         productType,
         category,
         subCategory,
+        series,
+        productFamily,
+        model,
+        modelVersion,
+        hardwareVersion,
+        firmwareVersion,
+        cameraType,
+        technology,
+        connectivity,
+        resolution,
+        megapixels,
+        lens,
+        lensType,
+        nightVision,
+        nightVisionType,
+        nightVisionRange,
+        aiEnabled,
+        aiFeatures,
+        microphone,
+        speaker,
+        twoWayAudio,
+        storageType,
+        maxStorage,
+        indoorOutdoor,
+        weatherproof,
+        ipRating,
+        ikRating,
+        powerType,
+        poe,
+        poeStandard,
+        wifi,
+        fourG,
+        onvif,
+        rtsp,
+        applications,
         shortDescription,
         description,
         price,
