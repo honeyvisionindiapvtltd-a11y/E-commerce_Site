@@ -241,6 +241,7 @@ export default function Products() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [form, setForm] = useState(blankForm);
+  const [imageUrlInput, setImageUrlInput] = useState("");
   const [totalProducts, setTotalProducts] = useState(0);
 
   const loadProducts = async () => {
@@ -480,6 +481,8 @@ export default function Products() {
     const parsedSpecifications = parseJsonValue(form.specifications, {}, "specifications");
     const parsedVariants = parseJsonValue(form.variants, [], "variants");
     const imageList = sanitizeImageUrls(form.imageUrls);
+    const primaryImage = imageList[0] || product?.thumbnail || product?.image || "";
+    const galleryImages = imageList.length > 1 ? imageList.slice(1) : (Array.isArray(product?.images) ? product.images.filter((image) => image !== primaryImage) : []);
 
     const payload = {
       name: form.name.trim(),
@@ -501,8 +504,8 @@ export default function Products() {
       warranty: form.warranty.trim(),
       videoUrl: form.videoUrl.trim(),
       tags: form.tags.split(",").map((tag) => tag.trim()).filter(Boolean),
-      thumbnail: imageList[0] || (product?.thumbnail || ""),
-      images: imageList.length ? imageList : product?.images || [],
+      thumbnail: primaryImage,
+      images: galleryImages,
       specifications: parsedSpecifications,
       variants: parsedVariants,
       relatedProducts: form.relatedProducts
@@ -541,6 +544,36 @@ export default function Products() {
 
     if (!payload.slug) payload.slug = makeSlug(form.name);
     return payload;
+  };
+
+  const handleAddImageUrl = () => {
+    const nextUrl = imageUrlInput.trim();
+    if (!nextUrl) return;
+
+    try {
+      new URL(nextUrl);
+    } catch {
+      setError("Please enter a valid image URL.");
+      return;
+    }
+
+    setForm((current) => ({
+      ...current,
+      imageUrls: sanitizeImageUrls([...current.imageUrls, nextUrl]),
+    }));
+    setImageUrlInput("");
+    setError("");
+  };
+
+  const handleSetPrimaryImage = (index) => {
+    if (index === 0) return;
+
+    setForm((current) => {
+      const reordered = [...current.imageUrls];
+      const [selected] = reordered.splice(index, 1);
+      reordered.unshift(selected);
+      return { ...current, imageUrls: reordered };
+    });
   };
 
   const handleSave = async (event) => {
@@ -922,21 +955,48 @@ export default function Products() {
           </div>
 
           <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-            <div className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-500">Images</div>
-            <div className="space-y-3">
-              <textarea
-                value={form.imageUrls.join("\n")}
-                onChange={(event) => setForm({ ...form, imageUrls: sanitizeImageUrls(event.target.value) })}
-                rows={4}
-                className={inputClass}
-                placeholder="Add one image URL per line"
-              />
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Product Gallery</div>
+              <span className="text-[10px] text-slate-500">{form.imageUrls.length} image(s)</span>
+            </div>
 
-              {form.imageUrls.length > 0 && (
+            <div className="space-y-3">
+              <div className="flex gap-2">
+                <input
+                  value={imageUrlInput}
+                  onChange={(event) => setImageUrlInput(event.target.value)}
+                  className={`${inputClass} flex-1`}
+                  placeholder="Paste an image URL and add it to the gallery"
+                />
+                <button
+                  type="button"
+                  onClick={handleAddImageUrl}
+                  className="rounded-lg bg-[#071426] px-3 py-2 text-[11px] font-semibold text-white hover:bg-amber-400 hover:text-slate-950"
+                >
+                  Add Image
+                </button>
+              </div>
+
+              {form.imageUrls.length > 0 ? (
                 <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
                   {form.imageUrls.map((image, index) => (
                     <div key={`${image}-${index}`} className="relative overflow-hidden rounded-lg border border-slate-200 bg-white">
                       <img src={image} alt={`Product image ${index + 1}`} className="h-20 w-full object-cover" />
+
+                      {index === 0 ? (
+                        <span className="absolute left-1 top-1 rounded-full bg-amber-400 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-slate-900">
+                          Primary
+                        </span>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => handleSetPrimaryImage(index)}
+                          className="absolute left-1 top-1 rounded-full bg-white/90 px-1.5 py-0.5 text-[9px] font-semibold text-slate-700"
+                        >
+                          Set main
+                        </button>
+                      )}
+
                       <button
                         type="button"
                         onClick={() => setForm({ ...form, imageUrls: form.imageUrls.filter((_, itemIndex) => itemIndex !== index) })}
@@ -947,6 +1007,10 @@ export default function Products() {
                       </button>
                     </div>
                   ))}
+                </div>
+              ) : (
+                <div className="rounded-lg border border-dashed border-slate-300 bg-white px-3 py-4 text-center text-[11px] text-slate-500">
+                  No gallery images added yet.
                 </div>
               )}
             </div>

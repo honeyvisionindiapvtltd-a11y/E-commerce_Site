@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect } from "react";
-import { products as fallbackProducts } from "../lib/products";
+import { products as fallbackProducts, getProductGallery } from "../lib/products";
 
 const CatalogContext = createContext(null);
 const API_BASE = import.meta.env.VITE_API_URL || "/api";
@@ -12,7 +12,12 @@ const normalizeProduct = (product) => {
       ? product.subCategory.name
       : product.subCategory || "";
 
+  const gallery = getProductGallery(product);
+  const fallbackImage = "https://res.cloudinary.com/vhrkwyzs/image/upload/v1786010029/laptop_ktvxcs.png";
+  const primaryImage = gallery[0] || product.thumbnail || product.image || fallbackImage;
+
   return {
+    ...product,
     id: product._id || product.id || product.slug || `${category}-${product.name}`,
     name: product.name || "Product",
     category,
@@ -24,7 +29,9 @@ const normalizeProduct = (product) => {
     reviews: Number(product.reviewCount ?? product.reviews ?? 0),
     stock: Number(product.stock ?? 0),
     delivery: product.delivery || "Delivery available",
-    image: product.thumbnail || product.image || product.images?.[0] || "https://res.cloudinary.com/vhrkwyzs/image/upload/v1786010029/laptop_ktvxcs.png",
+    thumbnail: primaryImage,
+    image: primaryImage,
+    images: gallery.length ? gallery : [primaryImage],
     description: product.shortDescription || product.description || "",
     features: Array.isArray(product.features) ? product.features : [],
     installationEligible: Boolean(product.installationEligible),

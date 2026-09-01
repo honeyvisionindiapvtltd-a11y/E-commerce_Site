@@ -17,7 +17,7 @@ import {
 import { Link, NavLink, useNavigate } from "react-router-dom";
 import { useCommerce } from "../context/index.js";
 
-const logo = "https://res.cloudinary.com/vhrkwyzs/image/upload/v1786269504/logo.png_tun5nq.png";
+const logo = "https://res.cloudinary.com/vhrkwyzs/image/upload/v1788235324/logo1_fzsjda.png";
 import MegaMenu from "./MegaMenu";
 
 const navLinks = [

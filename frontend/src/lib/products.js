@@ -169,20 +169,34 @@ export const money = (value) =>
     maximumFractionDigits: 0,
   }).format(value);
 
+export const getProductGallery = (product = {}) => {
+  const gallery = [
+    product.thumbnail,
+    product.image,
+    ...(Array.isArray(product.images) ? product.images : []),
+  ].filter((value) => typeof value === "string" && value.trim());
+
+  return [...new Set(gallery.map((value) => value.trim()))];
+};
+
 /**
  * Normalizes product data from API responses to a consistent internal format
  * Used across all product pages (Products, ProductDetails, Category, etc.)
  */
 export const normalizeProduct = (product) => {
   if (!product) return null;
-  
-  const category = product.category && typeof product.category === "object" 
-    ? product.category.name 
+
+  const category = product.category && typeof product.category === "object"
+    ? product.category.name
     : product.category || "General";
-  
+
   const subCategory = product.subCategory && typeof product.subCategory === "object"
     ? product.subCategory.name
     : product.subCategory || "";
+
+  const gallery = getProductGallery(product);
+  const fallbackImage = "https://res.cloudinary.com/vhrkwyzs/image/upload/v1786010029/laptop_ktvxcs.png";
+  const primaryImage = gallery[0] || product.thumbnail || product.image || fallbackImage;
 
   return {
     ...product,
@@ -197,9 +211,11 @@ export const normalizeProduct = (product) => {
     reviews: Number(product.reviewCount ?? product.reviews ?? 0),
     stock: Number(product.stock ?? 0),
     delivery: product.delivery || "Delivery available",
-    image: product.thumbnail || product.image || product.images?.[0] || "https://res.cloudinary.com/vhrkwyzs/image/upload/v1786010029/laptop_ktvxcs.png",
+    thumbnail: primaryImage,
+    image: primaryImage,
+    images: gallery.length ? gallery : [primaryImage],
     description: product.shortDescription || product.description || "",
-    features: Array.isArray(product.features) ? product.features : 
+    features: Array.isArray(product.features) ? product.features :
               Array.isArray(product.specifications?.features) ? product.specifications.features : [],
     specifications: product.specifications || {},
     warranty: product.warranty || null,
