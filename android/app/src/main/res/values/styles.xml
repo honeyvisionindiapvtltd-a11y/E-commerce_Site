@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="AppTheme" parent="android:Theme.Material.Light">
+        <!-- Primary color -->
+        <item name="android:colorPrimary">@color/colorPrimary</item>
+        <!-- Secondary color -->
+        <item name="android:colorAccent">@color/colorAccent</item>
+        <!-- Status bar -->
+        <item name="android:statusBarColor">@color/colorPrimaryDark</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <!-- Window background -->
+        <item name="android:windowBackground">@color/white</item>
+        <!-- Action bar -->
+        <item name="android:windowNoTitle">true</item>
+        <!-- Full screen -->
+        <item name="android:windowFullscreen">false</item>
+        <!-- Draw behind status bar -->
+        <item name="android:fitsSystemWindows">true</item>
+    </style>
+
+    <color name="colorPrimary">#FFFFFF</color>
+    <color name="colorPrimaryDark">#F5F5F5</color>
+    <color name="colorAccent">#2196F3</color>
+    <color name="white">#FFFFFF</color>
+</resources>

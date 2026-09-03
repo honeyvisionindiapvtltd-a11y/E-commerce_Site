@@ -24,9 +24,10 @@ import {
 } from "lucide-react";
 import { Link } from "react-router-dom";
 
-const AI_API_URL = import.meta.env.VITE_AI_CHAT_API_URL || "/api/ai/chat";
+const API_BASE = import.meta.env.VITE_API_URL || "/api";
+const AI_API_URL = import.meta.env.VITE_AI_CHAT_API_URL || `${API_BASE}/ai/chat`;
 const DETECTION_API_URL =
-  import.meta.env.VITE_AI_DETECTION_API_URL || "/api/ai/detect";
+  import.meta.env.VITE_AI_DETECTION_API_URL || `${API_BASE}/ai/detect`;
 
 const aiTools = [
   {

@@ -32,6 +32,8 @@ import {
 import { computeTotals } from "../lib/orderTotals";
 import { productIdOf } from "../lib/products";
 
+const API_BASE = import.meta.env.VITE_API_URL || "/api";
+
 /* ============================================================
    PAYMENT PAGE
 ============================================================ */
@@ -501,7 +503,7 @@ const Payment = () => {
         }
 
         const resp = await fetch(
-          "/api/payments/razorpay/create-order",
+          `${API_BASE}/payments/razorpay/create-order`,
           {
             method: "POST",
             headers: {
@@ -574,7 +576,7 @@ const Payment = () => {
           handler: async function (response) {
             try {
               const verifyResp = await fetch(
-                "/api/payments/razorpay/verify",
+                `${API_BASE}/payments/razorpay/verify`,
                 {
                   method: "POST",
                   headers: {

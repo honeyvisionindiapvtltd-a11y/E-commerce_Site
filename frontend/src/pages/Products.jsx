@@ -9,6 +9,7 @@ import {
   List,
   ChevronDown,
   SlidersHorizontal,
+  Menu,
   Package,
   CheckCircle2,
   Sparkles,
@@ -22,6 +23,8 @@ import CategoryLandingHero from "../components/CategoryLandingHero";
 import ProductGrid from "../components/ProductGrid";
 import SkeletonGrid from "../components/SkeletonGrid";
 import FilterChips from "../components/FilterChips";
+
+const API_BASE = import.meta.env.VITE_API_URL || "/api";
 
 import {
   categoryFromSlug,
@@ -51,7 +54,7 @@ export default function Products() {
   const [gridView, setGridView] =
     useState(true);
 
-  const [filterOpen, setFilterOpen] =
+  const [mobileSidebarOpen, setMobileSidebarOpen] =
     useState(false);
 
   const [brandOptions, setBrandOptions] =
@@ -174,7 +177,7 @@ export default function Products() {
 
       try {
         const response = await fetch(
-          "/api/categories/tree"
+          `${API_BASE}/categories/tree`
         );
 
         if (!response.ok) {
@@ -340,7 +343,7 @@ export default function Products() {
 
         const response =
           await fetch(
-            `/api/products?${query.toString()}`
+            `${API_BASE}/products?${query.toString()}`
           );
 
         if (!response.ok) {
@@ -877,10 +880,77 @@ export default function Products() {
       {/* MAIN */}
       <section className="mx-auto max-w-[1500px] px-4 py-7 sm:px-6 lg:px-8">
 
+        <div className="-mx-4 mb-3 border-y border-slate-200 bg-white sm:-mx-6 lg:hidden">
+          <div className="grid grid-cols-2 divide-x divide-slate-200">
+            <label className="flex h-14 items-center justify-center gap-2 text-sm font-bold text-[#071426]">
+              <span className="text-lg leading-none">☷</span>
+              Sort
+              <select
+                value={sort}
+                onChange={handleSortChange}
+                aria-label="Sort products"
+                className="absolute h-px w-px opacity-0"
+              >
+                <option value="popular">Popularity</option>
+                <option value="price_low">Price: Low to High</option>
+                <option value="price_high">Price: High to Low</option>
+                <option value="newest">Newest</option>
+              </select>
+            </label>
+
+            <button
+              type="button"
+              onClick={() => setMobileSidebarOpen(true)}
+              className="flex h-14 items-center justify-center gap-2 text-sm font-bold text-[#071426]"
+            >
+              <SlidersHorizontal size={18} strokeWidth={1.8} />
+              Filter
+            </button>
+          </div>
+        </div>
+
+        <div className="-mx-4 mb-3 flex gap-2 overflow-x-auto px-4 pb-1 sm:-mx-6 sm:px-6 lg:hidden">
+          <div className="flex min-w-[132px] items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-[#071426]">
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-lg text-emerald-600">₹</span>
+            <span>Rs. 501 -<br />Rs. 1500</span>
+          </div>
+          <div className="flex min-w-[112px] items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-[#071426]">
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-amber-50 text-lg text-amber-500">☆</span>
+            <span>Top<br />Rated</span>
+          </div>
+          <div className="flex min-w-[124px] items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-[#071426]">
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-lg text-emerald-600">%</span>
+            <span>50% or<br />more</span>
+          </div>
+        </div>
+
         <div className="grid gap-7 lg:grid-cols-[270px_minmax(0,1fr)]">
 
           {/* SIDEBAR */}
           <aside className="lg:sticky lg:top-24 lg:self-start">
+
+            <div className="hidden lg:block">
+              <ProductSidebar
+                categories={
+                  categories
+                }
+                selectedCategorySlug={
+                  categorySlug
+                }
+                selectedSubCategorySlug={
+                  subCategorySlug
+                }
+                drawerOnly={false}
+                isLoading={
+                  categoryLoading
+                }
+                onClose={() =>
+                  setMobileSidebarOpen(
+                    false
+                  )
+                }
+              />
+            </div>
 
             <ProductSidebar
               categories={
@@ -892,15 +962,15 @@ export default function Products() {
               selectedSubCategorySlug={
                 subCategorySlug
               }
-              drawerOnly={false}
+              drawerOnly={true}
               isOpen={
-                filterOpen
+                mobileSidebarOpen
               }
               isLoading={
                 categoryLoading
               }
               onClose={() =>
-                setFilterOpen(
+                setMobileSidebarOpen(
                   false
                 )
               }
@@ -960,7 +1030,23 @@ export default function Products() {
                   <button
                     type="button"
                     onClick={() =>
-                      setFilterOpen(
+                      setMobileSidebarOpen(
+                        true
+                      )
+                    }
+                    className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold text-slate-700 transition hover:border-amber-400 hover:text-[#071426] lg:hidden"
+                    aria-label="Open categories"
+                  >
+                    <Menu
+                      size={17}
+                    />
+                    Categories
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setMobileSidebarOpen(
                         true
                       )
                     }

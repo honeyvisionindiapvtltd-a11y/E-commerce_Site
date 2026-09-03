@@ -40,6 +40,9 @@ validateEnvironment();
 const app = express();
 const PORT = Number(process.env.PORT) || 5000;
 const localFrontendOrigins = [
+  'capacitor://localhost',
+  'http://localhost',
+  'https://localhost',
   'http://localhost:5173',
   'http://localhost:5174',
   'http://127.0.0.1:5173',

@@ -11,7 +11,18 @@ export default function CategoryLandingHero({ title = 'Products', subtitle = '',
 
   return (
     <div className="mb-6 w-full overflow-hidden rounded-2xl bg-white shadow-sm">
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+      <div className="lg:hidden">
+        <div className="relative">
+          <img src={imgs[0]} alt="Featured products" className="h-44 w-full object-cover" />
+          <span className="absolute left-2 top-2 bg-white/80 px-1 text-[10px] font-medium text-slate-500">AD</span>
+        </div>
+        <div className="flex items-center justify-between bg-sky-50 px-4 py-2.5">
+          <span className="text-sm font-bold text-slate-800">Latest products and offers</span>
+          <span className="text-2xl leading-none text-slate-500">›</span>
+        </div>
+      </div>
+
+      <div className="hidden grid-cols-1 gap-4 lg:grid lg:grid-cols-12">
         <div className="lg:col-span-8 relative">
           <img src={imgs[0]} alt="hero" className="h-64 w-full object-cover" />
           <div className="absolute left-6 top-6 rounded-md bg-black/40 p-4 text-white">

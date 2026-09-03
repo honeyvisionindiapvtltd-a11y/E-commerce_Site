@@ -4,6 +4,7 @@ import { useCommerce } from './context/index.js'
 import { APIProvider } from '@vis.gl/react-google-maps'
 import { NotificationContainer } from './components/Notifications/NotificationComponents.jsx'
 import useNotifications from './hooks/useNotifications.js'
+import { initializeNativeApp } from './services/nativeInit'
 import Navbar from './components/Navbar.jsx'
 import Footer from './components/Footer.jsx'
 import Home from './Home.jsx'
@@ -65,6 +66,11 @@ function App() {
   const { notifications, removeNotification } = useNotifications();
   const isAdminRoute = location.pathname.startsWith('/admin');
   const isDeliveryAgentRoute = location.pathname.startsWith('/delivery-agent');
+
+  useEffect(() => {
+    // Initialize native app services on mount
+    initializeNativeApp();
+  }, []);
 
   useEffect(() => {
     window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
