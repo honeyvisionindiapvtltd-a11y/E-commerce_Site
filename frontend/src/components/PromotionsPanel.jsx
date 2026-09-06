@@ -2,13 +2,25 @@ import { Link } from 'react-router-dom';
 import { money, normalizeProduct } from '../lib/products';
 
 export default function PromotionsPanel({ products = [] }) {
-  const recommended = products.slice(0, 4).map(normalizeProduct);
+  const recommended = (Array.isArray(products) ? products : [])
+    .slice(0, 4)
+    .map(normalizeProduct)
+    .filter((product) => product && product.id);
+
+  const fallbackImage = 'https://res.cloudinary.com/vhrkwyzs/image/upload/v1786010029/laptop_ktvxcs.png';
 
   return (
     <aside className="hidden lg:block">
       <div className="sticky top-24 space-y-4">
         <div className="rounded-2xl overflow-hidden bg-gradient-to-r from-rose-50 to-white p-3 shadow-sm">
-          <img src="https://images.unsplash.com/photo-1526178616000-7f7b5a1f1b2d?auto=format&fit=crop&w=800&q=60" alt="promo" className="h-28 w-full object-cover" />
+          <img
+            src="https://images.unsplash.com/photo-1526178616000-7f7b5a1f1b2d?auto=format&fit=crop&w=800&q=60"
+            alt="Special offer"
+            className="h-28 w-full object-cover"
+            onError={(event) => {
+              event.currentTarget.src = fallbackImage;
+            }}
+          />
           <div className="mt-3 px-2">
             <h4 className="text-sm font-semibold text-slate-900">Special offer</h4>
             <p className="text-xs text-slate-600">Up to 40% off on selected items</p>
@@ -18,17 +30,28 @@ export default function PromotionsPanel({ products = [] }) {
 
         <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
           <h4 className="text-sm font-semibold text-slate-900">Recommended for you</h4>
-          <div className="mt-3 grid gap-3">
-            {recommended.map((p) => (
-              <Link key={p.id} to={`/products/${p.id}`} className="flex items-center gap-3">
-                <img src={p.image} alt={p.name} className="h-12 w-12 object-contain" />
-                <div className="flex-1 text-xs">
-                  <div className="font-medium text-slate-900 line-clamp-1">{p.name}</div>
-                  <div className="text-sm text-slate-700">{money(p.price)}</div>
-                </div>
-              </Link>
-            ))}
-          </div>
+          {recommended.length > 0 ? (
+            <div className="mt-3 grid gap-3">
+              {recommended.map((p) => (
+                <Link key={p.id} to={`/products/${p.id}`} className="flex items-center gap-3">
+                  <img
+                    src={p.image || fallbackImage}
+                    alt={p.name}
+                    className="h-12 w-12 object-contain"
+                    onError={(event) => {
+                      event.currentTarget.src = fallbackImage;
+                    }}
+                  />
+                  <div className="flex-1 text-xs">
+                    <div className="line-clamp-1 font-medium text-slate-900">{p.name}</div>
+                    <div className="text-sm text-slate-700">{money(Number.isFinite(p.price) ? p.price : 0)}</div>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          ) : (
+            <p className="mt-3 text-xs text-slate-500">Recommendations will appear here soon.</p>
+          )}
         </div>
       </div>
     </aside>

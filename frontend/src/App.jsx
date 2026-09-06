@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { Routes, Route, useLocation, Navigate } from 'react-router-dom'
 import { useCommerce } from './context/index.js'
 import { APIProvider } from '@vis.gl/react-google-maps'
@@ -77,6 +77,7 @@ function App() {
   const location = useLocation();
   const { isLoggedIn, user } = useCommerce();
   const { notifications, removeNotification } = useNotifications();
+  const [isDarkTheme, setIsDarkTheme] = useState(() => localStorage.getItem('honey-vision-theme') === 'dark');
   const isAdminRoute = location.pathname.startsWith('/admin');
   const isDeliveryAgentRoute = location.pathname.startsWith('/delivery-agent');
 
@@ -86,12 +87,19 @@ function App() {
   }, []);
 
   useEffect(() => {
+    document.documentElement.classList.toggle('dark-theme', isDarkTheme);
+    localStorage.setItem('honey-vision-theme', isDarkTheme ? 'dark' : 'light');
+  }, [isDarkTheme]);
+
+  useEffect(() => {
     window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
   }, [location.pathname]);
 
   const appContent = (
     <div className="app-shell">
-      {!isAdminRoute && !isDeliveryAgentRoute && <Navbar />}
+      {!isAdminRoute && !isDeliveryAgentRoute && (
+        <Navbar isDarkTheme={isDarkTheme} onToggleTheme={() => setIsDarkTheme((value) => !value)} />
+      )}
       <div className="page-content">
         <Routes>
           <Route path="/" element={<Home />} />

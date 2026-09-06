@@ -7,9 +7,11 @@ import {
   LayoutDashboard,
   MapPin,
   Menu,
+  Moon,
   Search,
   ShoppingCart,
   Sparkles,
+  Sun,
   Truck,
   User,
   X,
@@ -33,7 +35,7 @@ const navLinks = [
   ["Contact Us", "/contact"],
 ];
 
-export default function Navbar() {
+export default function Navbar({ isDarkTheme = false, onToggleTheme }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [showSuggestions, setShowSuggestions] = useState(false);
@@ -343,8 +345,18 @@ export default function Navbar() {
 
         <button
           type="button"
+          onClick={onToggleTheme}
+          className="ml-auto rounded-lg p-1.5 text-yellow-400 transition hover:bg-white/10 hover:text-yellow-300 lg:ml-0"
+          aria-label={isDarkTheme ? "Switch to light theme" : "Switch to dark theme"}
+          title={isDarkTheme ? "Switch to light theme" : "Switch to dark theme"}
+        >
+          {isDarkTheme ? <Sun size={18} /> : <Moon size={18} />}
+        </button>
+
+        <button
+          type="button"
           onClick={() => setMenuOpen((value) => !value)}
-          className="ml-auto p-2 hover:text-yellow-400 lg:hidden"
+          className="p-2 hover:text-yellow-400 lg:hidden"
           aria-label="Open navigation menu"
         >
           {menuOpen ? <X /> : <Menu />}
