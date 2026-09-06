@@ -191,20 +191,39 @@ function BookInstallation() {
     }
   }, [selectedDeliveryAddress, setDeliveryPin]);
 
+  // Helper: Check if order has installation-available products
+  const hasInstallationAvailableProducts = (order) => {
+    return Array.isArray(order.items) && order.items.some((item) => item.product?.installationAvailable === true);
+  };
+
+  const isOrderPaymentConfirmed = (order) => {
+    const paymentStatus = String(order.paymentStatus || "").toUpperCase();
+    return ["PAID", "COMPLETED", "SUCCESS", "SUCCEEDED"].includes(paymentStatus) || Boolean(order.paymentTransactionId);
+  };
+
+  // Filter orders that are not cancelled/returned/refunded
   const customerOrders = (Array.isArray(orders) ? orders : []).filter((order) => {
     const orderStatus = String(order.status || "").toUpperCase();
     return !["CANCELLED", "RETURNED", "REFUNDED"].includes(orderStatus);
   });
-  const eligibleOrder = (order) => {
-    const paymentStatus = String(order.paymentStatus || "").toUpperCase();
-    return ["PAID", "COMPLETED", "SUCCESS", "SUCCEEDED"].includes(paymentStatus) || Boolean(order.paymentTransactionId);
-  };
-  const selectableOrders = customerOrders.filter((order) => eligibleOrder(order));
+
+  // Separate order categories
+  const allOrdersCount = customerOrders.length;
+  const paidOrdersCount = customerOrders.filter(isOrderPaymentConfirmed).length;
+  const paidWithInstallationCount = customerOrders.filter((order) => isOrderPaymentConfirmed(order) && hasInstallationAvailableProducts(order)).length;
+
+  // Orders eligible for installation selection
+  const selectableOrders = customerOrders.filter((order) => isOrderPaymentConfirmed(order) && hasInstallationAvailableProducts(order));
+
   const selectedOrder = selectableOrders.find(
     (order) => String(order.id || order.orderNumber || order._id) === String(selectedOrderId)
   ) || null;
-  const visibleOrderCount = customerOrders.length;
-  const paidOrderCount = selectableOrders.length;
+
+  // State labels for UI
+  const hasNoOrders = allOrdersCount === 0;
+  const allOrdersUnpaid = allOrdersCount > 0 && paidOrdersCount === 0;
+  const noPaidWithInstallation = paidOrdersCount > 0 && paidWithInstallationCount === 0;
+  const hasSelectableOrders = paidWithInstallationCount > 0;
 
   const today = new Date().toISOString().split("T")[0];
   const slotOptions = [
@@ -676,31 +695,45 @@ function BookInstallation() {
 
             {currentStep === 2 && (
               <form className="mt-6 space-y-4" onSubmit={(event) => event.preventDefault()}>
-                {visibleOrderCount > 0 ? (
+                {hasSelectableOrders ? (
                   <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
-                    <h3 className="text-sm font-bold text-gray-900">Select related order</h3>
-                    {paidOrderCount === 0 && <p className="mt-2 text-xs text-amber-700">Your orders are shown below. Installation can be booked after product payment is confirmed.</p>}
+                    <h3 className="text-sm font-bold text-gray-900">Select a paid product order</h3>
+                    <p className="mt-1 text-xs text-gray-600">Choose the order for which you want to book installation.</p>
                     <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                      {customerOrders.map((order) => {
+                      {selectableOrders.map((order) => {
                         const orderId = order.id || order.orderNumber || order._id;
                         const orderLabel = order.orderNumber || `Order ${order.id || order._id}`;
                         const isActive = String(selectedOrderId || selectedOrder?.id || selectedOrder?.orderNumber || selectedOrder?._id || "") === String(orderId || "");
-                        const canSelect = eligibleOrder(order);
-
+                        const orderDate = order.createdAt ? new Date(order.createdAt).toLocaleDateString('en-IN', { year: 'numeric', month: 'short', day: 'numeric' }) : '';
+                        
                         return (
                           <button
                             key={orderId}
                             type="button"
-                            disabled={!canSelect}
                             onClick={() => setSelectedOrderId(String(orderId))}
-                            className={`rounded-xl border p-3 text-left transition ${isActive ? "border-[#f5bd22] bg-[#fffdf6]" : canSelect ? "border-gray-200 bg-white hover:border-gray-300" : "cursor-not-allowed border-gray-200 bg-gray-100 opacity-70"}`}
+                            className={`rounded-xl border p-4 text-left transition ${isActive ? "border-[#f5bd22] bg-[#fffdf6]" : "border-gray-200 bg-white hover:border-gray-300"}`}
                           >
-                            <div className="text-sm font-semibold text-gray-900">{orderLabel}</div>
-                            <div className="mt-1 text-xs text-gray-600">
-                              {order?.items?.length ? `${order.items.length} item(s)` : "Installation order"}
+                            <div className="flex items-start justify-between">
+                              <div className="flex-1">
+                                <div className="text-sm font-bold text-gray-900">{orderLabel}</div>
+                                <div className="mt-1 text-xs text-gray-500">{orderDate}</div>
+                              </div>
+                              <span className={`ml-2 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border ${isActive ? "border-[#f5bd22] bg-[#f5bd22]" : "border-gray-300"}`}>
+                                {isActive && <span className="h-2 w-2 rounded-full bg-white" />}
+                              </span>
                             </div>
-                            <div className={`mt-2 text-[11px] font-semibold ${canSelect ? "text-green-700" : "text-amber-700"}`}>
-                              {canSelect ? "Payment confirmed - Installation available" : "Product payment pending"}
+                            
+                            <div className="mt-3 space-y-1">
+                              {Array.isArray(order.items) && order.items.map((item, idx) => (
+                                <div key={idx} className="text-xs text-gray-700">
+                                  {item.product?.name || item.name} × {item.quantity}
+                                </div>
+                              ))}
+                            </div>
+                            
+                            <div className="mt-3 flex flex-wrap items-center gap-2">
+                              <span className="inline-block rounded-full bg-green-100 px-2 py-1 text-[10px] font-semibold text-green-700">Payment Confirmed</span>
+                              <span className="inline-block rounded-full bg-blue-100 px-2 py-1 text-[10px] font-semibold text-blue-700">Installation Available</span>
                             </div>
                           </button>
                         );
@@ -708,9 +741,21 @@ function BookInstallation() {
                     </div>
                     {errors.orderId && <p className="mt-2 text-sm text-red-600">{errors.orderId}</p>}
                   </div>
-                ) : (
+                ) : hasNoOrders ? (
                   <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
-                    No product orders found. Please place and pay for a qualifying product order first.
+                    <strong>No product orders found.</strong> Please place and pay for a qualifying product order first.
+                  </div>
+                ) : allOrdersUnpaid ? (
+                  <div className="rounded-2xl border border-yellow-200 bg-yellow-50 p-4 text-sm text-yellow-800">
+                    <strong>Product payment pending.</strong> You have orders, but installation can be booked only after product payment is confirmed.
+                  </div>
+                ) : noPaidWithInstallation ? (
+                  <div className="rounded-2xl border border-orange-200 bg-orange-50 p-4 text-sm text-orange-800">
+                    <strong>Installation not available.</strong> Your paid orders do not contain products eligible for installation service.
+                  </div>
+                ) : (
+                  <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4 text-sm text-gray-700">
+                    Loading your orders...
                   </div>
                 )}
 
@@ -771,7 +816,12 @@ function BookInstallation() {
                       {Object.values(errors).join(" ")}
                     </div>
                   )}
-                  <button type="button" onClick={handleContinue} className="flex items-center gap-5 rounded-lg bg-[#03111f] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#10273d]">
+                  <button 
+                    type="button" 
+                    onClick={handleContinue} 
+                    disabled={!hasSelectableOrders}
+                    className={`flex items-center gap-5 rounded-lg px-5 py-3 text-sm font-semibold transition ${hasSelectableOrders ? "bg-[#03111f] text-white hover:bg-[#10273d]" : "bg-gray-300 text-gray-500 cursor-not-allowed"}`}
+                  >
                     Continue
                     <ArrowRight size={17} />
                   </button>
@@ -887,7 +937,7 @@ function BookInstallation() {
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <h2 className="text-lg font-bold">Order Summary</h2>
-                <p className="mt-2 text-sm text-gray-500">Quickly access your installation bookings and history.</p>
+                <p className="mt-2 text-sm text-gray-500">Installation booking details</p>
               </div>
               <div className="flex flex-wrap gap-2">
                 <Link to="/installation/history" className="inline-flex items-center justify-center rounded-full border border-[#061a36] px-4 py-2 text-xs font-semibold text-[#061a36] transition hover:bg-[#061a36] hover:text-white">
@@ -895,35 +945,75 @@ function BookInstallation() {
                 </Link>
               </div>
             </div>
-            <div className="mt-5 flex gap-3 border-b border-gray-200 pb-4">
-              <div className="flex h-[82px] w-[82px] shrink-0 items-center justify-center overflow-hidden rounded-lg border border-gray-200 bg-[#fffdf6]">
-                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#f5bd22]/15 text-[#03111f]">
-                  {React.createElement(currentService?.icon || ShieldCheck, { size: 28, strokeWidth: 1.7 })}
+
+            {selectedOrder ? (
+              <div className="mt-5 space-y-5">
+                {/* Related Product Order Section */}
+                <div className="rounded-xl border border-green-200 bg-green-50 p-4">
+                  <div className="text-xs font-semibold text-gray-600">RELATED PRODUCT ORDER</div>
+                  <div className="mt-2 text-sm font-bold text-gray-900">{selectedOrder.orderNumber || selectedOrder.id || selectedOrder._id}</div>
+                  <div className="mt-2 text-xs text-gray-700">
+                    {Array.isArray(selectedOrder.items) && selectedOrder.items.length > 0 ? (
+                      <div className="space-y-1">
+                        {selectedOrder.items.map((item, idx) => (
+                          <div key={idx} className="flex items-center justify-between">
+                            <span>{item.product?.name || item.name}</span>
+                            <span className="text-gray-600">× {item.quantity}</span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div>Order details not available</div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Installation Service Section */}
+                <div>
+                  <div className="text-xs font-semibold text-gray-600">INSTALLATION SERVICE</div>
+                  <div className="mt-3 flex gap-3 border-b border-gray-200 pb-4">
+                    <div className="flex h-[70px] w-[70px] shrink-0 items-center justify-center overflow-hidden rounded-lg border border-gray-200 bg-[#fffdf6]">
+                      <div className="flex h-11 w-11 items-center justify-center rounded-full bg-[#f5bd22]/15 text-[#03111f]">
+                        {React.createElement(currentService?.icon || ShieldCheck, { size: 24, strokeWidth: 1.7 })}
+                      </div>
+                    </div>
+                    <div className="flex min-w-0 flex-1 flex-col justify-between">
+                      <div className="text-sm font-bold leading-5">{selectedItemLabel}</div>
+                      <span className="text-sm font-bold">{formatPrice(installationPrice)}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Pricing Breakdown */}
+                <div className="space-y-3 text-sm">
+                  {selectedAdditional.length > 0 && (
+                    <div>
+                      <div className="text-xs font-semibold text-gray-600 mb-2">ADDITIONAL SERVICES</div>
+                      {selectedAdditional.map((id) => {
+                        const service = additionalServices.find((item) => item.id === id);
+                        return (
+                          <PriceRow key={id} label={service?.title || id} value={formatPrice(service?.price || 0)} />
+                        );
+                      })}
+                    </div>
+                  )}
+                  <div className="border-t border-gray-200 pt-3">
+                    <PriceRow label="Subtotal" value={formatPrice(subtotal)} />
+                  </div>
+                  <PriceRow label="GST (18%)" value={formatPrice(gst)} />
+                  <div className="flex items-center justify-between border-t border-gray-200 pt-3">
+                    <span className="font-bold">Total Amount</span>
+                    <span className="text-lg font-bold text-[#03111f]">{formatPrice(total)}</span>
+                  </div>
                 </div>
               </div>
-              <div className="flex min-w-0 flex-1 flex-col justify-between">
-                <div className="text-sm font-bold leading-5">{selectedItemLabel}</div>
-                <div className="flex items-end justify-between">
-                  <span className="text-xs text-gray-500">Qty: {quantity}</span>
-                  <span className="text-sm font-bold">{formatPrice(productPrice)}</span>
-                </div>
+            ) : (
+              <div className="mt-5 rounded-xl bg-gray-50 p-4 text-center text-sm text-gray-600">
+                <strong>Select a paid product order</strong> to see the installation summary
               </div>
-            </div>
+            )}
 
-            <div className="space-y-4 py-4 text-sm">
-              <PriceRow label="Installation Service" value={formatPrice(installationPrice)} />
-              <PriceRow label="Additional Services" value={formatPrice(additionalTotal)} />
-              <div className="border-t border-gray-200 pt-4">
-                <PriceRow label="Subtotal" value={formatPrice(subtotal)} />
-              </div>
-              <PriceRow label="GST (18%)" value={formatPrice(gst)} />
-              <div className="flex items-center justify-between border-t border-gray-200 pt-4">
-                <span className="font-bold">Total Amount</span>
-                <span className="text-xl font-bold">{formatPrice(total)}</span>
-              </div>
-            </div>
-
-            <div className="rounded-xl bg-[#eff9f3] p-4">
+            <div className="mt-5 rounded-xl bg-[#eff9f3] p-4">
               <SecurityInfo icon={ShieldCheck} title="Secure Booking" description="Your data is protected and secure" />
               <SecurityInfo icon={UserRoundCheck} title="No Hidden Charges" description="Transparent pricing with no surprises" />
               <SecurityInfo icon={ShieldCheck} title="Workmanship Warranty" description="1 year warranty on installation service" last />
