@@ -153,10 +153,10 @@ export function AuthProvider({ children }) {
   );
 
   const resetPassword = useCallback(
-    async ({ email, token, password, confirmPassword, newPassword }) => {
+    async ({ token, password, confirmPassword }) => {
       return requestJson("/auth/reset-password", {
         method: "POST",
-        body: JSON.stringify({ email, token, password: password || newPassword, confirmPassword }),
+        body: JSON.stringify({ token, password, confirmPassword }),
       });
     },
     [requestJson]

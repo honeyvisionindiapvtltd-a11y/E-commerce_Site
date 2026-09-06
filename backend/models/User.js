@@ -178,8 +178,8 @@ userSchema.methods.generatePasswordResetToken = function () {
 
 userSchema.methods.clearPasswordResetToken = function () {
   this.passwordResetTokenHash = '';
-  this.passwordResetExpires = undefined;
-  this.passwordResetRequestedAt = undefined;
+  this.passwordResetExpires = null;
+  this.passwordResetRequestedAt = null;
 };
 
 userSchema.methods.matchesPasswordResetToken = function (token) {

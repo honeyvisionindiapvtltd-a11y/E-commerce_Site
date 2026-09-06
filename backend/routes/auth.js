@@ -62,10 +62,7 @@ const sendEmailToken = async (email, subject, token) => {
 };
 
 const getFrontendUrl = () => {
-  const configured = String(process.env.FRONTEND_URL || '')
-    .split(',')
-    .map((value) => value.trim())
-    .find(Boolean);
+  const configured = String(process.env.FRONTEND_URL || '').trim();
 
   if (!configured) {
     throw new Error('FRONTEND_URL is not configured. Set the frontend base URL for reset links.');
@@ -342,6 +339,7 @@ router.post('/request-email-verification', async (req, res) => {
 const handlePasswordResetRequest = async (req, res) => {
   try {
     const email = String(req.body?.email || '').trim().toLowerCase();
+    const requestId = crypto.randomUUID();
     const genericResponse = {
       success: true,
       message: 'If an account exists for this email, a password reset link has been sent.',
@@ -353,24 +351,31 @@ const handlePasswordResetRequest = async (req, res) => {
 
     const user = await User.findOne({ email }).select('+passwordResetRequestedAt +passwordResetTokenHash +passwordResetExpires').exec();
     if (!user) {
-      console.info(`[password-reset] No user found for email=${email} requestId=${crypto.randomUUID()}`);
+      console.info(`[password-reset] No user found for email=${email} requestId=${requestId}`);
       return res.json(genericResponse);
     }
 
     const now = Date.now();
     const lastRequestedAt = user.passwordResetRequestedAt ? new Date(user.passwordResetRequestedAt).getTime() : 0;
     if (lastRequestedAt && now - lastRequestedAt < PASSWORD_RESET_COOLDOWN_MS) {
-      console.warn(`[password-reset] Throttled email=${email} requestId=${crypto.randomUUID()} nextAllowedAt=${new Date(lastRequestedAt + PASSWORD_RESET_COOLDOWN_MS).toISOString()}`);
+      console.warn(`[password-reset] Throttled email=${email} requestId=${requestId} nextAllowedAt=${new Date(lastRequestedAt + PASSWORD_RESET_COOLDOWN_MS).toISOString()}`);
       return res.json(genericResponse);
     }
 
+    // Generate token but DO NOT save it yet
     const resetToken = user.generatePasswordResetToken();
-    await user.save();
 
     try {
+      // Attempt to send email BEFORE persisting token
       await sendPasswordResetEmail(user.email, resetToken);
+      
+      // Only save the user with the token if email was sent successfully
+      await user.save();
+      console.log(`[password-reset] Email sent and token persisted requestId=${requestId} email=${user.email}`);
     } catch (emailError) {
-      console.error(`[password-reset] Email send error for email=${user.email} requestId=${crypto.randomUUID()} error=${emailError.message}`);
+      // Do NOT save the token if email fails
+      console.error(`[password-reset] Email send failed - token NOT persisted requestId=${requestId} email=${user.email} error=${emailError.message}`);
+      // Still return generic response to not expose email existence
     }
 
     return res.json(genericResponse);
@@ -385,17 +390,25 @@ router.post('/request-password-reset', handlePasswordResetRequest);
 
 router.get('/validate-reset-token', async (req, res) => {
   try {
-    const token = String(req.query?.token || '').trim();
-    if (!token) {
+    const normalizedToken = String(req.query?.token || '').trim();
+    if (!normalizedToken) {
       return res.status(400).json({ success: false, message: 'Password reset link is invalid or has expired.' });
     }
 
-    const users = await User.find({ passwordResetExpires: { $gt: new Date() } })
+    // Hash the token and query MongoDB directly instead of loading all users
+    const tokenHash = crypto
+      .createHash('sha256')
+      .update(normalizedToken)
+      .digest('hex');
+
+    const user = await User.findOne({
+      passwordResetTokenHash: tokenHash,
+      passwordResetExpires: { $gt: new Date() },
+    })
       .select('+passwordResetTokenHash +passwordResetExpires')
       .exec();
 
-    const match = users.some((user) => user.matchesPasswordResetToken(token));
-    if (!match) {
+    if (!user) {
       return res.status(400).json({ success: false, message: 'Password reset link is invalid or has expired.' });
     }
 
@@ -408,31 +421,49 @@ router.get('/validate-reset-token', async (req, res) => {
 
 router.post('/reset-password', async (req, res) => {
   try {
-    const { token, password, confirmPassword, email, newPassword } = req.body || {};
-    const submittedPassword = password || newPassword;
+    const { token, password, confirmPassword } = req.body || {};
     const normalizedToken = String(token || '').trim();
+    const normalizedPassword = String(password || '').trim();
+    const normalizedConfirmPassword = String(confirmPassword || '').trim();
 
-    if (!normalizedToken || !submittedPassword || (confirmPassword !== undefined && String(submittedPassword) !== String(confirmPassword))) {
-      return res.status(400).json({ success: false, message: 'Password reset link is invalid or has expired.' });
+    // Validate request body
+    if (!normalizedToken || !normalizedPassword) {
+      return res.status(400).json({ success: false, message: 'Token and password are required.' });
     }
 
-    if (String(submittedPassword).length < 6) {
-      return res.status(400).json({ success: false, message: 'Password must be at least 6 characters long.' });
+    // Validate password confirmation
+    if (normalizedPassword !== normalizedConfirmPassword) {
+      return res.status(400).json({ success: false, message: 'Passwords do not match.' });
     }
 
-    const users = await User.find({ passwordResetExpires: { $gt: new Date() } })
-      .select('+passwordResetTokenHash +passwordResetExpires')
+    // Validate password length (8 characters minimum)
+    if (normalizedPassword.length < 8) {
+      return res.status(400).json({ success: false, message: 'Password must be at least 8 characters long.' });
+    }
+
+    // Hash the token and query MongoDB directly instead of loading all users
+    const tokenHash = crypto
+      .createHash('sha256')
+      .update(normalizedToken)
+      .digest('hex');
+
+    const user = await User.findOne({
+      passwordResetTokenHash: tokenHash,
+      passwordResetExpires: { $gt: new Date() },
+    })
+      .select('+passwordResetTokenHash +passwordResetExpires +passwordResetRequestedAt')
       .exec();
 
-    const user = users.find((candidate) => candidate.matchesPasswordResetToken(normalizedToken));
     if (!user) {
       return res.status(400).json({ success: false, message: 'Password reset link is invalid or has expired.' });
     }
 
-    user.setPassword(String(submittedPassword));
+    // Update password and clear reset token
+    user.setPassword(normalizedPassword);
     user.clearPasswordResetToken();
     await user.save();
 
+    console.log(`[password-reset] Password reset successfully for user=${user._id}`);
     res.json({ success: true, message: 'Password updated successfully. Please login with your new password.' });
   } catch (error) {
     console.error('Reset password error:', error);
