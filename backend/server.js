@@ -13,6 +13,9 @@ import { initializeRealtime } from './services/realtimeService.js';
 import deliveryRoutes from './routes/deliveryRoutes.js';
 import supportRoutes from './routes/supportRoutes.js';
 import chatRoutes from './routes/chatRoutes.js';
+import notificationRoutes from './routes/notificationRoutes.js';
+import newsletterRoutes from './routes/newsletterRoutes.js';
+import installationsRoutes from './routes/installations.js';
 
 dotenv.config();
 
@@ -26,9 +29,10 @@ const localFrontendOrigins = [
 const configuredFrontendOrigins = String(process.env.FRONTEND_URL || '')
   .split(',').map((origin) => origin.trim()).filter(Boolean);
 const allowedOrigins = new Set([...localFrontendOrigins, ...configuredFrontendOrigins]);
+const isAllowedDevelopmentOrigin = (origin) => /^https?:\/\/(localhost|127\.0\.0\.1|192\.168\.31\.5):\d+$/.test(origin);
 
 app.use(cors({ origin: (origin, callback) => {
-  if (!origin || allowedOrigins.has(origin)) return callback(null, true);
+  if (!origin || allowedOrigins.has(origin) || isAllowedDevelopmentOrigin(origin)) return callback(null, true);
   return callback(new Error('Origin is not allowed by CORS'));
 }, credentials: true }));
 app.use(express.json());
@@ -48,6 +52,9 @@ app.use('/api/inventory', inventoryRoutes);
 app.use('/api/delivery', deliveryRoutes);
 app.use('/api/support', supportRoutes);
 app.use('/api/chat', chatRoutes);
+app.use('/api/notifications', notificationRoutes);
+app.use('/api/newsletter', newsletterRoutes);
+app.use('/api', installationsRoutes);
 
 // Create HTTP server for Socket.io
 const server = http.createServer(app);

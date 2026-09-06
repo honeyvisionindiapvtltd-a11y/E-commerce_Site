@@ -5,6 +5,8 @@ import User from '../models/User.js';
 import Order from '../models/Order.js';
 import ChatConversation from '../models/ChatConversation.js';
 import ChatMessage from '../models/ChatMessage.js';
+import { notifyAdmin, notifyCustomer, notifyDeliveryAgent, notifyAdmins as persistAdminNotifications } from './notificationService.js';
+import { markAgentOnline, markAgentOffline, recordAgentHeartbeat } from './deliveryPresenceService.js';
 
 /**
  * Real-time Service using Socket.io
@@ -22,12 +24,13 @@ const localFrontendOrigins = [
 const configuredFrontendOrigins = String(process.env.FRONTEND_URL || '')
   .split(',').map((origin) => origin.trim()).filter(Boolean);
 const allowedOrigins = new Set([...localFrontendOrigins, ...configuredFrontendOrigins]);
+const isAllowedDevelopmentOrigin = (origin) => /^https?:\/\/(localhost|127\.0\.0\.1|192\.168\.31\.5):\d+$/.test(origin);
 
 export const initializeRealtime = (server) => {
   io = new Server(server, {
     cors: {
       origin: (origin, callback) => {
-        if (!origin || allowedOrigins.has(origin)) return callback(null, true);
+        if (!origin || allowedOrigins.has(origin) || isAllowedDevelopmentOrigin(origin)) return callback(null, true);
         return callback(new Error('Origin is not allowed by Socket.IO CORS'));
       },
       methods: ['GET', 'POST'],
@@ -51,6 +54,9 @@ export const initializeRealtime = (server) => {
       if (!user || user.status && user.status !== 'Active') {
         return next(new Error('Unauthorized'));
       }
+      if (payload.role && payload.role !== user.role) {
+        return next(new Error('Unauthorized'));
+      }
 
       socket.user = user;
       return next();
@@ -59,26 +65,37 @@ export const initializeRealtime = (server) => {
     }
   });
 
-  io.on('connection', (socket) => {
+  io.on('connection', async (socket) => {
     console.log(`User connected: ${socket.id}`);
 
     // User authentication and room joining
-    socket.on('user:login', () => {
-      const userId = String(socket.user._id);
-      if (!connectedUsers.has(userId)) {
-        connectedUsers.set(userId, []);
+    const userId = String(socket.user._id);
+    if (!connectedUsers.has(userId)) connectedUsers.set(userId, []);
+    connectedUsers.get(userId).push(socket.id);
+    socket.join(`user:${userId}`);
+    socket.join('orders');
+    
+    // Delivery agent specific rooms and presence
+    if (socket.user.role === 'delivery_agent') {
+      socket.join(`agent:${userId}`);
+      console.log(`Delivery agent ${userId} joined agent room`);
+      
+      // Mark agent as online through presence service
+      try {
+        await markAgentOnline(socket.user._id, socket.id);
+      } catch (err) {
+        console.warn(`Failed to mark agent online: ${err.message}`);
       }
-      connectedUsers.get(userId).push(socket.id);
-
-      // Join user-specific room for notifications
-      socket.join(`user:${userId}`);
-      socket.join('orders'); // Join orders room for global updates
-      if (socket.user.role === 'admin') {
-        socket.join('admins');
-      }
-
-      console.log(`User ${userId} joined notifications`);
-    });
+      
+      // Emit delivery agent connected event
+      socket.emit('delivery:agentConnected', {
+        agentId: userId,
+        timestamp: new Date(),
+      });
+    }
+    
+    if (socket.user.role === 'admin') socket.join('admins');
+    console.log(`User ${userId} joined notifications`);
 
     // Real-time order tracking subscription
     socket.on('order:subscribe', async (orderId) => {
@@ -132,7 +149,62 @@ export const initializeRealtime = (server) => {
     socket.on('chat:typing', (conversationId) => socket.to(`chat:${conversationId}`).emit('chat:typing', { conversationId, userType: socket.user.role === 'admin' ? 'agent' : 'customer' }));
     socket.on('chat:stopTyping', (conversationId) => socket.to(`chat:${conversationId}`).emit('chat:stopTyping', { conversationId }));
 
+    // Installation subscription
+    socket.on('installation:subscribe', async (installationId) => {
+      try {
+        const Installation = (await import('../models/Installation.js')).default;
+        const installation = await Installation.findOne({
+          $or: [{ id: String(installationId) }, { _id: installationId }, { bookingNumber: String(installationId) }],
+        }).select('id userId assignedAgentId');
+
+        if (!installation) {
+          return socket.emit('installation:subscriptionError', {
+            message: 'Installation not found',
+          });
+        }
+
+        const isOwner = String(installation.userId) === String(socket.user._id);
+        const isAgent = String(installation.assignedAgentId) === String(socket.user._id);
+        const isPrivileged = socket.user.role === 'admin';
+
+        if (!isOwner && !isAgent && !isPrivileged) {
+          return socket.emit('installation:subscriptionError', {
+            message: 'You are not authorized to subscribe to this installation',
+          });
+        }
+
+        socket.join(`installation:${installation.id}`);
+        console.log(`Socket subscribed to installation: ${installation.id}`);
+      } catch (error) {
+        socket.emit('installation:subscriptionError', {
+          message: 'Unable to authorize installation subscription',
+        });
+      }
+    });
+
+    socket.on('delivery:heartbeat', async () => {
+      if (socket.user?.role === 'delivery_agent') {
+        try {
+          await recordAgentHeartbeat(socket.user._id);
+          socket.emit('delivery:heartbeatAck', { timestamp: new Date() });
+        } catch (err) {
+          console.warn(`Failed to record heartbeat for agent ${socket.user._id}: ${err.message}`);
+        }
+      }
+    });
+
     socket.on('disconnect', () => {
+      // Mark delivery agent as offline (with grace period for reconnection)
+      if (socket.user?.role === 'delivery_agent') {
+        try {
+          markAgentOffline(socket.user._id, true).catch((err) => {
+            console.warn(`Failed to mark agent offline: ${err.message}`);
+          });
+        } catch (err) {
+          console.warn(`Failed to handle agent disconnect: ${err.message}`);
+        }
+      }
+
       // Remove user from connected users map
       for (const [userId, socketIds] of connectedUsers.entries()) {
         const index = socketIds.indexOf(socket.id);
@@ -179,6 +251,16 @@ export const emitOrderStatusUpdate = (orderId, userId, status, details) => {
 
   // Send to all admins
   io.to('admins').emit('admin:orderUpdate', update);
+
+  const isCancellation = status === 'CANCELLED';
+  const title = isCancellation ? 'Order cancelled' : details?.trackingEvent?.title || `Order ${String(status).replaceAll('_', ' ')}`;
+  const message = isCancellation ? `Your order #${orderId} has been cancelled.` : details?.trackingEvent?.description || `Your order ${orderId} status is ${String(status).replaceAll('_', ' ')}.`;
+  const eventKey = details?.trackingEvent?._id || details?.trackingEvent?.timestamp || details?.updatedAt || Date.now();
+    const category = status.includes('PAYMENT') ? 'payment' : status.includes('DELIVERY') || status === 'OUT_FOR_DELIVERY' ? 'delivery' : 'order';
+    const actionUrl = `/orders/${encodeURIComponent(orderId)}/tracking`;
+    void notifyCustomer({ recipient: userId, type: `ORDER_${status}`, category, title, message, orderNumber: orderId, actionUrl, eventKey: `order:${orderId}:event:${eventKey}` });
+    void persistAdminNotifications({ type: isCancellation ? 'ORDER_CANCELLED' : 'ORDER_STATUS_UPDATE', category: 'admin', title: isCancellation ? 'Order cancelled' : `Order ${orderId} updated`, message: isCancellation ? `Order #${orderId} was cancelled by the customer.` : `${orderId}: ${title}`, orderNumber: orderId, actionUrl: '/admin/orders', eventKey: `admin:order:${orderId}:event:${eventKey}` });
+    if (details?.deliveryAgent?.id) void notifyDeliveryAgent({ recipient: details.deliveryAgent.id, type: `ORDER_${status}`, category: 'delivery', title, message: `${orderId}: ${title}`, orderNumber: orderId, actionUrl: '/delivery-agent', eventKey: `agent:${details.deliveryAgent.id}:order:${orderId}:event:${eventKey}` });
 };
 
 /**
@@ -195,10 +277,6 @@ export const emitDeliveryUpdate = (orderId, userId, location, eta) => {
   };
 
   io.to(`order:${orderId}`).emit('delivery:update', update);
-  io.to(`user:${userId}`).emit('notification:delivery', {
-    message: `Delivery update: ${location}`,
-    update,
-  });
 };
 
 export const emitDeliveryLocationUpdate = (orderId, userId, location) => {
@@ -220,10 +298,7 @@ export const emitDeliveryLocationUpdate = (orderId, userId, location) => {
   }
 
   io.to(`order:${orderId}`).emit('delivery:locationUpdate', update);
-  io.to(`user:${userId}`).emit('notification:deliveryLocation', {
-    message: 'Your delivery location was updated.',
-    update,
-  });
+  // GPS updates remain transient map events and never create persistent notifications.
 };
 
 /**
@@ -240,6 +315,7 @@ export const emitInventoryUpdate = (productId, quantity, status) => {
   };
 
   io.to(`product:${productId}`).emit('inventory:update', update);
+  io.to('admins').emit('admin:dashboardUpdate', update);
 
   // Notify users with this product in wishlist
   io.to('wishlist').emit('notification:inventory', {
@@ -295,13 +371,13 @@ export const emitChatEvent = (event, conversation, message) => {
  * Emit admin notification
  */
 export const emitAdminNotification = (message, data, level = 'info') => {
-  if (!io) return;
-
-  io.to('admins').emit('admin:notification', {
+  return persistAdminNotifications({
+    type: 'ADMIN_ALERT',
+    category: 'admin',
+    title: level === 'error' ? 'Important admin alert' : 'Admin notification',
     message,
-    data,
-    level, // 'info', 'warning', 'error', 'success'
-    timestamp: new Date(),
+    relatedId: data?.conversationId || data?.productId || '',
+    eventKey: data?.eventKey || `admin:${message}:${JSON.stringify(data || {})}`,
   });
 };
 
@@ -342,4 +418,169 @@ export const joinAdminRoom = (socketId) => {
   if (socket) {
     socket.join('admins');
   }
+};
+
+// ==========================================
+// INSTALLATION REAL-TIME EVENTS
+// ==========================================
+
+/**
+ * Subscribe to installation updates
+ */
+export const subscribeToInstallation = (socket, installationId) => {
+  if (!socket) return;
+  socket.join(`installation:${installationId}`);
+};
+
+/**
+ * Emit installation status update
+ */
+export const emitInstallationStatusUpdate = (installationId, customerId, agentId, status, details = {}) => {
+  if (!io) return;
+
+  const update = {
+    installationId,
+    status,
+    previousStatus: details.previousStatus,
+    statusLabel: details.statusLabel,
+    timestamp: new Date(),
+    note: details.note,
+  };
+
+  // Send to installation subscribers (real-time page viewers)
+  io.to(`installation:${installationId}`).emit('installation:statusUpdate', update);
+
+  // Send to customer
+  io.to(`user:${customerId}`).emit('notification:installationStatus', {
+    message: `Installation ${installationId}: ${details.statusLabel}`,
+    update,
+  });
+
+  // Send to assigned agent
+  if (agentId) {
+    io.to(`user:${agentId}`).emit('notification:installationStatus', {
+      message: `Installation ${installationId}: ${details.statusLabel}`,
+      update,
+    });
+  }
+
+  // Send to all admins
+  io.to('admins').emit('admin:installationUpdate', update);
+};
+
+/**
+ * Emit installation agent assignment
+ */
+export const emitInstallationAssigned = (installationId, customerId, agentId, agentName) => {
+  if (!io) return;
+
+  const update = {
+    installationId,
+    agentId,
+    agentName,
+    assignedAt: new Date(),
+  };
+
+  io.to(`installation:${installationId}`).emit('installation:assigned', update);
+  io.to(`user:${customerId}`).emit('notification:installationAssigned', {
+    message: `Agent ${agentName} has been assigned to your installation`,
+    update,
+  });
+  io.to(`user:${agentId}`).emit('notification:installationAssigned', {
+    message: `You have been assigned a new installation`,
+    update,
+  });
+  io.to('admins').emit('admin:installationAssigned', update);
+};
+
+/**
+ * Emit installation location update
+ */
+export const emitInstallationLocationUpdate = (installationId, customerId, agentId, location) => {
+  if (!io) return;
+
+  // Validate coordinates
+  const lat = Number(location.latitude);
+  const lng = Number(location.longitude);
+  if (!Number.isFinite(lat) || !Number.isFinite(lng) || lat === 0 && lng === 0) {
+    return; // Silently ignore invalid coordinates
+  }
+
+  const update = {
+    installationId,
+    latitude: lat,
+    longitude: lng,
+    accuracy: location.accuracy,
+    heading: location.heading,
+    speed: location.speed,
+    timestamp: new Date(),
+  };
+
+  // Send to installation page viewers
+  io.to(`installation:${installationId}`).emit('installation:locationUpdate', update);
+
+  // GPS updates are transient and don't create persistent notifications
+};
+
+/**
+ * Emit installation completion
+ */
+export const emitInstallationCompleted = (installationId, customerId, agentId, details = {}) => {
+  if (!io) return;
+
+  const update = {
+    installationId,
+    completedAt: new Date(),
+    agentNotes: details.agentNotes,
+    photosUrl: details.photosUrl || [],
+    workDuration: details.workDuration,
+  };
+
+  io.to(`installation:${installationId}`).emit('installation:completed', update);
+  io.to(`user:${customerId}`).emit('notification:installationCompleted', {
+    message: `Your installation has been completed`,
+    update,
+  });
+  io.to('admins').emit('admin:installationCompleted', update);
+};
+
+/**
+ * Emit installation failure
+ */
+export const emitInstallationFailed = (installationId, customerId, agentId, reason, notes) => {
+  if (!io) return;
+
+  const update = {
+    installationId,
+    failedAt: new Date(),
+    reason,
+    agentNotes: notes,
+  };
+
+  io.to(`installation:${installationId}`).emit('installation:failed', update);
+  io.to(`user:${customerId}`).emit('notification:installationFailed', {
+    message: `Installation could not be completed: ${reason}`,
+    update,
+  });
+  io.to('admins').emit('admin:installationFailed', update);
+};
+
+/**
+ * Emit installation cancellation
+ */
+export const emitInstallationCancelled = (installationId, customerId, reason) => {
+  if (!io) return;
+
+  const update = {
+    installationId,
+    cancelledAt: new Date(),
+    reason,
+  };
+
+  io.to(`installation:${installationId}`).emit('installation:cancelled', update);
+  io.to(`user:${customerId}`).emit('notification:installationCancelled', {
+    message: `Installation has been cancelled`,
+    update,
+  });
+  io.to('admins').emit('admin:installationCancelled', update);
 };

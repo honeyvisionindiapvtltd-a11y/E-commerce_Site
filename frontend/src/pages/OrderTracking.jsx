@@ -109,6 +109,10 @@ export default function OrderTracking() {
   const [returnDescription, setReturnDescription] = useState("");
   const [returnSubmitting, setReturnSubmitting] = useState(false);
   const [returnMessage, setReturnMessage] = useState("");
+  const [showCancelModal, setShowCancelModal] = useState(false);
+  const [cancelReason, setCancelReason] = useState("");
+  const [cancelSubmitting, setCancelSubmitting] = useState(false);
+  const [cancelMessage, setCancelMessage] = useState("");
   const liveLocationRef = useRef(null);
   const destinationResolutionRef = useRef(new Set());
   const [resolvedDestination, setResolvedDestination] = useState(null);
@@ -141,6 +145,36 @@ export default function OrderTracking() {
     locationDebug,
     refresh,
   } = useOrderTracking(orderNumber, token, 15000);
+
+  const canCancel = order?.actions?.canCancel === true;
+
+  const handleCancelOrder = async (event) => {
+    event.preventDefault();
+    if (!cancelReason || cancelSubmitting || !canCancel || !order?.orderNumber) return;
+
+    setCancelSubmitting(true);
+    setCancelMessage("");
+    try {
+      const response = await fetch(`${API_BASE}/orders/${encodeURIComponent(order.orderNumber)}/cancel`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ reason: cancelReason }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.message || "Unable to cancel order");
+      setShowCancelModal(false);
+      setCancelReason("");
+      setCancelMessage(`Order #${order.orderNumber} has been cancelled.`);
+      await refresh();
+    } catch (requestError) {
+      setCancelMessage(requestError.message || "Unable to cancel order");
+    } finally {
+      setCancelSubmitting(false);
+    }
+  };
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
@@ -350,17 +384,28 @@ export default function OrderTracking() {
             </div>
           </div>
 
-          <button
-            onClick={handleRefresh}
-            disabled={isRefreshing || loading}
-            className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-[#071426] shadow-sm transition hover:border-[#F4B400] hover:text-[#071426] disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            <RefreshCw
-              size={17}
-              className={isRefreshing ? "animate-spin" : ""}
-            />
-            Refresh
-          </button>
+          <div className="flex flex-wrap items-center gap-3">
+            {canCancel && (
+              <button
+                type="button"
+                onClick={() => setShowCancelModal(true)}
+                className="inline-flex items-center justify-center gap-2 rounded-xl border border-red-200 bg-white px-4 py-2.5 text-sm font-semibold text-red-700 shadow-sm transition hover:bg-red-50"
+              >
+                Cancel Order
+              </button>
+            )}
+            <button
+              onClick={handleRefresh}
+              disabled={isRefreshing || loading}
+              className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-[#071426] shadow-sm transition hover:border-[#F4B400] hover:text-[#071426] disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <RefreshCw
+                size={17}
+                className={isRefreshing ? "animate-spin" : ""}
+              />
+              Refresh
+            </button>
+          </div>
         </div>
 
         {/* Premium order header */}
@@ -425,6 +470,36 @@ export default function OrderTracking() {
               </div>
             )}
           </section>
+        )}
+
+        {cancelMessage && (
+          <div className="mb-6 rounded-xl border border-emerald-200 bg-emerald-50 px-5 py-3 text-sm font-semibold text-emerald-800">
+            {cancelMessage}
+          </div>
+        )}
+
+        {showCancelModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 px-4" role="dialog" aria-modal="true" aria-labelledby="cancel-order-title">
+            <form onSubmit={handleCancelOrder} className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
+              <h2 id="cancel-order-title" className="text-xl font-bold text-[#071426]">Cancel Order?</h2>
+              <p className="mt-2 text-sm text-slate-600">Are you sure you want to cancel this order?</p>
+              <label className="mt-5 block text-sm font-semibold text-slate-700">
+                Cancellation reason
+                <select required value={cancelReason} onChange={(event) => setCancelReason(event.target.value)} className="mt-2 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 font-normal">
+                  <option value="">Select a reason</option>
+                  <option value="Ordered by mistake">Ordered by mistake</option>
+                  <option value="Found a better price">Found a better price</option>
+                  <option value="Delivery taking too long">Delivery taking too long</option>
+                  <option value="Changed my mind">Changed my mind</option>
+                  <option value="Other">Other</option>
+                </select>
+              </label>
+              <div className="mt-6 flex justify-end gap-3">
+                <button type="button" onClick={() => setShowCancelModal(false)} className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">Keep Order</button>
+                <button type="submit" disabled={!cancelReason || cancelSubmitting} className="rounded-lg bg-red-600 px-4 py-2 text-sm font-bold text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50">{cancelSubmitting ? "Cancelling..." : "Cancel Order"}</button>
+              </div>
+            </form>
+          </div>
         )}
 
         {/* Main current status card */}
@@ -846,7 +921,7 @@ export default function OrderTracking() {
               </section>
             )}
 
-            {order?.status === "DELIVERED" && (
+            {order?.status === "DELIVERED" && (order.actions?.canReturn ?? true) && (
               <section className="rounded-2xl border border-amber-200 bg-amber-50 p-5 shadow-sm">
                 <p className="text-xs font-semibold uppercase tracking-wide text-amber-700">After delivery</p>
                 <h3 className="mt-1 font-bold text-[#071426]">Request a return</h3>

@@ -9,10 +9,24 @@ import {
   verifyDeliveryOtp,
 } from "../services/orderTrackingService.js";
 import { STATUS_DESCRIPTIONS } from "../constants/orderStatuses.js";
-import { emitDeliveryLocationUpdate } from "../services/realtimeService.js";
 import { generateUniqueHoneyVisionTrackingNumber } from "../utils/tracking.js";
 import { sendDeliveryOtpEmail } from "../services/deliveryOtpService.js";
-import { sendDeliveryOtpSms } from "../services/deliveryOtpSmsService.js";
+import { sendOTP } from "../services/twoFactorService.js";
+import {
+  processLocationUpdate,
+  getLocationFreshnessStatus,
+  getLocationAge,
+} from "../services/deliveryLocationService.js";
+import {
+  createDeliveryEvent,
+  recordStatusTransition,
+  recordDeliveryMilestone,
+  recordAgentPresence,
+} from "../services/deliveryEventService.js";
+import {
+  validateAndTransition as validateStateTransition,
+  isValidStatusTransition,
+} from "../services/deliveryStateMachine.js";
 
 const orderQuery = (orderNumber) => ({ orderNumber: String(orderNumber).trim() });
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -272,13 +286,7 @@ export const startDelivery = async (req, res) => {
     await order.save();
     if (process.env.NODE_ENV !== "production") console.debug("[SMS] OTP hash saved: yes");
     if (process.env.NODE_ENV !== "production") console.debug("[SMS] Customer phone found:", Boolean(order.shippingAddress?.phone));
-    await sendDeliveryOtpSms({
-      phone: order.shippingAddress?.phone,
-      customerName: order.shippingAddress?.name || order.user?.name,
-      orderNumber: order.orderNumber,
-      otp: deliveryOtp,
-      expiresAt: deliveryOtpExpiresAt,
-    });
+    await sendOTP({ phone: order.shippingAddress?.phone, otp: deliveryOtp });
     try {
       await sendDeliveryOtpEmail({
         email: order.user?.email,
@@ -301,6 +309,21 @@ export const startDelivery = async (req, res) => {
     });
     result.order.deliveryStartedAt = result.order.deliveryStartedAt || new Date();
     await result.order.save();
+    
+    // Record delivery event with sequence number
+    try {
+      await recordStatusTransition(
+        order._id,
+        order.orderNumber,
+        req.user._id,
+        order.status, // previous status
+        "OUT_FOR_DELIVERY", // new status
+        { updatedBy: req.user._id }
+      );
+    } catch (eventError) {
+      console.warn("Failed to record delivery event:", eventError.message);
+    }
+    
     if (process.env.NODE_ENV !== "production") console.debug("[SMS] Order transitioned to OUT_FOR_DELIVERY");
     res.json({
       success: true,
@@ -319,11 +342,6 @@ export const startDelivery = async (req, res) => {
       return res.status(502).json({
         success: false,
         message: "Unable to send delivery OTP SMS. Please check SMS configuration.",
-        smsError: {
-          code: error.providerCode || null,
-          status: error.providerStatus || null,
-          message: error.providerMessage || error.message,
-        },
       });
     }
     res.status(400).json({ success: false, message: "Failed to start delivery", error: error.message });
@@ -408,6 +426,26 @@ export const markDelivered = async (req, res) => {
       source: "DELIVERY_AGENT",
       metadata: { updatedBy: req.user._id, otpVerified: true, proofNotesAdded: Boolean(notes) },
     });
+    
+    // Record delivery event with sequence number
+    try {
+      await recordStatusTransition(
+        order._id,
+        order.orderNumber,
+        req.user._id,
+        "OUT_FOR_DELIVERY", // previous status
+        "DELIVERED", // new status
+        { 
+          updatedBy: req.user._id, 
+          otpVerified: true, 
+          proofNotesAdded: Boolean(notes),
+          capturedBy: req.user._id
+        }
+      );
+    } catch (eventError) {
+      console.warn("Failed to record delivery event:", eventError.message);
+    }
+    
     res.json({ success: true, order: result.order, event: result.trackingEvent });
   } catch (error) {
     if (orderId && verificationTime) {
@@ -441,15 +479,17 @@ export const updateDeliveryLocation = async (req, res) => {
     const order = await Order.findOne({
       orderNumber: String(req.params.orderNumber).trim(),
       deliveryAgent: req.user._id,
-    });
+    }).populate('shippingAddress');
 
     if (!order) {
       return res.status(404).json({ success: false, message: "Assigned order not found" });
     }
+
     if (order.status !== "OUT_FOR_DELIVERY") {
       return res.status(409).json({ success: false, message: "Location can only be shared while out for delivery" });
     }
 
+    // Extract and normalize GPS data
     const latitude = Number(req.body?.latitude);
     const longitude = Number(req.body?.longitude);
     const accuracy = req.body?.accuracy === undefined || req.body?.accuracy === null
@@ -458,27 +498,46 @@ export const updateDeliveryLocation = async (req, res) => {
     const heading = req.body?.heading === undefined || req.body?.heading === null ? null : Number(req.body.heading);
     const speed = req.body?.speed === undefined || req.body?.speed === null ? null : Number(req.body.speed);
 
-    if (!isFiniteNumber(latitude) || latitude < -90 || latitude > 90) {
-      return res.status(400).json({ success: false, message: "Latitude must be between -90 and 90" });
-    }
-    if (!isFiniteNumber(longitude) || longitude < -180 || longitude > 180) {
-      return res.status(400).json({ success: false, message: "Longitude must be between -180 and 180" });
-    }
-    if (accuracy !== null && (!isFiniteNumber(accuracy) || accuracy < 0)) {
-      return res.status(400).json({ success: false, message: "Accuracy must be a non-negative number" });
-    }
-    if (heading !== null && (!isFiniteNumber(heading) || heading < 0 || heading > 360)) {
-      return res.status(400).json({ success: false, message: "Heading must be between 0 and 360" });
-    }
-    if (speed !== null && (!isFiniteNumber(speed) || speed < 0)) {
-      return res.status(400).json({ success: false, message: "Speed must be a non-negative number" });
-    }
-    if (latitude === 0 && longitude === 0) {
-      return res.status(400).json({ success: false, message: "Zero coordinates are not valid delivery location data" });
+    // Process location through validation service
+    const locationData = {
+      latitude,
+      longitude,
+      accuracy,
+      heading,
+      speed,
+      timestamp: new Date(),
+    };
+
+    const result = await processLocationUpdate(
+      req.user._id,
+      order._id,
+      order.orderNumber,
+      locationData,
+      order.shippingAddress
+    );
+
+    if (!result.success) {
+      // Return validation error details
+      const firstError = result.validation?.errors?.[0];
+      return res.status(400).json({
+        success: false,
+        message: firstError?.message || "Location validation failed",
+        code: firstError?.reason,
+        errors: result.validation?.errors,
+      });
     }
 
-    const updatedAt = new Date();
-    order.deliveryLocation = { deliveryAgentId: req.user._id, latitude, longitude, accuracy, heading, speed, updatedAt };
+    // Update Order with delivery location (for backward compatibility)
+    order.deliveryLocation = {
+      deliveryAgentId: req.user._id,
+      latitude,
+      longitude,
+      accuracy,
+      heading,
+      speed,
+      updatedAt: new Date(),
+    };
+
     await order.save();
 
     if (process.env.NODE_ENV !== "production") {
@@ -487,12 +546,20 @@ export const updateDeliveryLocation = async (req, res) => {
         latitude,
         longitude,
         accuracy,
-        updatedAt,
+        updatedAt: order.deliveryLocation.updatedAt,
       });
     }
 
-    emitDeliveryLocationUpdate(order.orderNumber, order.user, order.deliveryLocation);
-    return res.json({ success: true, location: order.deliveryLocation });
+    // Socket.IO emission is handled by deliveryEventService.createDeliveryEvent
+    // called via recordLocationUpdate in processLocationUpdate
+
+    return res.json({
+      success: true,
+      location: order.deliveryLocation,
+      locationAge: getLocationAge(result.location.timestamp),
+      locationStatus: getLocationFreshnessStatus(result.location.timestamp),
+      milestones: result.milestones?.milestones || [],
+    });
   } catch (error) {
     console.error("updateDeliveryLocation error:", error);
     return res.status(500).json({ success: false, message: "Failed to update delivery location", error: error.message });
@@ -535,6 +602,25 @@ export const failDelivery = async (req, res) => {
       metadata: { updatedBy: req.user._id, reason },
       resetDeliveryOtp: true,
     });
+    
+    // Record delivery event with sequence number
+    try {
+      await recordStatusTransition(
+        order._id,
+        order.orderNumber,
+        req.user._id,
+        "OUT_FOR_DELIVERY", // previous status
+        "FAILED_DELIVERY", // new status
+        { 
+          updatedBy: req.user._id, 
+          reason,
+          notes
+        }
+      );
+    } catch (eventError) {
+      console.warn("Failed to record delivery event:", eventError.message);
+    }
+    
     res.json({ success: true, order: result.order, event: result.trackingEvent });
   } catch (error) {
     res.status(400).json({ success: false, message: "Failed to record delivery attempt", error: error.message });

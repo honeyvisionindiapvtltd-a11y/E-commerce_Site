@@ -16,6 +16,7 @@ function readDeliveryStore() {
           state: "Odisha",
         },
         couponApplied: false,
+        selectedDeliveryAddress: null,
       };
     }
     const parsed = JSON.parse(raw);
@@ -27,6 +28,7 @@ function readDeliveryStore() {
         state: "Odisha",
       },
       couponApplied: Boolean(parsed.couponApplied),
+      selectedDeliveryAddress: parsed.selectedDeliveryAddress || null,
     };
   } catch {
     return {
@@ -37,6 +39,7 @@ function readDeliveryStore() {
         state: "Odisha",
       },
       couponApplied: false,
+      selectedDeliveryAddress: null,
     };
   }
 }
@@ -71,6 +74,25 @@ export function DeliveryProvider({ children }) {
         ...current,
         couponApplied: Boolean(value),
       }));
+    },
+    []
+  );
+
+  const setSelectedDeliveryAddress = useCallback(
+    (address) => {
+      updateDelivery((current) => ({
+        ...current,
+        selectedDeliveryAddress: address || null,
+      }));
+      if (address?.pin || address?.pincode) {
+        const normalized = String(address.pin || address.pincode || "").replace(/\D/g, "").slice(0, 6);
+        if (normalized) {
+          updateDelivery((current) => ({
+            ...current,
+            deliveryPin: normalized,
+          }));
+        }
+      }
     },
     []
   );
@@ -150,8 +172,10 @@ export function DeliveryProvider({ children }) {
     deliveryPin: delivery.deliveryPin,
     deliveryLocation: delivery.deliveryLocation,
     couponApplied: delivery.couponApplied,
+    selectedDeliveryAddress: delivery.selectedDeliveryAddress,
     setCouponApplied,
     setDeliveryPin,
+    setSelectedDeliveryAddress,
     checkDeliveryByPincode,
     checkDeliveryByLocation,
   };

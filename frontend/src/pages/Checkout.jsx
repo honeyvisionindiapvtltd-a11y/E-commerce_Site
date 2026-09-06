@@ -8,7 +8,7 @@ import { productIdOf } from "../lib/products";
 import { checkDeliveryServiceability } from "../services/deliveryServiceability";
 
 export default function Checkout() {
-  const { cart, products, deliveryPin, setDeliveryPin, profile, addresses, user, isLoggedIn, couponApplied } = useCommerce();
+  const { cart, products, deliveryPin, selectedDeliveryAddress, setDeliveryPin, profile, addresses, user, isLoggedIn, couponApplied } = useCommerce();
   const navigate = useNavigate();
   const [paymentMethod, setPaymentMethod] = useState("cod");
   const [slot, setSlot] = useState("Tomorrow, 10:00 AM - 1:00 PM");
@@ -16,17 +16,19 @@ export default function Checkout() {
   const [serviceability, setServiceability] = useState({ status: "idle", message: "" });
   const serviceabilityRequestRef = useRef("");
   const userAddresses = user?.id ? addresses.filter((addr) => addr.userId === user.id) : [];
-  const defaultAddress = userAddresses.find((addr) => addr.isDefault) || userAddresses[0] || {};
+  const defaultAddress = selectedDeliveryAddress || userAddresses.find((addr) => addr.isDefault) || userAddresses[0] || {};
   const initialAddress = isLoggedIn
     ? {
-        name: defaultAddress.fullName || profile.fullName || "",
+        name: defaultAddress.fullName || defaultAddress.name || profile.fullName || "",
         phone: defaultAddress.phone || profile.phone || "",
-        line1: defaultAddress.address || profile.address || "",
+        line1: defaultAddress.address || defaultAddress.addressLine1 || profile.address || "",
         city: defaultAddress.city || profile.city || "",
         state: defaultAddress.state || profile.state || "",
-        pin: defaultAddress.pin || profile.pinCode || deliveryPin,
+        pin: defaultAddress.pin || defaultAddress.pincode || defaultAddress.postalCode || profile.pinCode || deliveryPin,
         latitude: defaultAddress.latitude,
         longitude: defaultAddress.longitude,
+        country: defaultAddress.country || profile.country || "India",
+        locationResolved: Boolean(defaultAddress.locationResolved),
       }
     : {
         name: "",
@@ -34,7 +36,10 @@ export default function Checkout() {
         line1: "",
         city: "",
         state: "",
-        pin: deliveryPin || "",
+        pin: selectedDeliveryAddress?.pin || selectedDeliveryAddress?.pincode || deliveryPin || "",
+        country: selectedDeliveryAddress?.country || "India",
+        latitude: selectedDeliveryAddress?.latitude,
+        longitude: selectedDeliveryAddress?.longitude,
       };
 
   const [address, setAddress] = useState(initialAddress);

@@ -28,6 +28,7 @@ export const protect = async (req, res, next) => {
       throw new Error("User not found");
     }
 
+    if (payload.role && payload.role !== user.role) throw new Error("Role changed; please sign in again");
     req.user = user;
     next();
   } catch (error) {
@@ -52,6 +53,25 @@ export const requireAdmin = (req, res, next) => {
   }
 
   next();
+};
+
+export const authorizeRoles = (...roles) => (req, res, next) => {
+  if (!req.user) {
+    return res.status(401).json({ success: false, message: "You are not authenticated" });
+  }
+  if (!roles.includes(req.user.role)) {
+    return res.status(403).json({ success: false, message: "You are not authorized to access this resource" });
+  }
+  return next();
+};
+
+export const requireCustomer = authorizeRoles("customer");
+
+export const requireCustomerOrGuest = (req, res, next) => {
+  if (req.user && req.user.role !== "customer") {
+    return res.status(403).json({ success: false, message: "You are not authorized to access this resource" });
+  }
+  return next();
 };
 
 // ==========================================
@@ -104,10 +124,9 @@ export const requireOwnershipOrAdmin = (resourceUserId, req, res) => {
 // ==========================================
 
 export const optionalAuth = async (req, res, next) => {
+  const authHeader = req.headers.authorization || "";
+  const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : null;
   try {
-    const authHeader = req.headers.authorization || "";
-    const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : null;
-
     if (token) {
       const payload = jwt.verify(token, jwtSecret);
       const user = await User.findById(payload.userId).exec();
@@ -118,7 +137,7 @@ export const optionalAuth = async (req, res, next) => {
 
     next();
   } catch (error) {
-    // If auth fails, continue without user
-    next();
+    if (token) return res.status(401).json({ success: false, message: "Unauthorized. Invalid token." });
+    return next();
   }
 };

@@ -4,12 +4,11 @@ import { useNavigate } from "react-router-dom";
 import { useCommerce } from "../context/index.js";
 import LiveDeliveryMap from "../components/LiveDeliveryMap";
 import { isValidLocation } from "../lib/deliveryLocation";
-import { LOCATION_DELAYED_THRESHOLD_MS } from "../utils/locationUtils";
 import { geocodeAddress } from "../utils/locationUtils";
+import unifiedGPSService from "../services/unifiedGPSService.js";
+import { getLocationFreshnessStatus, getLocationAge } from "../config/deliveryConfig.js";
 
 const API_BASE = import.meta.env.VITE_API_URL || "/api";
-const LOCATION_MIN_INTERVAL_MS = 15000;
-const LOCATION_MIN_DISTANCE_METERS = 50;
 
 const geocodeCustomerAddress = async (order) => {
   try {
@@ -17,17 +16,6 @@ const geocodeCustomerAddress = async (order) => {
   } catch {
     return null;
   }
-};
-
-const distanceInMeters = (first, second) => {
-  const earthRadius = 6371000;
-  const toRadians = (value) => (value * Math.PI) / 180;
-  const latitudeDelta = toRadians(second.latitude - first.latitude);
-  const longitudeDelta = toRadians(second.longitude - first.longitude);
-  const a = Math.sin(latitudeDelta / 2) ** 2
-    + Math.cos(toRadians(first.latitude)) * Math.cos(toRadians(second.latitude))
-    * Math.sin(longitudeDelta / 2) ** 2;
-  return earthRadius * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 };
 
 const statusLabel = {
@@ -38,12 +26,16 @@ const statusLabel = {
 };
 
 const getCustomerLocation = (order) => {
-  const address = order.shippingAddress || {};
-  const location = address.coordinates || address;
-  return isValidLocation(location) ? {
-    latitude: Number(location.latitude),
-    longitude: Number(location.longitude),
-  } : null;
+  const address = order?.shippingAddress || {};
+  const candidate = address.coordinates || address.location || address;
+  const latitude = Number(
+    candidate?.latitude ?? candidate?.lat ?? candidate?.coordinates?.latitude ?? candidate?.coordinates?.lat ?? address?.latitude ?? address?.lat ?? null,
+  );
+  const longitude = Number(
+    candidate?.longitude ?? candidate?.lng ?? candidate?.coordinates?.longitude ?? candidate?.coordinates?.lng ?? address?.longitude ?? address?.lng ?? null,
+  );
+
+  return isValidLocation({ latitude, longitude }) ? { latitude, longitude } : null;
 };
 
 export default function DeliveryAgentDashboard() {
@@ -88,8 +80,7 @@ export default function DeliveryAgentDashboard() {
   const [locationStates, setLocationStates] = useState({});
   const [locationDebug, setLocationDebug] = useState({});
   const [currentAgentLocation, setCurrentAgentLocation] = useState(null);
-  const locationWatchesRef = useRef(new Map());
-  const locationMetaRef = useRef(new Map());
+  const unsubscribeRefs = useRef(new Map()); // Store unsubscribe functions
 
   const loadOrders = useCallback(async () => {
     setLoading(true);
@@ -147,206 +138,221 @@ export default function DeliveryAgentDashboard() {
     };
   }, [orders]);
 
+  /**
+   * Single GPS watcher subscription effect
+   * REPLACES individual order watchers
+   * ONE GPS watcher broadcasts to ALL active orders
+   */
   useEffect(() => {
-    const activeOrderNumbers = new Set(orders.filter((order) => order.status === "OUT_FOR_DELIVERY").map((order) => order.orderNumber));
+    const activeOrderNumbers = new Set(
+      orders
+        .filter((order) => order.status === "OUT_FOR_DELIVERY")
+        .map((order) => order.orderNumber)
+    );
 
-    locationWatchesRef.current.forEach((watchId, orderNumber) => {
+    // Clean up subscriptions for orders that are no longer active
+    for (const [orderNumber, unsubscribe] of unsubscribeRefs.current.entries()) {
       if (!activeOrderNumbers.has(orderNumber)) {
-        navigator.geolocation?.clearWatch(watchId);
-        locationWatchesRef.current.delete(orderNumber);
-        locationMetaRef.current.delete(orderNumber);
-        setLocationStates((current) => ({ ...current, [orderNumber]: "idle" }));
+        unsubscribe();
+        unsubscribeRefs.current.delete(orderNumber);
+        setLocationStates((current) => {
+          const next = { ...current };
+          delete next[orderNumber];
+          return next;
+        });
       }
-    });
+    }
 
+    // Subscribe to GPS updates for all active orders
     activeOrderNumbers.forEach((orderNumber) => {
-      if (locationWatchesRef.current.has(orderNumber)) return;
+      if (unsubscribeRefs.current.has(orderNumber)) {
+        return; // Already subscribed
+      }
 
       if (!navigator.geolocation) {
         setLocationStates((current) => ({ ...current, [orderNumber]: "unsupported" }));
-        if (import.meta.env.DEV) {
-          setLocationDebug((current) => ({
-            ...current,
-            [orderNumber]: { ...current[orderNumber], supported: false, permission: "unsupported" },
-          }));
-        }
         return;
       }
 
       setLocationStates((current) => ({ ...current, [orderNumber]: "starting" }));
-      if (import.meta.env.DEV) {
-        setLocationDebug((current) => ({
-          ...current,
-          [orderNumber]: { ...current[orderNumber], supported: true },
-        }));
-        if (navigator.permissions?.query) {
-          navigator.permissions.query({ name: "geolocation" }).then((permissionStatus) => {
-            setLocationDebug((current) => ({
-              ...current,
-              [orderNumber]: { ...current[orderNumber], permission: permissionStatus.state },
-            }));
-          }).catch(() => {
-            setLocationDebug((current) => ({
-              ...current,
-              [orderNumber]: { ...current[orderNumber], permission: "unknown" },
-            }));
-          });
-        }
-      }
-      const sendLocation = async (position) => {
-        const coordinates = {
-          latitude: position.coords.latitude,
-          longitude: position.coords.longitude,
-        };
-        setCurrentAgentLocation({
-          ...coordinates,
-          accuracy: position.coords.accuracy,
-          heading: position.coords.heading,
-          speed: position.coords.speed,
-          updatedAt: new Date().toISOString(),
-        });
-        if (import.meta.env.DEV) {
-          setLocationDebug((current) => ({
-            ...current,
-            [orderNumber]: {
-              ...current[orderNumber],
-              latitude: coordinates.latitude,
-              longitude: coordinates.longitude,
-              accuracy: position.coords.accuracy,
-              lastGpsUpdate: new Date().toISOString(),
-            },
-          }));
-          console.debug("GPS RAW POSITION", {
-            orderNumber,
-            latitude: coordinates.latitude,
-            longitude: coordinates.longitude,
-            accuracy: position.coords.accuracy,
-            timestamp: position.timestamp,
-          });
-        }
-        const previous = locationMetaRef.current.get(orderNumber);
-        const now = Date.now();
-        const enoughTime = !previous || now - previous.sentAt >= LOCATION_MIN_INTERVAL_MS;
-        const enoughDistance = !previous || distanceInMeters(previous, coordinates) >= LOCATION_MIN_DISTANCE_METERS;
-        if (!enoughTime && !enoughDistance) return;
 
-        try {
-          const response = await fetch(`${API_BASE}/delivery/orders/${encodeURIComponent(orderNumber)}/location`, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${authToken}`,
-            },
-            body: JSON.stringify({
-              orderNumber,
-              ...coordinates,
-              accuracy: position.coords.accuracy,
-              heading: position.coords.heading,
-              speed: position.coords.speed,
-            }),
+      // Subscribe to GPS updates from unified service
+      const unsubscribe = unifiedGPSService.subscribe(
+        orderNumber,
+        async (locationUpdate) => {
+          // Update agent's current location in state
+          setCurrentAgentLocation({
+            ...locationUpdate,
+            accuracy: locationUpdate.accuracy,
+            heading: locationUpdate.heading,
+            speed: locationUpdate.speed,
           });
-          const payload = await response.json().catch(() => ({}));
-          if (!response.ok) {
-            const locationError = new Error(payload.message || `Location update failed (${response.status})`);
-            locationError.status = response.status;
-            throw locationError;
-          }
-          locationMetaRef.current.set(orderNumber, { ...coordinates, sentAt: now });
-          setLocationStates((current) => ({ ...current, [orderNumber]: "active" }));
+
           if (import.meta.env.DEV) {
             setLocationDebug((current) => ({
               ...current,
               [orderNumber]: {
                 ...current[orderNumber],
-                lastApiUpdate: new Date().toISOString(),
-                lastApiError: null,
+                latitude: locationUpdate.latitude,
+                longitude: locationUpdate.longitude,
+                accuracy: locationUpdate.accuracy,
+                lastGpsUpdate: new Date().toISOString(),
               },
             }));
           }
-        } catch (locationError) {
-          if (import.meta.env.DEV) {
-            setLocationDebug((current) => ({
+
+          // Send location to backend for this order
+          try {
+            const response = await fetch(
+              `${API_BASE}/delivery/orders/${encodeURIComponent(orderNumber)}/location`,
+              {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  Authorization: `Bearer ${authToken}`,
+                },
+                body: JSON.stringify({
+                  orderNumber,
+                  latitude: locationUpdate.latitude,
+                  longitude: locationUpdate.longitude,
+                  accuracy: locationUpdate.accuracy,
+                  heading: locationUpdate.heading,
+                  speed: locationUpdate.speed,
+                  timestamp: locationUpdate.timestamp,
+                }),
+              }
+            );
+
+            const payload = await response.json().catch(() => ({}));
+
+            if (!response.ok) {
+              const error = new Error(payload.message || `Location update failed (${response.status})`);
+              error.status = response.status;
+              throw error;
+            }
+
+            const locationAge = getLocationAge(locationUpdate.timestamp);
+            const freshness = getLocationFreshnessStatus(locationUpdate.timestamp);
+
+            setLocationStates((current) => ({
               ...current,
-              [orderNumber]: {
-                ...current[orderNumber],
-                lastApiError: locationError.message,
-              },
+              [orderNumber]: "active",
             }));
-            console.debug("GPS LOCATION API ERROR", {
-              orderNumber,
-              message: locationError.message,
-              status: locationError.status,
-            });
-          }
-          if (locationError.status === 401 || locationError.status === 403) {
-            setLocationStates((current) => ({ ...current, [orderNumber]: "unauthorized" }));
-          } else if (locationError.status === 404) {
-            setLocationStates((current) => ({ ...current, [orderNumber]: "not-assigned" }));
-          } else if (locationError.status === 409 || locationError.message.includes("out for delivery")) {
-            setLocationStates((current) => ({ ...current, [orderNumber]: "inactive" }));
-          } else if (locationError.status) {
-            setLocationStates((current) => ({ ...current, [orderNumber]: `server-error:${locationError.message}` }));
-          } else {
-            setLocationStates((current) => ({ ...current, [orderNumber]: "network-error" }));
+
+            if (import.meta.env.DEV) {
+              setLocationDebug((current) => ({
+                ...current,
+                [orderNumber]: {
+                  ...current[orderNumber],
+                  lastApiUpdate: new Date().toISOString(),
+                  lastApiError: null,
+                  locationAge,
+                  freshness,
+                },
+              }));
+            }
+          } catch (locationError) {
+            if (import.meta.env.DEV) {
+              setLocationDebug((current) => ({
+                ...current,
+                [orderNumber]: {
+                  ...current[orderNumber],
+                  lastApiError: locationError.message,
+                },
+              }));
+              console.debug("GPS LOCATION API ERROR", {
+                orderNumber,
+                message: locationError.message,
+                status: locationError.status,
+              });
+            }
+
+            if (locationError.status === 401 || locationError.status === 403) {
+              setLocationStates((current) => ({
+                ...current,
+                [orderNumber]: "unauthorized",
+              }));
+            } else if (locationError.status === 404) {
+              setLocationStates((current) => ({
+                ...current,
+                [orderNumber]: "not-assigned",
+              }));
+            } else if (
+              locationError.status === 409 ||
+              locationError.message.includes("out for delivery")
+            ) {
+              setLocationStates((current) => ({
+                ...current,
+                [orderNumber]: "inactive",
+              }));
+            } else if (locationError.status) {
+              setLocationStates((current) => ({
+                ...current,
+                [orderNumber]: `server-error:${locationError.message}`,
+              }));
+            } else {
+              setLocationStates((current) => ({
+                ...current,
+                [orderNumber]: "network-error",
+              }));
+            }
           }
         }
-      };
-
-      const watchId = navigator.geolocation.watchPosition(
-        sendLocation,
-        (positionError) => {
-          const state = positionError.code === positionError.PERMISSION_DENIED
-            ? "denied"
-            : positionError.code === positionError.TIMEOUT ? "timeout" : "unavailable";
-          setLocationStates((current) => ({ ...current, [orderNumber]: state }));
-          if (import.meta.env.DEV) {
-            setLocationDebug((current) => ({
-              ...current,
-              [orderNumber]: {
-                ...current[orderNumber],
-                permission: positionError.code === positionError.PERMISSION_DENIED ? "denied" : current[orderNumber]?.permission,
-                lastGpsError: positionError.message,
-              },
-            }));
-            console.debug("GPS ERROR", {
-              orderNumber,
-              code: positionError.code,
-              message: positionError.message,
-            });
-          }
-        },
-        { enableHighAccuracy: true, maximumAge: 10000, timeout: 15000 },
       );
-      locationWatchesRef.current.set(orderNumber, watchId);
+
+      unsubscribeRefs.current.set(orderNumber, unsubscribe);
     });
 
-    return () => {};
-  }, [orders, authToken]);
-
-  useEffect(() => () => {
-    locationWatchesRef.current.forEach((watchId) => navigator.geolocation?.clearWatch(watchId));
-    locationWatchesRef.current.clear();
-    locationMetaRef.current.clear();
-  }, []);
-
-  useEffect(() => {
-    const freshnessTimer = window.setInterval(() => {
-      const now = Date.now();
-      locationMetaRef.current.forEach((meta, orderNumber) => {
-        if (now - meta.sentAt >= LOCATION_DELAYED_THRESHOLD_MS) {
-          setLocationStates((current) => current[orderNumber] === "active"
-            ? { ...current, [orderNumber]: "delayed" }
-            : current);
+    // Handle GPS permission/startup errors
+    const onGPSError = (error) => {
+      console.error("GPS Error:", error);
+      activeOrderNumbers.forEach((orderNumber) => {
+        if (error.code === "PERMISSION_DENIED") {
+          setLocationStates((current) => ({
+            ...current,
+            [orderNumber]: "denied",
+          }));
+        } else if (error.code === "POSITION_UNAVAILABLE") {
+          setLocationStates((current) => ({
+            ...current,
+            [orderNumber]: "unavailable",
+          }));
+        } else if (error.code === "TIMEOUT") {
+          setLocationStates((current) => ({
+            ...current,
+            [orderNumber]: "timeout",
+          }));
         }
       });
-    }, 30000);
+    };
 
-    return () => window.clearInterval(freshnessTimer);
-  }, []);
+    unifiedGPSService.onError(onGPSError);
+
+    return () => {
+      // Cleanup is handled by the unsubscribe functions stored in refs
+    };
+  }, [orders, authToken]);
+
+  // Clean up GPS service on unmount
+  useEffect(
+    () => () => {
+      // Unsubscribe all orders
+      for (const unsubscribe of unsubscribeRefs.current.values()) {
+        unsubscribe();
+      }
+      unsubscribeRefs.current.clear();
+    },
+    []
+  );
 
   const handleLogout = () => {
-    locationWatchesRef.current.forEach((watchId) => navigator.geolocation?.clearWatch(watchId));
-    locationWatchesRef.current.clear();
+    // Clean up GPS service
+    for (const unsubscribe of unsubscribeRefs.current.values()) {
+      unsubscribe();
+    }
+    unsubscribeRefs.current.clear();
+    unifiedGPSService.destroy();
+
     logout();
     navigate("/login", { replace: true });
   };
@@ -361,11 +367,7 @@ export default function DeliveryAgentDashboard() {
       });
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) {
-        const smsError = payload.smsError;
-        const diagnostic = smsError?.code
-          ? ` Twilio ${smsError.code}${smsError.status ? ` (${smsError.status})` : ""}: ${smsError.message || "Request rejected"}`
-          : "";
-        throw new Error(`${payload.message || "Unable to update delivery"}${diagnostic}`);
+        throw new Error(payload.message || "Unable to update delivery");
       }
       setOrders((current) => current.map((order) => order.orderNumber === orderNumber ? payload.order : order));
       if (action === "start" && payload.smsSent) {

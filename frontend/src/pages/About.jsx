@@ -12,6 +12,7 @@ import {
   Phone,
   ShieldCheck,
 } from "lucide-react";
+import { companyInfo } from "../config/companyInfo.js";
 
 const services = [
   {
@@ -272,9 +273,9 @@ export default function About() {
               </p>
 
               <div className="mt-8 space-y-5 text-slate-200">
-                <ContactRow icon={Phone} text="+91 98765 43210" />
-                <ContactRow icon={Mail} text="support@honeyvision.in" />
-                <ContactRow icon={MapPin} text="Bhubaneswar, Odisha, India" />
+                <ContactRow icon={Phone} href={`tel:${companyInfo.phoneRaw}`} text={companyInfo.phone} />
+                <ContactRow icon={Mail} href={`mailto:${companyInfo.supportEmail}`} text={companyInfo.supportEmail} />
+                <ContactRow icon={MapPin} href={companyInfo.locationHref} text={companyInfo.location} />
               </div>
             </div>
 
@@ -317,13 +318,23 @@ function Stat({ number, label }) {
   );
 }
 
-function ContactRow({ icon: Icon, text }) {
-  return (
-    <div className="flex items-center gap-4">
+function ContactRow({ icon: Icon, text, href }) {
+  const content = (
+    <>
       <span className="grid h-11 w-11 place-items-center rounded-full bg-amber-400/10 text-amber-400">
         <Icon size={20} />
       </span>
       <span>{text}</span>
-    </div>
+    </>
+  );
+
+  if (!href) {
+    return <div className="flex items-center gap-4">{content}</div>;
+  }
+
+  return (
+    <a href={href} target={href.startsWith("http") ? "_blank" : undefined} rel={href.startsWith("http") ? "noreferrer" : undefined} className="flex items-center gap-4 transition hover:text-amber-300">
+      {content}
+    </a>
   );
 }

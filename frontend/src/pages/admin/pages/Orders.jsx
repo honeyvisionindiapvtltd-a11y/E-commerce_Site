@@ -53,7 +53,7 @@ const buildOrderRows = (source = []) => {
 };
 
 export default function Orders() {
-  const { authToken } = useCommerce();
+  const { authToken, requestJson } = useCommerce();
   const [rows, setRows] = useState([]);
   const [q, setQ] = useState("");
   const [filter, setFilter] = useState("All");
@@ -61,15 +61,10 @@ export default function Orders() {
 
   const refreshRows = async () => {
     try {
-      const response = await fetch(`${API_BASE}/admin/orders?limit=100`, {
-        headers: { Authorization: `Bearer ${authToken}` },
-      });
-      if (response.ok) {
-        const payload = await response.json();
-        setRows(buildOrderRows(payload.orders || []));
-      }
-    } catch {
-      // Preserve the current list when the API is temporarily unavailable.
+      const payload = await requestJson('/admin/orders?limit=100');
+      setRows(buildOrderRows(payload.orders || []));
+    } catch (error) {
+      console.error('[Orders] API error:', error.message);
     }
   };
 
@@ -77,21 +72,16 @@ export default function Orders() {
     let active = true;
     const loadRows = async () => {
       try {
-        const response = await fetch(`${API_BASE}/admin/orders?limit=100`, {
-          headers: { Authorization: `Bearer ${authToken}` },
-        });
-        if (response.ok) {
-          const payload = await response.json();
-          if (active) setRows(buildOrderRows(payload.orders || []));
-        }
-      } catch {
-        // Preserve the current list when the API is temporarily unavailable.
+        const payload = await requestJson('/admin/orders?limit=100');
+        if (active) setRows(buildOrderRows(payload.orders || []));
+      } catch (error) {
+        console.error('[Orders] API error:', error.message);
       }
     };
 
     loadRows();
     return () => { active = false; };
-  }, [authToken]);
+  }, [requestJson]);
 
   const update = async (id, status) => {
     try {

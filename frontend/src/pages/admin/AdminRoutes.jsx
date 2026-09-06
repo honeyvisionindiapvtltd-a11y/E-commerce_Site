@@ -18,6 +18,8 @@ import DeliveryAgents from "./pages/DeliveryAgents";
 import DeliveryZones from "./pages/DeliveryZones";
 import SupportTickets from "./pages/SupportTickets";
 import LiveChats from "./pages/LiveChats";
+import AdminInstallationDetails from "./AdminInstallationDetails";
+import AdminInstallations from "./AdminInstallations";
 
 export default function AdminRoutes() {
   return (
@@ -42,6 +44,8 @@ export default function AdminRoutes() {
         <Route path="settings" element={<Settings />} />
         <Route path="support" element={<SupportTickets />} />
         <Route path="live-chats" element={<LiveChats />} />
+        <Route path="installations" element={<AdminInstallations />} />
+        <Route path="installations/:id" element={<AdminInstallationDetails />} />
       </Route>
       <Route path="*" element={<Navigate to="/admin" replace />} />
     </Routes>

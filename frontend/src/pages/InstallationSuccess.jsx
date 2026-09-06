@@ -1,9 +1,33 @@
+import { useEffect, useState } from "react";
 import { useLocation, Link } from "react-router-dom";
-import { CheckCircle2, ArrowLeft, CalendarDays, MapPin, Clock3, ShieldCheck } from "lucide-react";
+import { CheckCircle2, ArrowLeft, ShieldCheck } from "lucide-react";
+import { useCommerce } from "../context/index.js";
+
+function readSavedBooking() {
+  if (typeof window === "undefined") return null;
+
+  try {
+    const raw = window.localStorage.getItem("honey-vision-last-installation-booking");
+    if (!raw) return null;
+
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === "object" ? parsed : null;
+  } catch {
+    return null;
+  }
+}
 
 export default function InstallationSuccess() {
   const location = useLocation();
-  const booking = location.state?.booking || null;
+  const { fetchInstallation } = useCommerce();
+  const initialBooking = location.state?.booking || readSavedBooking();
+  const [booking, setBooking] = useState(initialBooking);
+
+  useEffect(() => {
+    const bookingId = initialBooking?.id || initialBooking?._id || initialBooking?.bookingNumber;
+    if (!bookingId) return;
+    fetchInstallation(bookingId).then(setBooking).catch(() => {});
+  }, [fetchInstallation, initialBooking?.id, initialBooking?._id, initialBooking?.bookingNumber]);
 
   if (!booking) {
     return (

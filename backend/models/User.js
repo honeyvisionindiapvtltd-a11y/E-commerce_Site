@@ -61,10 +61,50 @@ const userSchema = new mongoose.Schema(
     spent: { type: Number, default: 0 },
     emailVerified: { type: Boolean, default: false },
     emailVerificationToken: { type: String, default: '' },
-    passwordResetToken: { type: String, default: '' },
+    passwordResetTokenHash: { type: String, default: '' },
     passwordResetExpires: { type: Date },
+    passwordResetRequestedAt: { type: Date, default: null },
     profile: { type: userProfileSchema, default: () => ({}) },
     addresses: { type: [addressSchema], default: () => [] },
+
+    // Delivery Agent Location Tracking (GeoJSON format)
+    currentLocation: {
+      type: {
+        type: String,
+        enum: ['Point'],
+        default: 'Point',
+      },
+      coordinates: {
+        type: [Number], // [longitude, latitude]
+        default: null,
+        validate: {
+          validator: function (coords) {
+            if (!coords) return true; // Optional
+            if (!Array.isArray(coords) || coords.length !== 2) return false;
+            const [lon, lat] = coords;
+            return Number.isFinite(lon) && Number.isFinite(lat) &&
+                   lon >= -180 && lon <= 180 &&
+                   lat >= -90 && lat <= 90;
+          },
+          message: 'Invalid GeoJSON coordinates',
+        },
+      },
+      accuracy: { type: Number, min: 0, default: null },
+      heading: { type: Number, min: 0, max: 360, default: null },
+      speed: { type: Number, min: 0, default: null },
+      updatedAt: { type: Date, default: null },
+    },
+
+    // Legacy location fields for backward compatibility
+    latitude: { type: Number, min: -90, max: 90, default: null },
+    longitude: { type: Number, min: -180, max: 180, default: null },
+
+    // Delivery Agent Presence Tracking
+    isOnline: { type: Boolean, default: false, index: true },
+    lastLocationUpdate: { type: Date, default: null },
+    lastSeenAt: { type: Date, default: null, index: true },
+    connectedAt: { type: Date, default: null },
+    disconnectedAt: { type: Date, default: null },
   },
   {
     timestamps: true,
@@ -77,8 +117,9 @@ const userSchema = new mongoose.Schema(
         delete ret.passwordHash;
         delete ret.passwordSalt;
         delete ret.emailVerificationToken;
-        delete ret.passwordResetToken;
+        delete ret.passwordResetTokenHash;
         delete ret.passwordResetExpires;
+        delete ret.passwordResetRequestedAt;
         delete ret.id;
         return ret;
       },
@@ -91,14 +132,18 @@ const userSchema = new mongoose.Schema(
         delete ret.passwordHash;
         delete ret.passwordSalt;
         delete ret.emailVerificationToken;
-        delete ret.passwordResetToken;
+        delete ret.passwordResetTokenHash;
         delete ret.passwordResetExpires;
+        delete ret.passwordResetRequestedAt;
         delete ret.id;
         return ret;
       },
     },
   }
 );
+
+// Indexes for geospatial queries
+userSchema.index({ 'currentLocation': '2dsphere' });
 
 userSchema.methods.setPassword = function (password) {
   const salt = crypto.randomBytes(16).toString('hex');
@@ -122,15 +167,23 @@ userSchema.methods.generateEmailVerificationToken = function () {
 };
 
 userSchema.methods.generatePasswordResetToken = function () {
-  const token = crypto.randomUUID();
-  this.passwordResetToken = token;
-  this.passwordResetExpires = new Date(Date.now() + 60 * 60 * 1000);
+  const token = crypto.randomBytes(32).toString('hex');
+  this.passwordResetTokenHash = crypto.createHash('sha256').update(token).digest('hex');
+  this.passwordResetExpires = new Date(Date.now() + 15 * 60 * 1000);
+  this.passwordResetRequestedAt = new Date();
   return token;
 };
 
 userSchema.methods.clearPasswordResetToken = function () {
-  this.passwordResetToken = '';
+  this.passwordResetTokenHash = '';
   this.passwordResetExpires = undefined;
+  this.passwordResetRequestedAt = undefined;
+};
+
+userSchema.methods.matchesPasswordResetToken = function (token) {
+  const actual = crypto.createHash('sha256').update(String(token || '')).digest();
+  const expected = Buffer.from(String(this.passwordResetTokenHash || ''), 'hex');
+  return actual.length === expected.length && crypto.timingSafeEqual(actual, expected);
 };
 
 userSchema.methods.safeObject = function () {

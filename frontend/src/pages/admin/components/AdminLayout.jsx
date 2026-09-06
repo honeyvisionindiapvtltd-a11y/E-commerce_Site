@@ -2,18 +2,19 @@ import { useMemo, useState } from "react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useCommerce } from "../../../context/index.js";
 import {
-  Activity, BarChart3, Bell, Box, ChevronDown, ClipboardList,
+  Activity, BarChart3, Box, ChevronDown, ClipboardList,
   CreditCard, FileText, HelpCircle, LayoutDashboard, LogOut, MapPin, Menu,
   Package, Percent, Settings, ShieldCheck, ShoppingCart, Star, Truck,
-  User, Users, UserRoundCog, X, MessageCircle
+  User, Users, UserRoundCog, Wrench, X, MessageCircle
 } from "lucide-react";
+import NotificationCenter from "../../../components/Notifications/NotificationCenter.jsx";
 
 const groups = [
   {title:"", items:[["Dashboard", "/admin", LayoutDashboard]]},
   {title:"STORE MANAGEMENT", items:[
     ["Products","/admin/products",Package],["Categories","/admin/categories",ClipboardList],
     ["Orders","/admin/orders",ShoppingCart],["Customers","/admin/customers",Users],
-    ["Inventory","/admin/inventory",Box]
+    ["Inventory","/admin/inventory",Box], ["Installations","/admin/installations",Wrench]
   ]},
   {title:"MARKETING", items:[["Coupons & Offers","/admin/coupons",Percent],["Reviews","/admin/reviews",Star]]},
   {title:"OPERATIONS", items:[["Delivery","/admin/delivery",Truck],["Delivery Agents","/admin/delivery-agents",UserRoundCog],["Delivery Zones","/admin/delivery-zones",MapPin],["Payments","/admin/payments",CreditCard],["Live Chats","/admin/live-chats",MessageCircle],["Support Tickets","/admin/support",HelpCircle]]},
@@ -24,7 +25,6 @@ const groups = [
 export default function AdminLayout() {
   const [open,setOpen]=useState(false);
   const [profile,setProfile]=useState(false);
-  const [notifications,setNotifications]=useState(false);
   const [searchTerm,setSearchTerm]=useState("");
   const location=useLocation();
   const navigate = useNavigate();
@@ -32,14 +32,13 @@ export default function AdminLayout() {
 
   const navItems = useMemo(() => groups.flatMap((group) => group.items), []);
   const activeTitle = useMemo(() => {
-    const match = navItems.find(([, path]) => path === "/admin" ? location.pathname === "/admin" : location.pathname.startsWith(path));
+    const match = navItems.find(([, path]) => location.pathname === path);
     return match?.[0] || "Dashboard";
   }, [location.pathname, navItems]);
 
   const handleLogout = () => {
     logout();
     setProfile(false);
-    setNotifications(false);
     navigate("/login", { replace: true });
   };
 
@@ -82,7 +81,7 @@ export default function AdminLayout() {
               end={path === "/admin"}
               onClick={()=>setOpen(false)}
               className={({ isActive }) => {
-                const active = isActive || (path !== "/admin" && location.pathname.startsWith(path));
+                const active = isActive && location.pathname === path;
                 return `flex items-center gap-3 rounded-lg px-3 py-2.5 text-xs ${active ? "bg-amber-400 font-semibold text-slate-950" : "text-slate-300 hover:bg-white/10 hover:text-white"}`;
               }}
             >
@@ -105,7 +104,7 @@ export default function AdminLayout() {
         <div className="flex items-center gap-3"><button className="rounded-lg p-2 hover:bg-slate-100 lg:hidden" onClick={()=>setOpen(true)}><Menu size={20}/></button><h1 className="text-lg font-semibold">{activeTitle}</h1></div>
         <div className="hidden w-72 md:flex items-center rounded-lg border bg-slate-50 px-3 py-2"><Activity size={15} className="text-slate-400"/><input value={searchTerm} onChange={(event)=>setSearchTerm(event.target.value)} onKeyDown={handleSearch} className="ml-2 w-full bg-transparent text-xs outline-none" placeholder="Search admin panel..."/></div>
         <div className="flex items-center gap-2">
-          <button className="relative rounded-lg p-2 hover:bg-slate-100" onClick={()=>setNotifications(!notifications)}><Bell size={18}/><span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-red-500"/></button>
+          <NotificationCenter />
           <button className="hidden rounded-lg p-2 hover:bg-slate-100 sm:block"><HelpCircle size={18}/></button>
           <div className="relative">
             <button className="flex items-center gap-2 rounded-lg p-1 hover:bg-slate-100" onClick={()=>setProfile(!profile)}>
@@ -118,10 +117,6 @@ export default function AdminLayout() {
           </div>
         </div>
       </header>
-      {notifications && <div className="fixed right-4 top-20 z-40 w-72 rounded-xl border bg-white p-4 shadow-xl">
-        <b className="text-sm">Notifications</b>
-        <div className="mt-3 space-y-2 text-xs text-slate-600"><p className="rounded-lg bg-slate-50 p-3">New order received.</p><p className="rounded-lg bg-slate-50 p-3">7 products are low in stock.</p></div>
-      </div>}
       <main className="p-4 sm:p-6"><Outlet/></main>
     </div>
   </div>;

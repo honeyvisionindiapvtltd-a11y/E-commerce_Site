@@ -106,7 +106,7 @@ const ServiceDetail = () => {
                 <Phone size={20} className="text-[#071426]" />
                 <div>
                   <p className="text-sm font-semibold text-[#071426]">Call Support</p>
-                  <p className="text-xs text-gray-500">+91 98765 43210</p>
+                  <p className="text-xs text-gray-500">9777941117</p>
                 </div>
               </div>
             </div>

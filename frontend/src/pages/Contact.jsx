@@ -13,6 +13,7 @@ import {
   Tag,
   Pencil,
 } from "lucide-react";
+import { companyInfo } from "../config/companyInfo";
 
 const ContactHero = "https://res.cloudinary.com/vhrkwyzs/image/upload/v1786189628/contact_ptyzsi.png";
 
@@ -107,7 +108,12 @@ export default function Contact() {
 
               {/* Location */}
 
-              <div className="bg-white rounded-2xl shadow-sm hover:shadow-lg transition-all duration-300 p-6 flex gap-5 border border-gray-100">
+              <a
+                href={companyInfo.locationHref}
+                target="_blank"
+                rel="noreferrer"
+                className="bg-white rounded-2xl shadow-sm hover:shadow-lg transition-all duration-300 p-6 flex gap-5 border border-gray-100"
+              >
 
                 <div className="w-16 h-16 rounded-2xl bg-[#071426] flex items-center justify-center flex-shrink-0">
 
@@ -127,20 +133,20 @@ export default function Contact() {
 
                     Honey Vision India Pvt. Ltd.
                     <br />
-                    Bhubaneswar,
-                    Odisha - 751024
-                    <br />
-                    India
+                    {companyInfo.location}
 
                   </p>
 
                 </div>
 
-              </div>
+              </a>
 
               {/* Email */}
 
-              <div className="bg-white rounded-2xl shadow-sm hover:shadow-lg transition-all duration-300 p-6 flex gap-5 border border-gray-100">
+              <a
+                href={`mailto:${companyInfo.infoEmail}`}
+                className="bg-white rounded-2xl shadow-sm hover:shadow-lg transition-all duration-300 p-6 flex gap-5 border border-gray-100"
+              >
 
                 <div className="w-16 h-16 rounded-2xl bg-[#071426] flex items-center justify-center flex-shrink-0">
 
@@ -158,17 +164,20 @@ export default function Contact() {
 
                   <p className="text-gray-600 mt-2">
 
-                    info@honeyvision.in
+                    {companyInfo.infoEmail}
 
                   </p>
 
                 </div>
 
-              </div>
+              </a>
 
               {/* Phone */}
 
-              <div className="bg-white rounded-2xl shadow-sm hover:shadow-lg transition-all duration-300 p-6 flex gap-5 border border-gray-100">
+              <a
+                href={`tel:${companyInfo.phoneRaw}`}
+                className="bg-white rounded-2xl shadow-sm hover:shadow-lg transition-all duration-300 p-6 flex gap-5 border border-gray-100"
+              >
 
                 <div className="w-16 h-16 rounded-2xl bg-[#071426] flex items-center justify-center flex-shrink-0">
 
@@ -186,23 +195,20 @@ export default function Contact() {
 
                   <p className="text-gray-600 mt-2">
 
-                    +91 98765 43210
-
-                  </p>
-
-                  <p className="text-gray-600">
-
-                    +91 674 123 4567
+                    {companyInfo.phone}
 
                   </p>
 
                 </div>
 
-              </div>
+              </a>
 
               {/* Support */}
 
-              <div className="bg-white rounded-2xl shadow-sm hover:shadow-lg transition-all duration-300 p-6 flex gap-5 border border-gray-100">
+              <a
+                href={`mailto:${companyInfo.supportEmail}`}
+                className="bg-white rounded-2xl shadow-sm hover:shadow-lg transition-all duration-300 p-6 flex gap-5 border border-gray-100"
+              >
 
                 <div className="w-16 h-16 rounded-2xl bg-[#071426] flex items-center justify-center flex-shrink-0">
 
@@ -220,13 +226,13 @@ export default function Contact() {
 
                   <p className="text-gray-600 mt-2">
 
-                    support@honeyvision.in
+                    {companyInfo.supportEmail}
 
                   </p>
 
                 </div>
 
-              </div>
+              </a>
 
               {/* Working Hours */}
 
@@ -577,7 +583,7 @@ export default function Contact() {
 
                 <h3 className="text-3xl font-bold text-[#071426]">
 
-                  +91 98765 43210
+                  9777941117
 
                 </h3>
 

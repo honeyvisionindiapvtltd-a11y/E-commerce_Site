@@ -4,7 +4,7 @@ import {
   ORDER_STATUS_VALUES,
   STATUS_DESCRIPTIONS,
 } from "../constants/orderStatuses.js";
-import { emitDeliveryUpdate } from "../services/realtimeService.js";
+import { emitDeliveryLocationUpdate } from "../services/realtimeService.js";
 import { updateOrderTracking } from "../services/orderTrackingService.js";
 
 // ==========================================
@@ -232,7 +232,7 @@ export const updateShipmentLocation =
 
       const order = await Order.findById(shipment.order).select("orderNumber user").lean();
       if (order) {
-        emitDeliveryUpdate(
+        emitDeliveryLocationUpdate(
           order.orderNumber,
           order.user,
           shipment.currentLocation,

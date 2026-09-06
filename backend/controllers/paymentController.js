@@ -5,6 +5,7 @@ import PDFDocument from 'pdfkit';
 import crypto from 'crypto';
 import Order from '../models/Order.js';
 import { updateOrderTracking } from '../services/orderTrackingService.js';
+import { notifyCustomer } from '../services/notificationService.js';
 import Payment from '../models/Payment.js';
 import { checkDeliveryServiceability } from '../services/deliveryServiceabilityService.js';
 
@@ -59,6 +60,12 @@ const findOrder = async (orderId) => {
   return Order.findOne({ $or: query });
 };
 
+const requireOwnedOrder = async (orderId, userId) => {
+  const order = await findOrder(orderId);
+  if (!order || String(order.user) !== String(userId)) return null;
+  return order;
+};
+
 export const createCheckoutSession = async (req, res) => {
   try {
     const { amount, currency = 'INR', orderId, items } = req.body || {};
@@ -68,6 +75,11 @@ export const createCheckoutSession = async (req, res) => {
     }
     if (!stripe) {
       return res.status(500).json({ error: 'Stripe client is not configured on server' });
+    }
+
+    if (orderId) {
+      const order = await requireOwnedOrder(orderId, req.user._id);
+      if (!order) return res.status(404).json({ error: 'Order not found' });
     }
 
     const line_items = Array.isArray(items) && items.length
@@ -144,6 +156,7 @@ export const handleWebhook = async (req, res) => {
             status: 'PAYMENT_CONFIRMED',
             source: 'PAYMENT',
           });
+          void notifyCustomer({ recipient: order.user, type: 'PAYMENT_SUCCESS', category: 'payment', title: 'Payment successful', message: `Payment for order ${order.orderNumber} was successful.`, orderId: order._id, orderNumber: order.orderNumber, actionUrl: `/orders/${encodeURIComponent(order.orderNumber)}/tracking`, eventKey: `payment:${order.orderNumber}:stripe:${session.id}` });
           console.log(`Order ${orderId} marked as paid via webhook.`);
         } catch (err) {
           console.error('Failed to update order payment status', err);
@@ -181,7 +194,7 @@ export const createRazorpayOrder = async (req, res) => {
     }
 
     if (orderId) {
-      const localOrder = await findOrder(orderId);
+      const localOrder = await requireOwnedOrder(orderId, req.user._id);
       if (!localOrder) return res.status(404).json({ error: 'Order not found' });
       const serviceability = await checkDeliveryServiceability({
         country: localOrder.shippingAddress?.country,
@@ -243,13 +256,13 @@ export const verifyRazorpayPayment = async (req, res) => {
 
     if (orderId) {
       try {
+        const order = await requireOwnedOrder(orderId, req.user._id);
+        if (!order) throw new Error('Order not found');
         const existingPayment = await Payment.findOne({ paymentId: razorpay_payment_id }).lean();
         if (existingPayment) {
+          if (String(existingPayment.userId) !== String(req.user._id)) throw new Error('Order not found');
           return res.json({ success: true, order: { orderNumber: existingPayment.orderId } });
         }
-
-        const order = await findOrder(orderId);
-        if (!order) throw new Error('Order not found');
         if (order.paymentStatus === 'PAID' && order.paymentTransactionId === razorpay_payment_id) {
           return res.json({ success: true, order });
         }
@@ -281,6 +294,7 @@ export const verifyRazorpayPayment = async (req, res) => {
           status: 'PAYMENT_CONFIRMED',
           source: 'PAYMENT',
         });
+        void notifyCustomer({ recipient: order.user, type: 'PAYMENT_SUCCESS', category: 'payment', title: 'Payment successful', message: `Payment for order ${order.orderNumber} was successful.`, orderId: order._id, orderNumber: order.orderNumber, actionUrl: `/orders/${encodeURIComponent(order.orderNumber)}/tracking`, eventKey: `payment:${order.orderNumber}:razorpay:${razorpay_payment_id}` });
         return res.json({ success: true, order: result.order });
       } catch (err) {
         console.error('Failed to update order after razorpay verification', err);
@@ -303,6 +317,8 @@ export const getOrderDetails = async (req, res) => {
       return res.status(400).json({ error: 'Order ID is required' });
     }
 
+    const ownedOrder = await requireOwnedOrder(orderId, req.user._id);
+    if (!ownedOrder) return res.status(404).json({ error: 'Order not found' });
     const orders = getDB().collection('orders');
     const order = await orders.findOne({ id: String(orderId) });
 
@@ -325,6 +341,8 @@ export const downloadOrderInvoice = async (req, res) => {
       return res.status(400).json({ error: 'Order ID is required' });
     }
 
+    const ownedOrder = await requireOwnedOrder(orderId, req.user._id);
+    if (!ownedOrder) return res.status(404).json({ error: 'Order not found' });
     const orders = getDB().collection('orders');
     const order = await orders.findOne({ id: String(orderId) });
 

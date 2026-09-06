@@ -69,9 +69,9 @@ async function testOrderCreation() {
       deliveryType: 'courier'
     };
 
-    console.log('\nCalling API /api/orders (guest checkout) on port 5003...');
+    console.log('\nCalling API /api/orders (guest checkout) on port 5002...');
     // Call the real API endpoint (no auth token = guest checkout)
-    const apiResponse = await axios.post('http://localhost:5003/api/orders', checkoutPayload, {
+    const apiResponse = await axios.post('http://localhost:5002/api/orders', checkoutPayload, {
       headers: { 'Content-Type': 'application/json' }
     });
     

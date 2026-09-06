@@ -14,8 +14,9 @@ import {
   User,
   X,
 } from "lucide-react";
-import { Link, NavLink, useNavigate } from "react-router-dom";
+import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
 import { useCommerce } from "../context/index.js";
+import LocationSelector from "./LocationSelector.jsx";
 
 const logo = "https://res.cloudinary.com/vhrkwyzs/image/upload/v1786269504/logo.png_tun5nq.png";
 import MegaMenu from "./MegaMenu";
@@ -38,8 +39,19 @@ export default function Navbar() {
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [showCategories, setShowCategories] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
   const searchRef = useRef(null);
-  const { cart, wishlist, deliveryPin, isLoggedIn, user, products } = useCommerce();
+  const navRef = useRef(null);
+  const {
+    cart = [],
+    wishlist = [],
+    deliveryPin,
+    selectedDeliveryAddress,
+    isLoggedIn,
+    user,
+    products = [],
+  } = useCommerce();
+  const [showLocationSelector, setShowLocationSelector] = useState(false);
   const cartCount = useMemo(
     () => cart.filter((item) => Number(item.quantity || 0) > 0).reduce((total, item) => total + Number(item.quantity || 0), 0),
     [cart]
@@ -80,12 +92,20 @@ export default function Navbar() {
       type: 'product',
       label: product.name,
       meta: `${product.category || 'Product'} • ${product.brand || 'HoneyVision'}`,
-      to: `/products?search=${encodeURIComponent(product.name)}`,
+      to: `/products?q=${encodeURIComponent(product.name)}`,
     }));
   }, [products, query]);
 
   useEffect(() => {
+    setMenuOpen(false);
+  }, [location.pathname, location.search]);
+
+  useEffect(() => {
     const handleOutsideClick = (event) => {
+      if (navRef.current && navRef.current.contains(event.target)) {
+        return;
+      }
+
       if (searchRef.current && !searchRef.current.contains(event.target)) {
         setShowSuggestions(false);
         setShowCategories(false);
@@ -125,7 +145,12 @@ export default function Navbar() {
     if (subCategorySlug) params.set('subCategory', subCategorySlug);
     setShowCategories(false);
     setShowSuggestions(false);
-    navigate({ pathname: '/products', search: params.toString() ? `?${params.toString()}` : '' });
+    navigate(params.toString() ? `/products?${params.toString()}` : '/products');
+  };
+
+  const handleProductsNavigation = () => {
+    setMenuOpen(false);
+    setShowCategories(false);
   };
 
   return (
@@ -133,14 +158,17 @@ export default function Navbar() {
       {/* Top header */}
       <div className="border-b border-white/10">
         <div className="flex h-11 w-full items-center justify-between px-3 text-xs sm:px-6 sm:text-sm">
-          <Link
-            to="/delivery"
+          <button
+            type="button"
+            onClick={() => setShowLocationSelector(true)}
             className="flex items-center gap-2 hover:text-yellow-400"
           >
             <MapPin size={16} className="shrink-0 text-yellow-400" />
             <span className="hidden text-gray-300 sm:inline">Deliver to</span>
-            <span className="font-semibold">PIN {deliveryPin}</span>
-          </Link>
+            <span className="font-semibold max-w-[180px] truncate text-left">
+              {selectedDeliveryAddress?.city || selectedDeliveryAddress?.state ? `${selectedDeliveryAddress.city || selectedDeliveryAddress.state} ${selectedDeliveryAddress.pin || selectedDeliveryAddress.pincode || deliveryPin}` : `PIN ${deliveryPin}`}
+            </span>
+          </button>
 
           <div className="hidden items-center gap-7 lg:flex">
             <Link
@@ -370,8 +398,12 @@ export default function Navbar() {
         )}
       </div>
 
+      {showLocationSelector && (
+        <LocationSelector onClose={() => setShowLocationSelector(false)} />
+      )}
+
       {/* Navigation menu */}
-      <nav className="border-t border-white/10">
+      <nav ref={navRef} className="border-t border-white/10">
         <div className="w-full px-3 sm:px-6">
           <ul className="hidden h-14 items-center gap-8 text-sm font-medium lg:flex">
             <li>
@@ -401,8 +433,8 @@ export default function Navbar() {
                 <ChevronDown size={16} />
               </NavLink>
 
-              <div className="absolute left-0 top-12 z-50 hidden w-225 gap-4 rounded-lg bg-white p-2 text-slate-800 shadow-xl group-hover:block">
-                <MegaMenu />
+              <div className="pointer-events-auto absolute left-0 top-full z-[60] hidden w-225 gap-4 rounded-lg bg-white p-2 text-slate-800 shadow-xl group-hover:block">
+                <MegaMenu onSelect={handleCategorySelect} />
               </div>
             </li>
 
@@ -435,14 +467,22 @@ export default function Navbar() {
                 Home
               </NavLink>
 
-              <NavLink
-                to="/products"
-                className={({ isActive }) =>
-                  isActive ? "block text-yellow-400" : "block hover:text-yellow-400"
-                }
-              >
-                Products
-              </NavLink>
+              <div>
+                <button
+                  type="button"
+                  onClick={() => setShowCategories((value) => !value)}
+                  className="flex w-full items-center justify-between hover:text-yellow-400"
+                  aria-expanded={showCategories}
+                >
+                  Products
+                  <ChevronDown size={16} className={`transition-transform ${showCategories ? "rotate-180" : "rotate-0"}`} />
+                </button>
+                {showCategories && (
+                  <div className="mt-3 pointer-events-auto rounded-lg bg-white p-2 text-slate-800 shadow-xl">
+                    <MegaMenu />
+                  </div>
+                )}
+              </div>
 
               <NavLink
                 to="/blogs"

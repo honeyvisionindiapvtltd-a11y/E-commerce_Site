@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Eye, EyeOff, Mail, Lock } from "lucide-react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useCommerce } from "../context/index.js";
 
 const LoginImage = "https://res.cloudinary.com/vhrkwyzs/image/upload/v1786189628/login_odyhdp.png";
@@ -12,6 +12,8 @@ export default function Login() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
+  const returnPath = location.state?.from?.pathname || "/";
   const { login, loginWithGoogle } = useCommerce();
   const googleButtonRef = useRef(null);
 
@@ -26,13 +28,8 @@ export default function Login() {
       setLoading(true);
       setError("");
       const user = await login(email.trim(), password);
-      if (user?.role === 'admin') {
-        navigate('/admin');
-      } else if (user?.role === 'delivery_agent') {
-        navigate('/delivery-agent');
-      } else {
-        navigate('/');
-      }
+      const destination = user?.role === 'admin' ? '/admin' : user?.role === 'delivery_agent' ? '/delivery-agent' : returnPath;
+      navigate(destination, { replace: true });
     } catch (err) {
       setError(err.message || "Login failed.");
     } finally {
@@ -52,7 +49,8 @@ export default function Login() {
             try {
               setLoading(true); setError("");
               const user = await loginWithGoogle(credential);
-              navigate(user?.role === "admin" ? "/admin/dashboard" : "/");
+              const destination = user?.role === "admin" ? "/admin/dashboard" : user?.role === "delivery_agent" ? "/delivery-agent" : returnPath;
+              navigate(destination, { replace: true });
             } catch (googleError) { setError(googleError.message || "Google login failed."); }
             finally { setLoading(false); }
           },
@@ -71,7 +69,7 @@ export default function Login() {
       document.head.appendChild(googleScript);
     }
     return undefined;
-  }, [loginWithGoogle, navigate]);
+  }, [loginWithGoogle, navigate, returnPath]);
 
   return (
     <section className="min-h-screen bg-gradient-to-br from-[#071426] via-[#0B315A] to-[#102D4E] flex items-center justify-center p-8">

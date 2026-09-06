@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import { useCommerce } from "../context/index.js";
-import { ArrowLeft, CalendarDays, Clock3, MapPin, Tag, Truck } from "lucide-react";
+import { ArrowLeft, CalendarDays, Clock3, MapPin, Tag, Truck, ArrowUpRight } from "lucide-react";
 
 export default function InstallationHistory() {
   const { installationBookings } = useCommerce();
@@ -67,7 +67,12 @@ export default function InstallationHistory() {
 
               <div className="mt-6 flex flex-col gap-3 rounded-3xl bg-[#f8fafc] p-5 text-sm text-slate-600 sm:flex-row sm:items-center sm:justify-between">
                 <p className="flex items-center gap-2"><Truck size={18} /> {booking.notes || "No special instructions provided."}</p>
-                <p className="font-semibold text-slate-900">Total: {formatPrice(booking.total)}</p>
+                <div className="flex items-center gap-3">
+                  <p className="font-semibold text-slate-900">Total: {formatPrice(booking.total)}</p>
+                  <Link to={`/installation/history/${booking.id || booking._id || booking.bookingNumber}`} className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:border-slate-300 hover:text-slate-900">
+                    View details <ArrowUpRight size={14} />
+                  </Link>
+                </div>
               </div>
             </div>
           ))}

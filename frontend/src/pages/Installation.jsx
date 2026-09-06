@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
   ChevronRight,
@@ -27,6 +27,7 @@ import {
   ArrowRight,
   ArrowLeft,
 } from "lucide-react";
+import LocationSelector from "../components/LocationSelector.jsx";
 import { useCommerce } from "../context/index.js";
 
 
@@ -117,13 +118,24 @@ const additionalServices = [
 // ============================================================
 
 function BookInstallation() {
-  const { profile, addInstallationBooking } = useCommerce();
+  const {
+    profile,
+    createInstallationBooking,
+    createInstallationPayment,
+    verifyInstallationPayment,
+    orders = [],
+    selectedDeliveryAddress,
+    setDeliveryPin,
+  } = useCommerce();
   const navigate = useNavigate();
   const [selectedService, setSelectedService] = useState("cctv");
+  const [selectedOrderId, setSelectedOrderId] = useState("");
   const [selectedAdditional, setSelectedAdditional] = useState([]);
   const [currentStep, setCurrentStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showLocationSelector, setShowLocationSelector] = useState(false);
   const [submittedBooking, setSubmittedBooking] = useState(null);
+  const [submitError, setSubmitError] = useState("");
   const [errors, setErrors] = useState({});
   const [formData, setFormData] = useState({
     name: profile?.fullName || "",
@@ -138,8 +150,62 @@ function BookInstallation() {
     notes: "",
   });
 
-  const productPrice = 11996;
-  const quantity = 4;
+  const resolvedAddress = useMemo(() => {
+    const fromSelected = selectedDeliveryAddress || null;
+    if (!fromSelected) return null;
+
+    return {
+      name: fromSelected.fullName || fromSelected.name || profile?.fullName || "",
+      phone: fromSelected.phone || profile?.phone || "",
+      address: fromSelected.address || fromSelected.addressLine1 || fromSelected.line1 || "",
+      city: fromSelected.city || "",
+      state: fromSelected.state || "",
+      pinCode: fromSelected.pin || fromSelected.pincode || fromSelected.postalCode || fromSelected.pinCode || "",
+      latitude: fromSelected.latitude ?? null,
+      longitude: fromSelected.longitude ?? null,
+      addressType: fromSelected.addressType || fromSelected.type || "Home",
+      landmark: fromSelected.landmark || "",
+      deliveryInstructions: fromSelected.deliveryInstructions || "",
+      formattedAddress: fromSelected.formattedAddress || "",
+    };
+  }, [profile, selectedDeliveryAddress]);
+
+  useEffect(() => {
+    if (!resolvedAddress) return;
+
+    const timer = window.setTimeout(() => setFormData((current) => ({
+      ...current,
+      name: resolvedAddress.name || current.name || "",
+      phone: resolvedAddress.phone || current.phone || "",
+      address: resolvedAddress.address || current.address || "",
+      city: resolvedAddress.city || current.city || profile?.city || "",
+      state: resolvedAddress.state || current.state || profile?.state || "",
+      pinCode: resolvedAddress.pinCode || current.pinCode || profile?.pinCode || "",
+    })), 0);
+    return () => window.clearTimeout(timer);
+  }, [profile?.city, profile?.pinCode, profile?.state, resolvedAddress]);
+
+  useEffect(() => {
+    if (selectedDeliveryAddress?.pin || selectedDeliveryAddress?.pincode) {
+      setDeliveryPin(String(selectedDeliveryAddress.pin || selectedDeliveryAddress.pincode || ""));
+    }
+  }, [selectedDeliveryAddress, setDeliveryPin]);
+
+  const customerOrders = (Array.isArray(orders) ? orders : []).filter((order) => {
+    const orderStatus = String(order.status || "").toUpperCase();
+    return !["CANCELLED", "RETURNED", "REFUNDED"].includes(orderStatus);
+  });
+  const eligibleOrder = (order) => {
+    const paymentStatus = String(order.paymentStatus || "").toUpperCase();
+    return ["PAID", "COMPLETED", "SUCCESS", "SUCCEEDED"].includes(paymentStatus) || Boolean(order.paymentTransactionId);
+  };
+  const selectableOrders = customerOrders.filter((order) => eligibleOrder(order));
+  const selectedOrder = selectableOrders.find(
+    (order) => String(order.id || order.orderNumber || order._id) === String(selectedOrderId)
+  ) || null;
+  const visibleOrderCount = customerOrders.length;
+  const paidOrderCount = selectableOrders.length;
+
   const today = new Date().toISOString().split("T")[0];
   const slotOptions = [
     "Morning (9:00 AM - 12:00 PM)",
@@ -148,6 +214,9 @@ function BookInstallation() {
   ];
 
   const currentService = services.find((service) => service.id === selectedService);
+  const productPrice = currentService?.price || 0;
+  const quantity = 1;
+  const selectedItemLabel = currentService?.title || "Installation Service";
 
   const additionalTotal = useMemo(() => {
     return selectedAdditional.reduce((total, id) => {
@@ -157,7 +226,7 @@ function BookInstallation() {
   }, [selectedAdditional]);
 
   const installationPrice = currentService?.price || 0;
-  const subtotal = (productPrice * quantity) + installationPrice + additionalTotal;
+  const subtotal = installationPrice + additionalTotal;
   const gst = Math.round(subtotal * 0.18);
   const total = subtotal + gst;
 
@@ -182,7 +251,15 @@ function BookInstallation() {
   const validateCurrentStep = () => {
     const nextErrors = {};
 
+    if (!selectedService) {
+      nextErrors.service = "Please select an installation service.";
+    }
+
     if (currentStep === 2) {
+      if (!selectedOrderId || !selectedOrder) {
+        nextErrors.orderId = "Please select a paid order for which installation is required.";
+      }
+
       if (!formData.name.trim()) nextErrors.name = "Full name is required.";
       if (!formData.phone.trim()) nextErrors.phone = "Phone number is required.";
       else if (formData.phone.replace(/\D/g, "").length < 10) nextErrors.phone = "Enter a valid 10-digit phone number.";
@@ -193,6 +270,7 @@ function BookInstallation() {
       if (!formData.state.trim()) nextErrors.state = "State is required.";
       if (!formData.pinCode.trim()) nextErrors.pinCode = "PIN code is required.";
       else if (formData.pinCode.replace(/\D/g, "").length !== 6) nextErrors.pinCode = "Enter a valid 6-digit PIN code.";
+
     }
 
     if (currentStep === 3) {
@@ -205,7 +283,10 @@ function BookInstallation() {
   };
 
   const handleContinue = () => {
-    if (!validateCurrentStep()) return;
+    if (!validateCurrentStep()) {
+      window.setTimeout(() => document.querySelector("[data-installation-errors]")?.scrollIntoView({ behavior: "smooth", block: "center" }), 0);
+      return;
+    }
     setCurrentStep((step) => Math.min(step + 1, 4));
   };
 
@@ -218,13 +299,15 @@ function BookInstallation() {
     if (!validateCurrentStep()) return;
 
     setIsSubmitting(true);
+    setSubmitError("");
 
+    const selectedOrderReference = selectedOrder?.id || selectedOrder?._id || selectedOrderId || null;
     const booking = {
-      id: `INST-${Date.now().toString().slice(-6)}`,
-      createdAt: new Date().toISOString(),
       service: currentService?.title || "Installation",
       serviceId: selectedService,
-      additionalServices: selectedAdditional.map((id) => additionalServices.find((service) => service.id === id)?.title).filter(Boolean),
+      orderId: selectedOrderReference,
+      orderNumber: selectedOrder?.orderNumber || selectedOrder?.id || selectedOrder?._id || null,
+      additionalServices: selectedAdditional,
       customer: {
         name: formData.name.trim(),
         phone: formData.phone.trim(),
@@ -233,23 +316,57 @@ function BookInstallation() {
         city: formData.city.trim(),
         state: formData.state.trim(),
         pinCode: formData.pinCode.trim(),
+        latitude: selectedDeliveryAddress?.latitude ?? null,
+        longitude: selectedDeliveryAddress?.longitude ?? null,
+        addressType: selectedDeliveryAddress?.addressType || selectedDeliveryAddress?.type || "Home",
+        landmark: selectedDeliveryAddress?.landmark || "",
+        installationInstructions: formData.notes.trim(),
       },
       preferredDate: formData.preferredDate,
       preferredSlot: formData.preferredSlot,
       notes: formData.notes.trim(),
-      installationPrice,
-      additionalTotal,
-      subtotal,
-      gst,
-      total,
     };
 
-    await addInstallationBooking(booking);
-    setSubmittedBooking(booking);
-    setIsSubmitting(false);
-    setCurrentStep(4);
+    try {
+      const savedBooking = await createInstallationBooking(booking);
+      const bookingId = savedBooking._id || savedBooking.id || savedBooking.bookingNumber;
+      const paymentData = await createInstallationPayment(bookingId);
+      const loadRazorpay = () => new Promise((resolve) => {
+        if (window.Razorpay) return resolve(true);
+        const script = document.createElement("script");
+        script.src = "https://checkout.razorpay.com/v1/checkout.js";
+        script.onload = () => resolve(true);
+        script.onerror = () => resolve(false);
+        document.body.appendChild(script);
+      });
+      if (!(await loadRazorpay())) throw new Error("Unable to load Razorpay checkout.");
 
-    navigate("/installation/success", { state: { booking } });
+      const razorpayOrder = paymentData.razorpayOrder;
+      const verified = await new Promise((resolve, reject) => {
+        const checkout = new window.Razorpay({
+          key: paymentData.keyId,
+          amount: razorpayOrder.amount,
+          currency: razorpayOrder.currency,
+          name: "Honey Vision",
+          description: `Installation ${savedBooking.bookingNumber || bookingId}`,
+          order_id: razorpayOrder.id,
+          prefill: { name: formData.name, email: formData.email, contact: formData.phone },
+          handler: async (response) => {
+            try { resolve(await verifyInstallationPayment(bookingId, response)); }
+            catch (error) { reject(error); }
+          },
+          modal: { ondismiss: () => reject(new Error("Payment was cancelled. You can retry from your installation history.")) },
+        });
+        checkout.open();
+      });
+      const confirmedBooking = verified.installation || verified.data?.installation || savedBooking;
+      setSubmittedBooking(confirmedBooking);
+      navigate("/installation/success", { state: { booking: confirmedBooking } });
+    } catch (error) {
+      setSubmitError(error?.message || "We couldn’t book the installation. Please try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const resetBooking = () => {
@@ -559,6 +676,71 @@ function BookInstallation() {
 
             {currentStep === 2 && (
               <form className="mt-6 space-y-4" onSubmit={(event) => event.preventDefault()}>
+                {visibleOrderCount > 0 ? (
+                  <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
+                    <h3 className="text-sm font-bold text-gray-900">Select related order</h3>
+                    {paidOrderCount === 0 && <p className="mt-2 text-xs text-amber-700">Your orders are shown below. Installation can be booked after product payment is confirmed.</p>}
+                    <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                      {customerOrders.map((order) => {
+                        const orderId = order.id || order.orderNumber || order._id;
+                        const orderLabel = order.orderNumber || `Order ${order.id || order._id}`;
+                        const isActive = String(selectedOrderId || selectedOrder?.id || selectedOrder?.orderNumber || selectedOrder?._id || "") === String(orderId || "");
+                        const canSelect = eligibleOrder(order);
+
+                        return (
+                          <button
+                            key={orderId}
+                            type="button"
+                            disabled={!canSelect}
+                            onClick={() => setSelectedOrderId(String(orderId))}
+                            className={`rounded-xl border p-3 text-left transition ${isActive ? "border-[#f5bd22] bg-[#fffdf6]" : canSelect ? "border-gray-200 bg-white hover:border-gray-300" : "cursor-not-allowed border-gray-200 bg-gray-100 opacity-70"}`}
+                          >
+                            <div className="text-sm font-semibold text-gray-900">{orderLabel}</div>
+                            <div className="mt-1 text-xs text-gray-600">
+                              {order?.items?.length ? `${order.items.length} item(s)` : "Installation order"}
+                            </div>
+                            <div className={`mt-2 text-[11px] font-semibold ${canSelect ? "text-green-700" : "text-amber-700"}`}>
+                              {canSelect ? "Payment confirmed - Installation available" : "Product payment pending"}
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                    {errors.orderId && <p className="mt-2 text-sm text-red-600">{errors.orderId}</p>}
+                  </div>
+                ) : (
+                  <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+                    No product orders found. Please place and pay for a qualifying product order first.
+                  </div>
+                )}
+
+                <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <h3 className="text-sm font-bold text-gray-900">Installation location</h3>
+                    <button
+                      type="button"
+                      onClick={() => setShowLocationSelector(true)}
+                      className="rounded-lg border border-[#061a36] px-3 py-2 text-xs font-semibold text-[#061a36] hover:bg-[#061a36] hover:text-white"
+                    >
+                      {selectedDeliveryAddress ? "Change location" : "Use my current location / add address"}
+                    </button>
+                  </div>
+
+                  {selectedDeliveryAddress ? (
+                    <div className={`mt-3 rounded-xl border p-3 text-sm ${Number.isFinite(Number(selectedDeliveryAddress.latitude)) && Number.isFinite(Number(selectedDeliveryAddress.longitude)) && Number(selectedDeliveryAddress.latitude) !== 0 && Number(selectedDeliveryAddress.longitude) !== 0 ? "border-green-200 bg-green-50 text-green-800" : "border-red-200 bg-red-50 text-red-800"}`}>
+                      <div className="font-semibold">Selected address</div>
+                      <div className="mt-1">{selectedDeliveryAddress.fullName || selectedDeliveryAddress.name}</div>
+                      <div>{selectedDeliveryAddress.address || selectedDeliveryAddress.addressLine1}</div>
+                      <div>{selectedDeliveryAddress.city}, {selectedDeliveryAddress.state} - {selectedDeliveryAddress.pin || selectedDeliveryAddress.pincode}</div>
+                      <div className="mt-2 text-xs font-semibold">
+                        {Number.isFinite(Number(selectedDeliveryAddress.latitude)) && Number.isFinite(Number(selectedDeliveryAddress.longitude)) && Number(selectedDeliveryAddress.latitude) !== 0 && Number(selectedDeliveryAddress.longitude) !== 0 ? "GPS location confirmed" : "Manual address accepted; GPS can be added later"}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="mt-3 text-sm text-gray-600">Choose a delivery or installation address to continue.</div>
+                  )}
+                </div>
+
                 <div className="grid gap-4 md:grid-cols-2">
                   <FormField label="Full name" value={formData.name} error={errors.name} onChange={(value) => handleInputChange("name", value)} />
                   <FormField label="Phone number" value={formData.phone} type="tel" error={errors.phone} onChange={(value) => handleInputChange("phone", value)} />
@@ -580,9 +762,15 @@ function BookInstallation() {
                     />
                   </label>
                   {errors.address && <p className="mt-1 text-sm text-red-600">{errors.address}</p>}
+                  {errors.location && <p className="mt-1 text-sm text-red-600">{errors.location}</p>}
                 </div>
 
                 <div className="flex justify-end">
+                  {Object.keys(errors).length > 0 && (
+                    <div data-installation-errors className="mr-4 self-center max-w-sm text-right text-sm font-medium text-red-600">
+                      {Object.values(errors).join(" ")}
+                    </div>
+                  )}
                   <button type="button" onClick={handleContinue} className="flex items-center gap-5 rounded-lg bg-[#03111f] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#10273d]">
                     Continue
                     <ArrowRight size={17} />
@@ -666,6 +854,12 @@ function BookInstallation() {
                   </div>
                 ) : (
                   <div className="space-y-4">
+                    {submitError && (
+                      <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+                        {submitError}
+                      </div>
+                    )}
+
                     <div className="rounded-2xl border border-gray-200 bg-[#f9fafb] p-4">
                       <h3 className="text-sm font-semibold text-gray-900">Booking summary</h3>
                       <ul className="mt-3 space-y-2 text-sm text-gray-600">
@@ -679,7 +873,7 @@ function BookInstallation() {
 
                     <div className="flex justify-end">
                       <button type="button" onClick={handleSubmit} disabled={isSubmitting} className="flex items-center gap-5 rounded-lg bg-[#f5bd22] px-5 py-3 text-sm font-semibold text-[#03111f] transition hover:bg-[#f0b511] disabled:cursor-not-allowed disabled:opacity-70">
-                        {isSubmitting ? "Booking..." : "Book Installation"}
+                        {isSubmitting ? "Opening payment..." : "Pay & Confirm Installation"}
                         <ArrowRight size={17} />
                       </button>
                     </div>
@@ -702,11 +896,13 @@ function BookInstallation() {
               </div>
             </div>
             <div className="mt-5 flex gap-3 border-b border-gray-200 pb-4">
-              <div className="flex h-[82px] w-[82px] shrink-0 items-center justify-center overflow-hidden rounded-lg border border-gray-200 bg-white">
-                <img src="/images/hikvision-bullet-camera.jpg" alt="Hikvision 2MP Bullet Camera" className="h-full w-full object-contain" />
+              <div className="flex h-[82px] w-[82px] shrink-0 items-center justify-center overflow-hidden rounded-lg border border-gray-200 bg-[#fffdf6]">
+                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#f5bd22]/15 text-[#03111f]">
+                  {React.createElement(currentService?.icon || ShieldCheck, { size: 28, strokeWidth: 1.7 })}
+                </div>
               </div>
               <div className="flex min-w-0 flex-1 flex-col justify-between">
-                <div className="text-sm font-bold leading-5">Hikvision 2MP<br />Bullet Camera</div>
+                <div className="text-sm font-bold leading-5">{selectedItemLabel}</div>
                 <div className="flex items-end justify-between">
                   <span className="text-xs text-gray-500">Qty: {quantity}</span>
                   <span className="text-sm font-bold">{formatPrice(productPrice)}</span>
@@ -824,19 +1020,22 @@ function BookInstallation() {
               <ContactButton
                 icon={Phone}
                 title="Call Us"
-                value="+91 98765 43210"
+                value="9777941117"
+                href="tel:+919777941117"
               />
 
               <ContactButton
                 icon={MessageCircle}
                 title="WhatsApp"
-                value="+91 98765 43210"
+                value="9777941117"
+                href="https://wa.me/919777941117?text=Hi%20HoneyVision%2C%20I%20need%20help%20with%20installation."
               />
 
               <ContactButton
                 icon={Mail}
                 title="Email Us"
                 value="support@honeyvision.in"
+                href="mailto:support@honeyvision.in"
               />
 
             </div>
@@ -880,6 +1079,10 @@ function BookInstallation() {
         </section>
 
       </main>
+
+      {showLocationSelector && (
+        <LocationSelector onClose={() => setShowLocationSelector(false)} />
+      )}
 
     </div>
   );
@@ -1104,10 +1307,13 @@ function ContactButton({
   icon: Icon,
   title,
   value,
+  href = "#",
 }) {
   return (
     <a
-      href="#"
+      href={href}
+      target={href.startsWith("http") ? "_blank" : undefined}
+      rel={href.startsWith("http") ? "noreferrer" : undefined}
       className="flex min-w-[180px] items-center gap-3 rounded-xl border border-white/20 px-4 py-3 transition hover:border-[#fdbb08] hover:bg-white/5"
     >
 

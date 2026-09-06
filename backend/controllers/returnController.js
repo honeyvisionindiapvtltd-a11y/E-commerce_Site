@@ -1,6 +1,7 @@
 import Order from "../models/Order.js";
 import ReturnRequest from "../models/ReturnRequest.js";
 import { updateOrderTracking } from "../services/orderTrackingService.js";
+import { getReturnEligibility } from "../services/orderLifecycleService.js";
 
 const allowedStatuses = ["REQUESTED", "APPROVED", "REJECTED", "PICKUP_SCHEDULED", "PICKED_UP", "REFUNDED"];
 const findOrder = (orderNumber) => Order.findOne({ orderNumber: String(orderNumber).trim() });
@@ -13,7 +14,8 @@ export const requestReturn = async (req, res) => {
     const order = await findOrder(req.params.orderNumber);
     if (!order) return res.status(404).json({ success: false, message: "Order not found" });
     if (String(order.user) !== String(req.user._id)) return res.status(403).json({ success: false, message: "Access denied" });
-    if (order.status !== "DELIVERED") return res.status(409).json({ success: false, message: "Returns are available only for delivered orders" });
+    const eligibility = await getReturnEligibility(order);
+    if (!eligibility.returnEligible) return res.status(409).json({ success: false, message: eligibility.reason, actions: { canCancel: false, canReturn: false, canReplace: false } });
 
     const existing = await ReturnRequest.findOne({ order: order._id });
     if (existing) return res.status(409).json({ success: false, message: "A return request already exists for this order", request: existing });
@@ -59,8 +61,8 @@ export const updateReturn = async (req, res) => {
     if (refundAmount !== undefined) request.refundAmount = Number(refundAmount);
     await request.save();
 
-    if (["REJECTED", "REFUNDED"].includes(status)) {
-      await updateOrderTracking({ orderId: request.orderNumber, status: status === "REFUNDED" ? "RETURNED" : "CANCELLED", source: "ADMIN", metadata: { returnRequestId: request._id } });
+    if (status === "REFUNDED") {
+      await updateOrderTracking({ orderId: request.orderNumber, status: "RETURNED", source: "ADMIN", metadata: { returnRequestId: request._id } });
     }
     return res.json({ success: true, request });
   } catch (error) {

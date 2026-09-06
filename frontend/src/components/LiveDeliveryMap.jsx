@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { InfoWindow, Map, Marker, useMap } from "@vis.gl/react-google-maps";
 import { isValidLocation } from "../lib/deliveryLocation";
-import { calculateDistanceMeters, geocodeAddress } from "../utils/locationUtils";
+import { calculateDistanceMeters, geocodeAddress, normalizeDeliveryLocation } from "../utils/locationUtils";
 
 const mapHeightClass = "h-[280px] sm:h-[360px]";
 const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
@@ -22,11 +22,34 @@ const calculateHeading = (from, to) => {
 };
 
 const asLatLng = (location) => {
-  if (!location || !isValidLocation(location)) return null;
+  const normalized = normalizeDeliveryLocation(location);
+  if (!normalized) return null;
+  if (import.meta.env.DEV) {
+    console.log("LIVE DELIVERY LOCATION", {
+      latitude: normalized.latitude,
+      longitude: normalized.longitude,
+      accuracy: normalized.accuracy,
+      timestamp: normalized.timestamp,
+    });
+  }
   return {
-    lat: Number(location.latitude),
-    lng: Number(location.longitude),
+    lat: normalized.lat,
+    lng: normalized.lng,
   };
+};
+
+const getCoordinateCandidate = (value) => {
+  if (!value || typeof value !== "object") return null;
+
+  const coordinates = value.coordinates || value.location || value;
+  const latitude = Number(
+    coordinates?.latitude ?? coordinates?.lat ?? value?.latitude ?? value?.lat ?? null,
+  );
+  const longitude = Number(
+    coordinates?.longitude ?? coordinates?.lng ?? value?.longitude ?? value?.lng ?? null,
+  );
+
+  return Number.isFinite(latitude) && Number.isFinite(longitude) ? { latitude, longitude } : null;
 };
 
 const buildCustomerAddressText = (order) => {
@@ -230,7 +253,7 @@ export default function LiveDeliveryMap({ agentLocation, customerLocation, order
   const [resolvedCustomerLocation, setResolvedCustomerLocation] = useState(() => {
     const provided = customerLocation || (order?.shippingAddress?.locationResolved === false
       ? null
-      : order?.shippingAddress?.location || order?.shippingAddress?.coordinates);
+      : getCoordinateCandidate(order?.shippingAddress));
     return provided ? asLatLng(provided) : null;
   });
   const [routeSummary, setRouteSummary] = useState(null);
@@ -322,7 +345,7 @@ export default function LiveDeliveryMap({ agentLocation, customerLocation, order
   useEffect(() => {
     const directCustomerLocation = customerLocation || (order?.shippingAddress?.locationResolved === false
       ? null
-      : order?.shippingAddress?.location || order?.shippingAddress?.coordinates);
+      : getCoordinateCandidate(order?.shippingAddress));
     if (directCustomerLocation) {
       const nextLocation = asLatLng(directCustomerLocation);
       const syncId = window.setTimeout(() => setResolvedCustomerLocation(nextLocation), 0);

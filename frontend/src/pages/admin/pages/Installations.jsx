@@ -4,8 +4,8 @@ import PageHeader from "../components/PageHeader";
 import Toolbar from "../components/Toolbar";
 import Table from "../components/Table";
 
-const statuses = ["requested", "confirmed", "scheduled", "in_progress", "completed", "cancelled"];
-const label = (value) => String(value || "requested").replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
+const statuses = ["BOOKED", "CONFIRMED", "ASSIGNED", "AGENT_ACCEPTED", "ON_THE_WAY", "ARRIVED", "INSTALLATION_IN_PROGRESS", "INSTALLATION_COMPLETED", "FAILED", "CANCELLED"];
+const label = (value) => String(value || "BOOKED").replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
 
 export default function Installations() {
   const [rows, setRows] = useState([]);
@@ -37,7 +37,7 @@ export default function Installations() {
       { key: "customer", label: "Customer", render: (row) => <div><b>{row.customer?.name || row.customerName || row.userId || "Guest"}</b><p className="text-[9px] text-slate-400">{row.customer?.phone || row.customer?.email || ""}</p></div> },
       { key: "service", label: "Service", render: (row) => row.service || row.serviceName || "Installation" },
       { key: "createdAt", label: "Requested", render: (row) => row.createdAt ? new Date(row.createdAt).toLocaleDateString("en-IN") : "N/A" },
-      { key: "status", label: "Status", render: (row) => <select value={row.status || "requested"} onChange={(event) => updateStatus(row, event.target.value)} className="rounded border border-slate-200 px-2 py-1 text-xs">{statuses.map((status) => <option key={status} value={status}>{label(status)}</option>)}</select> },
+      { key: "status", label: "Status", render: (row) => <select value={row.status || "BOOKED"} onChange={(event) => updateStatus(row, event.target.value)} className="rounded border border-slate-200 px-2 py-1 text-xs">{statuses.map((status) => <option key={status} value={status}>{label(status)}</option>)}</select> },
     ]} />}
   </>;
 }

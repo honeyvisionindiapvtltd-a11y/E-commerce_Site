@@ -9,14 +9,15 @@ import {
   STATUS_TITLES,
 } from "../constants/orderStatuses.js";
 import { emitOrderStatusUpdate } from "./realtimeService.js";
+import { canTransitionOrderStatus } from "./orderLifecycleService.js";
 
 const allowedTransitions = {
   ORDER_PLACED: ["PAYMENT_CONFIRMED", "PROCESSING", "CANCELLED"],
   PAYMENT_CONFIRMED: ["PROCESSING", "CANCELLED"],
   PROCESSING: ["PACKED", "CANCELLED", "RETURN_REQUESTED"],
   PACKED: ["SHIPPED", "OUT_FOR_DELIVERY", "CANCELLED"],
-  SHIPPED: ["OUT_FOR_DELIVERY", "DELIVERED", "CANCELLED"],
-  OUT_FOR_DELIVERY: ["DELIVERED", "FAILED_DELIVERY", "CANCELLED"],
+  SHIPPED: ["OUT_FOR_DELIVERY", "DELIVERED"],
+  OUT_FOR_DELIVERY: ["DELIVERED", "FAILED_DELIVERY"],
   FAILED_DELIVERY: ["OUT_FOR_DELIVERY"],
   DELIVERED: ["RETURN_REQUESTED"],
   CANCELLED: ["RETURNED"],
@@ -64,6 +65,7 @@ export const updateOrderTracking = async ({
   source = "SYSTEM",
   metadata,
   deliveryAgent,
+  cancellationReason,
   allowTransition = true,
   deliveryOtp,
   resetDeliveryOtp = false,
@@ -123,8 +125,7 @@ export const updateOrderTracking = async ({
   }
 
   if (allowTransition && status !== order.status) {
-    const nextStatuses = allowedTransitions[order.status] || [];
-    if (!nextStatuses.includes(status)) {
+    if (!canTransitionOrderStatus(order.status, status, allowedTransitions)) {
       throw new Error(`Invalid order status transition: ${order.status} -> ${status}`);
     }
   }
@@ -138,6 +139,7 @@ export const updateOrderTracking = async ({
   }
   if (status === ORDER_STATUSES.CANCELLED) {
     order.cancelledAt = event.timestamp;
+    if (cancellationReason) order.cancellationReason = String(cancellationReason).trim();
   }
 
   await order.save();

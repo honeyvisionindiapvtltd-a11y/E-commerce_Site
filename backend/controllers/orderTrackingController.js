@@ -16,8 +16,9 @@ import {
   updateOrderTracking as applyOrderTrackingUpdate,
 } from "../services/orderTrackingService.js";
 import { sendDeliveryOtpEmail } from "../services/deliveryOtpService.js";
-import { sendDeliveryOtpSms } from "../services/deliveryOtpSmsService.js";
+import { sendOTP } from "../services/twoFactorService.js";
 import { checkDeliveryServiceability } from "../services/deliveryServiceabilityService.js";
+import { canCustomerCancelOrder, getOrderActions } from "../services/orderLifecycleService.js";
 
 const escapeRegExp = (value = "") => String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 const canExposeDevelopmentOtp = () => process.env.NODE_ENV === "development"
@@ -82,6 +83,9 @@ export const createOrder = async (req, res) => {
       addressLine1: resolvedShippingAddress?.addressLine1 || resolvedShippingAddress?.line1 || resolvedShippingAddress?.address || "",
       addressLine2: resolvedShippingAddress?.addressLine2 || resolvedShippingAddress?.line2 || "",
       landmark: resolvedShippingAddress?.landmark || "",
+      label: resolvedShippingAddress?.label || resolvedShippingAddress?.addressType || "Home",
+      deliveryInstructions: resolvedShippingAddress?.deliveryInstructions || "",
+      addressType: String(resolvedShippingAddress?.addressType || resolvedShippingAddress?.type || "HOME").toUpperCase(),
       district: resolvedShippingAddress?.district || "",
       city: resolvedShippingAddress?.city || "",
       state: resolvedShippingAddress?.state || resolvedShippingAddress?.region || "",
@@ -152,14 +156,14 @@ export const createOrder = async (req, res) => {
       const guestUser = new User({
         name: resolvedShippingAddress.name || "Guest Customer",
         email: guestEmail,
-        phone: resolvedShippingAddress.phone || "+919999999999",
+        phone: resolvedShippingAddress.phone || "9777941117",
         interest: "AI Cameras",
         role: "customer",
         status: "Active",
         profile: {
           fullName: resolvedShippingAddress.name || "Guest Customer",
           email: guestEmail,
-          phone: resolvedShippingAddress.phone || "+919999999999",
+          phone: resolvedShippingAddress.phone || "9777941117",
           country: resolvedShippingAddress.country || "India",
         },
       });
@@ -237,6 +241,9 @@ export const createOrder = async (req, res) => {
         locationResolved: Boolean(normalizedAddress.locationResolved && normalizedAddress.latitude !== undefined && normalizedAddress.longitude !== undefined),
         name: normalizedAddress.name || user.name,
         phone: normalizedAddress.phone || user.phone,
+        label: normalizedAddress.label || "Home",
+        addressType: ["HOME", "WORK", "OTHER"].includes(normalizedAddress.addressType) ? normalizedAddress.addressType : "HOME",
+        deliveryInstructions: normalizedAddress.deliveryInstructions || "",
       },
       deliveryDetails: {
         serviceable: true,
@@ -314,6 +321,7 @@ export const createOrder = async (req, res) => {
 
 export const cancelOrder = async (req, res) => {
   try {
+    const cancellationReason = String(req.body?.reason || "").trim();
     const order = await Order.findOne(buildOrderNumberQuery(req.params.orderNumber));
 
     if (!order) {
@@ -324,47 +332,22 @@ export const cancelOrder = async (req, res) => {
       return res.status(403).json({ success: false, message: "Access denied" });
     }
 
-    const cancellableStatuses = [
-      ORDER_STATUSES.ORDER_PLACED,
-      ORDER_STATUSES.PAYMENT_CONFIRMED,
-      ORDER_STATUSES.PROCESSING,
-      ORDER_STATUSES.PACKED,
-    ];
-
-    if (!cancellableStatuses.includes(order.status)) {
+    const cancellation = canCustomerCancelOrder(order);
+    if (!cancellation.allowed) {
       return res.status(409).json({
         success: false,
-        message: `Orders cannot be cancelled after ${order.status.toLowerCase().replaceAll("_", " ")}`,
+        message: cancellation.reason,
       });
     }
 
-    const cancelledOrder = await Order.findOneAndUpdate(
-      { _id: order._id, status: { $in: cancellableStatuses }, stockRestoredAt: null },
-      {
-        $set: { status: ORDER_STATUSES.CANCELLED, cancelledAt: new Date(), stockRestoredAt: new Date() },
-        $push: {
-          trackingEvents: {
-            status: ORDER_STATUSES.CANCELLED,
-            title: STATUS_TITLES.CANCELLED,
-            description: STATUS_DESCRIPTIONS.CANCELLED,
-            timestamp: new Date(),
-            completed: true,
-            source: "SYSTEM",
-          },
-        },
-      },
-      { new: true },
-    );
+    const cancellationResult = await applyOrderTrackingUpdate({
+      orderId: order.orderNumber,
+      status: ORDER_STATUSES.CANCELLED,
+      source: "SYSTEM",
+      cancellationReason,
+    });
 
-    if (!cancelledOrder) {
-      return res.status(409).json({ success: false, message: "Order was already updated" });
-    }
-
-    await Promise.all(cancelledOrder.items.map((item) =>
-      Product.findByIdAndUpdate(item.product, { $inc: { stock: item.quantity } }),
-    ));
-
-    return res.json({ success: true, message: "Order cancelled successfully", order: cancelledOrder });
+    return res.json({ success: true, message: "Order cancelled successfully", order: cancellationResult.order });
   } catch (error) {
     console.error("cancelOrder error:", error);
     return res.status(500).json({ success: false, message: "Failed to cancel order", error: error.message });
@@ -403,7 +386,10 @@ export const getMyOrders = async (req, res) => {
     res.status(200).json({
       success: true,
       count: orders.length,
-      orders,
+      orders: await Promise.all(orders.map(async (order) => ({
+        ...order.toObject(),
+        actions: await getOrderActions(order),
+      }))),
     });
   } catch (error) {
     console.error("getMyOrders error:", error);
@@ -463,7 +449,7 @@ export const createTestOrder = async (req, res) => {
       ],
       shippingAddress: {
         name: req.user.name || "Test User",
-        phone: req.user.phone || "+919876543210",
+        phone: req.user.phone || "9777941117",
         addressLine1: "123 Test Street",
         city: "Bhubaneswar",
         state: "Odisha",
@@ -547,6 +533,7 @@ export const getOrderByNumber = async (req, res) => {
     res.status(200).json({
       success: true,
       order,
+      actions: await getOrderActions(order),
     });
   } catch (error) {
     console.error("getOrderByNumber error:", error);
@@ -596,7 +583,7 @@ export const getOrderTracking = async (req, res) => {
         totalAmount: 0,
         shippingAddress: {
           name: "Demo Customer",
-          phone: "+91 98765 43210",
+          phone: "9777941117",
           addressLine1: "Demo Address",
           city: "Bhubaneswar",
           state: "Odisha",
@@ -714,6 +701,7 @@ export const getOrderTracking = async (req, res) => {
           reason: order.failedDeliveryReason,
           failedAt: order.failedDeliveryAt,
         } : null,
+        actions: await getOrderActions(order),
       },
       tracking,
       timeline: order.trackingEvents || [],
@@ -1005,13 +993,7 @@ export const assignDeliveryAgent = async (req, res) => {
 
     if (recoveryOtp) {
       const recoveryOtpExpiresAt = new Date(Date.now() + DELIVERY_OTP_TTL_MS);
-      await sendDeliveryOtpSms({
-        phone: order.shippingAddress?.phone,
-        customerName: order.shippingAddress?.name || order.user?.name,
-        orderNumber: order.orderNumber,
-        otp: recoveryOtp,
-        expiresAt: recoveryOtpExpiresAt,
-      });
+      await sendOTP({ phone: order.shippingAddress?.phone, otp: recoveryOtp });
       try {
         await sendDeliveryOtpEmail({
           email: order.user?.email,
@@ -1079,6 +1061,12 @@ export const assignDeliveryAgent = async (req, res) => {
     });
   } catch (error) {
     console.error("assignDeliveryAgent error:", error);
+    if (error.isSmsError) {
+      return res.status(502).json({
+        success: false,
+        message: "Unable to send delivery OTP SMS. Please try again later.",
+      });
+    }
     res.status(500).json({
       success: false,
       message: "Failed to assign delivery agent",

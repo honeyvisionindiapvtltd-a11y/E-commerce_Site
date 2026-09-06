@@ -8,10 +8,10 @@ const API_BASE = import.meta.env.VITE_API_URL || "/api";
 
 const getAuthToken = () => {
   try {
-    const raw = localStorage.getItem("honey-vision-commerce");
-    if (!raw) return null;
-    const parsed = JSON.parse(raw);
-    return parsed.authToken || null;
+    const currentAuth = JSON.parse(localStorage.getItem("hv-auth") || "{}");
+    if (currentAuth.authToken) return currentAuth.authToken;
+    const legacyAuth = JSON.parse(localStorage.getItem("honey-vision-commerce") || "{}");
+    return legacyAuth.authToken || null;
   } catch {
     return null;
   }

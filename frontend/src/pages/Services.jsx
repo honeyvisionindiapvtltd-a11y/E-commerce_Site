@@ -201,29 +201,29 @@ const Services = () => {
       city: "Bhubaneswar",
       type: "Head Office",
       address:
-        "Plot No. 123, Patia, Bhubaneswar, Odisha - 751024",
-      phone: "+91 98765 43210",
+        "Rukmani Plaza, Lane-1, Kendriya Vihar, Bhubaneswar, Odisha 752054",
+      phone: "9777941117",
     },
     {
       city: "Cuttack",
       type: "Service Center",
       address:
         "2nd Floor, Link Road, Cuttack, Odisha - 753002",
-      phone: "+91 98765 43211",
+      phone: "9777941117",
     },
     {
       city: "Rourkela",
       type: "Service Center",
       address:
         "1st Floor, Civil Township, Rourkela, Odisha - 769004",
-      phone: "+91 98765 43212",
+      phone: "9777941117",
     },
     {
       city: "Berhampur",
       type: "Service Center",
       address:
         "Door No. 45, Sanjib Nagar, Berhampur, Odisha - 760010",
-      phone: "+91 98765 43213",
+      phone: "9777941117",
     },
   ];
 
@@ -802,7 +802,7 @@ const Services = () => {
                 </p>
 
                 <p className="mt-1 text-xl font-extrabold text-[#071426]">
-                  +91 98765 43210
+                  9777941117
                 </p>
 
 
@@ -929,13 +929,13 @@ const Services = () => {
               <ContactBox
                 icon={Phone}
                 title="Call Us"
-                value="+91 98765 43210"
+                value="9777941117"
               />
 
               <ContactBox
                 icon={MessageCircle}
                 title="WhatsApp"
-                value="+91 98765 43210"
+                value="9777941117"
                 green
               />
 

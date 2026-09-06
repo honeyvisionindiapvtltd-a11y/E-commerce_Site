@@ -1,7 +1,9 @@
 import express from 'express';
 import inventoryService from '../services/inventoryService.js';
+import { protect, requireAdmin } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
+router.use(protect, requireAdmin);
 
 /**
  * GET /api/inventory/:productId

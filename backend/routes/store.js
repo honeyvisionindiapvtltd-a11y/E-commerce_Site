@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { getDB } from '../db.js';
 import { findDeliveryDocument } from '../services/deliveryService.js';
 import { normalizePincode, isValidPincode } from '../middleware/validation.js';
-import { protect } from '../middleware/authMiddleware.js';
+import { protect, requireCustomer } from '../middleware/authMiddleware.js';
 
 const router = Router();
 
@@ -35,19 +35,16 @@ router.get('/products', (_req, res) => {
   ]);
 });
 
-router.get('/orders', async (req, res) => {
-  const { userId } = req.query;
-  const filter = {};
-  if (userId) {
-    filter.userId = String(userId);
-  }
+router.get('/orders', protect, requireCustomer, async (req, res) => {
+  const filter = { userId: String(req.user._id) };
 
   const orders = await getOrdersCollection().find(filter).sort({ createdAt: -1 }).toArray();
   res.json(orders);
 });
 
-router.post('/orders', async (req, res) => {
-  const { userId = null, items = [], shippingAddress = null, address = null, paymentMethod = 'cod', installationSlot = null, secureShipping = false, couponApplied = false } = req.body;
+router.post('/orders', protect, requireCustomer, async (req, res) => {
+  const { items = [], shippingAddress = null, address = null, paymentMethod = 'cod', installationSlot = null, secureShipping = false, couponApplied = false } = req.body;
+  const userId = String(req.user._id);
   const orderAddress = shippingAddress || address || {};
   const normalizedPin = normalizePincode(orderAddress.pin || orderAddress.pincode || '');
 
@@ -120,19 +117,83 @@ router.post('/orders', async (req, res) => {
   res.status(201).json(order);
 });
 
-router.get('/installations', protect, async (req, res) => {
+router.get('/installations', protect, requireCustomer, async (req, res) => {
   const filter = { userId: String(req.user._id) };
 
   const installations = await getInstallationsCollection().find(filter).sort({ createdAt: -1 }).toArray();
   res.json(installations);
 });
 
-router.post('/installations', protect, async (req, res) => {
-  const { userId: _ignoredUserId, ...bookingData } = req.body || {};
+router.post('/installations', protect, requireCustomer, async (req, res) => {
+  const { userId: _ignoredUserId, customerId: _ignoredCustomerId, service, serviceId, orderId, orderNumber, customer = {}, preferredDate, preferredSlot, notes = '', installationPrice, additionalTotal, subtotal, gst, total, ...rest } = req.body || {};
+
+  const authenticatedUserId = String(req.user._id);
+  const selectedService = service || serviceId || rest.serviceId || 'installation';
+  const customerName = String(customer.name || '').trim();
+  const customerPhone = String(customer.phone || '').trim();
+  const customerEmail = String(customer.email || '').trim();
+  const customerAddress = String(customer.address || '').trim();
+  const customerCity = String(customer.city || '').trim();
+  const customerState = String(customer.state || '').trim();
+  const customerPin = String(customer.pinCode || '').replace(/\D/g, '').slice(0, 6);
+  const latitude = Number(customer.latitude ?? rest.latitude ?? null);
+  const longitude = Number(customer.longitude ?? rest.longitude ?? null);
+  const hasLocation = Number.isFinite(latitude) && Number.isFinite(longitude);
+
+  if (!selectedService) {
+    return res.status(400).json({ success: false, message: 'Please select an installation service.' });
+  }
+
+  if (!customerName || !customerPhone || !customerEmail || !customerAddress || !customerCity || !customerState || !customerPin || customerPin.length !== 6) {
+    return res.status(400).json({ success: false, message: 'Complete customer and address details are required before booking installation.' });
+  }
+
+  if (!preferredDate || !preferredSlot) {
+    return res.status(400).json({ success: false, message: 'Please choose a valid installation date and time slot.' });
+  }
+
+  if (hasLocation && (latitude === 0 || longitude === 0 || latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180)) {
+    return res.status(400).json({ success: false, message: 'Please provide valid installation coordinates.' });
+  }
+
+  if (orderId) {
+    const order = await getOrdersCollection().findOne({ userId: String(req.user._id), $or: [{ id: String(orderId) }, { _id: orderId }, { orderNumber: String(orderId) }] });
+    if (!order) {
+      return res.status(403).json({ success: false, message: 'The selected order does not belong to this customer.' });
+    }
+  }
+
   const booking = {
-    ...bookingData,
+    ...rest,
+    ...customer,
     id: `INSTALL-${Date.now().toString().slice(-6)}`,
-    userId: String(req.user._id),
+    userId: authenticatedUserId,
+    service: String(selectedService),
+    serviceId: String(serviceId || selectedService),
+    orderId: orderId ? String(orderId) : null,
+    orderNumber: orderNumber ? String(orderNumber) : null,
+    customer: {
+      name: customerName,
+      phone: customerPhone,
+      email: customerEmail,
+      address: customerAddress,
+      city: customerCity,
+      state: customerState,
+      pinCode: customerPin,
+      latitude: hasLocation ? latitude : null,
+      longitude: hasLocation ? longitude : null,
+      addressType: customer.addressType || customer.type || 'Home',
+      landmark: String(customer.landmark || '').trim(),
+      installationInstructions: String(customer.installationInstructions || notes || '').trim(),
+    },
+    preferredDate: String(preferredDate),
+    preferredSlot: String(preferredSlot),
+    notes: String(notes || customer.installationInstructions || '').trim(),
+    installationPrice: Number(installationPrice || 0),
+    additionalTotal: Number(additionalTotal || 0),
+    subtotal: Number(subtotal || 0),
+    gst: Number(gst || 0),
+    total: Number(total || subtotal || installationPrice || 0),
     createdAt: new Date().toISOString(),
     status: 'requested',
   };

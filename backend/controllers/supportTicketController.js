@@ -2,6 +2,7 @@ import crypto from "crypto";
 import mongoose from "mongoose";
 import Order from "../models/Order.js";
 import SupportTicket from "../models/SupportTicket.js";
+import { notifyAdmins, notifyCustomer } from "../services/notificationService.js";
 
 const categories = new Set(["ORDERS", "DELIVERY", "INSTALLATION", "RETURNS", "PAYMENTS", "WARRANTY", "ACCOUNT", "TECHNICAL", "OTHER"]);
 const statuses = new Set(["OPEN", "IN_PROGRESS", "RESOLVED", "CLOSED"]);
@@ -38,6 +39,16 @@ export const createTicket = async (req, res) => {
       messages: [{ author: req.user._id, authorRole: "customer", message: String(description).trim() }],
     });
 
+    void notifyAdmins({
+      type: "NEW_SUPPORT_TICKET",
+      category: "support",
+      title: "New support ticket",
+      message: `${ticket.subject} was submitted by ${req.user.name || "a customer"}.`,
+      relatedId: ticket._id,
+      relatedType: "SupportTicket",
+      actionUrl: "/admin/support",
+      eventKey: `support:ticket:${ticket._id}:created`,
+    });
     return res.status(201).json({ success: true, ticket: safeTicket(ticket) });
   } catch (error) {
     console.error("createTicket error:", error);
@@ -73,6 +84,17 @@ export const addCustomerMessage = async (req, res) => {
   ticket.messages.push({ author: req.user._id, authorRole: "customer", message });
   if (ticket.status === "RESOLVED") ticket.status = "OPEN";
   await ticket.save();
+  const latestMessage = ticket.messages.at(-1);
+  if (latestMessage) void notifyAdmins({
+    type: "NEW_SUPPORT_MESSAGE",
+    category: "support",
+    title: "New customer support message",
+    message: `${ticket.subject} has a new customer message.`,
+    relatedId: ticket._id,
+    relatedType: "SupportTicket",
+    actionUrl: "/admin/support",
+    eventKey: `support:ticket:${ticket._id}:message:${latestMessage._id}`,
+  });
   return res.json({ success: true, ticket });
 };
 
@@ -111,5 +133,30 @@ export const updateTicket = async (req, res) => {
   if (nextPriority !== undefined) ticket.priority = nextPriority;
   if (String(message || "").trim()) ticket.messages.push({ author: req.user._id, authorRole: "admin", message: String(message).trim() });
   await ticket.save();
+  if (String(message || "").trim()) {
+    const latestMessage = ticket.messages.at(-1);
+    void notifyCustomer({
+      recipient: ticket.user,
+      type: "SUPPORT_REPLY_RECEIVED",
+      category: "support",
+      title: "Support team replied",
+      message: `There is a new reply on ${ticket.subject}.`,
+      relatedId: ticket._id,
+      relatedType: "SupportTicket",
+      actionUrl: `/support/tickets/${ticket.ticketNumber}`,
+      eventKey: `support:ticket:${ticket._id}:message:${latestMessage._id}`,
+    });
+  }
+  if (nextStatus === "RESOLVED" || nextStatus === "CLOSED") void notifyCustomer({
+    recipient: ticket.user,
+    type: "SUPPORT_TICKET_RESOLVED",
+    category: "support",
+    title: "Support ticket updated",
+    message: `${ticket.subject} is now ${ticket.status.toLowerCase().replace("_", " ")}.`,
+    relatedId: ticket._id,
+    relatedType: "SupportTicket",
+    actionUrl: `/support/tickets/${ticket.ticketNumber}`,
+    eventKey: `support:ticket:${ticket._id}:status:${ticket.status}`,
+  });
   return res.json({ success: true, ticket });
 };

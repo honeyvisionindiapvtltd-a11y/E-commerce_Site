@@ -21,14 +21,14 @@ const main = async () => {
     user = new User({
       name: 'Real Order User',
       email: 'realorder@example.com',
-      phone: '+919876543210',
+      phone: '9777941117',
       interest: 'AI Cameras',
       role: 'customer',
       status: 'Active',
       profile: {
         fullName: 'Real Order User',
         email: 'realorder@example.com',
-        phone: '+919876543210',
+        phone: '9777941117',
         country: 'India',
       },
     });

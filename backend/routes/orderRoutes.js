@@ -15,7 +15,7 @@ import {
   createTestOrder,
 } from "../controllers/orderTrackingController.js";
 
-import { protect, requireAdmin, optionalAuth } from "../middleware/authMiddleware.js";
+import { protect, requireAdmin, requireCustomer, requireCustomerOrGuest, optionalAuth } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 
@@ -24,13 +24,13 @@ const router = express.Router();
 // ======================================================
 
 // Create new order (supports guest checkout when no JWT is present)
-router.post("/", optionalAuth, createOrder);
+router.post("/", optionalAuth, requireCustomerOrGuest, createOrder);
 
 // Get all orders for logged-in user
-router.get("/my-orders", protect, getMyOrders);
+router.get("/my-orders", protect, requireCustomer, getMyOrders);
 
 // Cancel an order before shipment and restore its reserved stock.
-router.post("/:orderNumber/cancel", protect, cancelOrder);
+router.post("/:orderNumber/cancel", protect, requireCustomer, cancelOrder);
 
 // Debug: List all orders (for testing)
 router.get("/debug/all-orders", protect, requireAdmin, async (req, res) => {
@@ -44,10 +44,10 @@ router.get("/debug/all-orders", protect, requireAdmin, async (req, res) => {
 });
 
 // Create test order for tracking demo
-router.post("/debug/test-order", protect, createTestOrder);
+router.post("/debug/test-order", protect, requireCustomer, createTestOrder);
 
 // Query-string based lookup used by demos and legacy UI flows
-router.get("/tracking", protect, async (req, res) => {
+router.get("/tracking", protect, requireCustomer, async (req, res) => {
   const orderNumber = req.query.order || req.query.orderNumber;
 
   if (!orderNumber) {
@@ -65,11 +65,11 @@ router.get("/tracking", protect, async (req, res) => {
 });
 
 // Get single order by order number
-router.get("/:orderNumber", protect, getOrderByNumber);
+router.get("/:orderNumber", protect, requireCustomer, getOrderByNumber);
 
 // Get order tracking information
-router.get("/:orderNumber/tracking", protect, getOrderTracking);
-router.patch("/:orderNumber/destination", protect, updateOrderDestination);
+router.get("/:orderNumber/tracking", protect, requireCustomer, getOrderTracking);
+router.patch("/:orderNumber/destination", protect, requireCustomer, updateOrderDestination);
 
 // ======================================================
 // ADMIN ROUTES - Order Management

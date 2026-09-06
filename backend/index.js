@@ -29,6 +29,9 @@ import deliveryServiceabilityRoutes from './routes/deliveryServiceabilityRoutes.
 import userRoutes from './routes/users.js';
 import supportRoutes from './routes/supportRoutes.js';
 import chatRoutes from './routes/chatRoutes.js';
+import notificationRoutes from './routes/notificationRoutes.js';
+import newsletterRoutes from './routes/newsletterRoutes.js';
+import installationsRoutes from './routes/installations.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -47,22 +50,32 @@ const localFrontendOrigins = [
 const configuredFrontendOrigins = String(process.env.FRONTEND_URL || '')
   .split(',').map((origin) => origin.trim()).filter(Boolean);
 const allowedOrigins = new Set([...localFrontendOrigins, ...configuredFrontendOrigins]);
+const isAllowedDevelopmentOrigin = (origin) => /^https?:\/\/(localhost|127\.0\.0\.1|192\.168\.31\.5):\d+$/.test(origin);
+let databaseAvailable = false;
 
 const connectDatabase = async () => {
-  try {
-    await mongoose.connect(dbConfig.mongoUri, { serverSelectionTimeoutMS: 15000 });
-    console.log('MongoDB connected');
-  } catch (error) {
-    console.error('MongoDB connection failed:', error.message);
-    if (process.env.NODE_ENV === 'production') {
-      throw error;
+  let lastError;
+  for (let attempt = 1; attempt <= 3; attempt += 1) {
+    try {
+      await mongoose.connect(dbConfig.mongoUri, { serverSelectionTimeoutMS: 5000 });
+      databaseAvailable = true;
+      console.log('MongoDB connected');
+      return;
+    } catch (error) {
+      lastError = error;
+      console.error(`MongoDB connection attempt ${attempt}/3 failed:`, error.message);
+      if (attempt < 3) await new Promise((resolve) => setTimeout(resolve, attempt * 1000));
     }
-    console.warn('Continuing in non-production mode without MongoDB.');
   }
+
+  if (process.env.NODE_ENV === 'production') {
+    throw lastError;
+  }
+  console.warn('Continuing in non-production mode without MongoDB. Database routes will return 503.');
 };
 
 app.use(cors({ origin: (origin, callback) => {
-  if (!origin || allowedOrigins.has(origin)) return callback(null, true);
+  if (!origin || allowedOrigins.has(origin) || isAllowedDevelopmentOrigin(origin)) return callback(null, true);
   return callback(new Error('Origin is not allowed by CORS'));
 }, credentials: true }));
 
@@ -72,10 +85,16 @@ app.use('/api/webhooks', webhookRoutes);
 
 app.use(express.json());
 app.use('/api', healthRoutes);
+app.use((req, res, next) => {
+  if (databaseAvailable || req.path === '/health') return next();
+  return res.status(503).json({ success: false, message: 'Database is temporarily unavailable. Please try again shortly.' });
+});
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/support', supportRoutes);
 app.use('/api/chat', chatRoutes);
+app.use('/api/notifications', notificationRoutes);
+app.use('/api/newsletter', newsletterRoutes);
 app.use('/api/categories', categoryRoutes);
 app.use('/api/products', productRoutes);
 app.use(
@@ -87,6 +106,7 @@ app.use(
   trackingRoutes
 );
 app.use('/api/admin', adminRoutes);
+app.use('/api', installationsRoutes);
 app.use('/api', storeRoutes);
 app.use('/api', locationRoutes);
 app.use('/api/payments', paymentRoutes);

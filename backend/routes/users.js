@@ -1,6 +1,6 @@
 import express from 'express';
 import User from '../models/User.js';
-import { protect } from '../middleware/authMiddleware.js';
+import { protect, requireCustomer } from '../middleware/authMiddleware.js';
 import { checkDeliveryServiceability } from '../services/deliveryServiceabilityService.js';
 
 const router = express.Router();
@@ -54,7 +54,7 @@ const validateAddress = async (address) => {
 
 const safeAddresses = (user) => (user.addresses || []).map((address) => address.toJSON());
 
-router.use(protect);
+router.use(protect, requireCustomer);
 
 router.get('/addresses', async (req, res) => {
   res.json({ success: true, addresses: safeAddresses(req.user) });

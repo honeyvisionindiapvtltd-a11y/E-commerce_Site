@@ -5,10 +5,14 @@ import crypto from 'crypto';
 import nodemailer from 'nodemailer';
 import User from '../models/User.js';
 import { getJwtSecret } from '../config/env.js';
+import { notifyAdmins } from '../services/notificationService.js';
+import { requireCustomer } from '../middleware/authMiddleware.js';
 
 const router = Router();
 const jwtSecret = getJwtSecret();
 const jwtExpiresIn = '7d';
+const PASSWORD_RESET_COOLDOWN_MS = 60 * 1000;
+const PASSWORD_RESET_EXPIRY_MS = 15 * 60 * 1000;
 
 const getSafeUser = (user) => ({
   id: user._id?.toString(),
@@ -26,7 +30,7 @@ const getProfile = (user) => ({
   memberSince: user.profile?.memberSince || new Date().getFullYear().toString(),
 });
 
-const signToken = (user) => jwt.sign({ userId: user._id?.toString() }, jwtSecret, { expiresIn: jwtExpiresIn });
+const signToken = (user) => jwt.sign({ userId: user._id?.toString(), role: user.role || 'customer' }, jwtSecret, { expiresIn: jwtExpiresIn });
 
 const transporter = nodemailer.createTransport({
   service: 'gmail',
@@ -38,7 +42,7 @@ const transporter = nodemailer.createTransport({
 
 const sendEmailToken = async (email, subject, token) => {
   if (!process.env.GMAIL_APP_PASSWORD) {
-    console.log(`Email to ${email}: ${subject} - token=${token}`);
+    console.warn(`Verification email skipped for ${email}: email delivery is not configured.`);
     return;
   }
 
@@ -47,22 +51,63 @@ const sendEmailToken = async (email, subject, token) => {
       from: process.env.GMAIL_USER || 'honeyvisionindiapvtltd@gmail.com',
       to: email,
       subject,
+      text: `Your HoneyVision verification token is ${token}.`,
+      html: `<p>Your HoneyVision verification token is:</p><p><strong>${token}</strong></p>`,
+    });
+  } catch (error) {
+    console.error('Verification email send failed:', error.message);
+  }
+};
+
+const getFrontendUrl = () => {
+  const configured = String(process.env.FRONTEND_URL || '')
+    .split(',')
+    .map((value) => value.trim())
+    .find(Boolean);
+
+  if (!configured) {
+    throw new Error('FRONTEND_URL is not configured. Set the frontend base URL for reset links.');
+  }
+
+  return configured.replace(/\/$/, '');
+};
+
+const buildPasswordResetUrl = (token) => `${getFrontendUrl()}/reset-password?token=${encodeURIComponent(token)}`;
+
+const sendPasswordResetEmail = async (email, token) => {
+  if (!process.env.GMAIL_APP_PASSWORD) {
+    console.warn(`Password reset email skipped for ${email}: email delivery is not configured.`);
+    return;
+  }
+
+  const requestId = crypto.randomUUID();
+  const resetUrl = buildPasswordResetUrl(token);
+
+  try {
+    await transporter.sendMail({
+      from: process.env.GMAIL_USER || 'honeyvisionindiapvtltd@gmail.com',
+      to: email,
+      subject: 'Reset your HoneyVision password',
+      text: `Reset your HoneyVision password using this link: ${resetUrl}\n\nThis link expires in 15 minutes. If you did not request this password reset, you can safely ignore this email.`,
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 520px; margin: 0 auto;">
           <h2 style="color: #071426;">Honey Vision</h2>
-          <p>Hello,</p>
-          <p>Your ${subject.toLowerCase()} code is:</p>
-          <div style="font-size: 24px; font-weight: bold; letter-spacing: 2px; background: #FFF7DB; padding: 16px; border-radius: 8px; margin: 18px 0; display: inline-block;">${token}</div>
-          <p>This code will expire in 1 hour.</p>
-          <p>Thank you,<br />Honey Vision Team</p>
+          <h3>Reset your password</h3>
+          <p>We received a request to reset your HoneyVision password.</p>
+          <p><a href="${resetUrl}" style="display: inline-block; background: #F4B400; color: #071426; padding: 12px 22px; border-radius: 8px; font-weight: bold; text-decoration: none;">Reset Password</a></p>
+          <p>This link expires in 15 minutes.</p>
+          <p>If the button does not work, use this link:</p>
+          <p style="word-break: break-all;">${resetUrl}</p>
+          <p>If you did not request this password reset, you can safely ignore this email.</p>
+          <p>Thank you,<br />HoneyVision Team</p>
         </div>
       `,
     });
 
-    console.log(`Real email sent to ${email} for ${subject}`);
+    console.log(`[password-reset] Email sent successfully requestId=${requestId} email=${email}`);
   } catch (error) {
-    console.error('Email send failed:', error.message);
-    console.log(`Email fallback to ${email}: ${subject} - token=${token}`);
+    console.error(`[password-reset] Email failed requestId=${requestId} email=${email} error=${error.message}`);
+    throw error;
   }
 };
 
@@ -80,6 +125,7 @@ const authMiddleware = async (req, res, next) => {
     if (!user || (user.status && user.status !== 'Active')) {
       throw new Error('User not found');
     }
+    if (payload.role && payload.role !== user.role) throw new Error('Role changed; please sign in again');
     req.user = user;
     next();
   } catch (error) {
@@ -281,55 +327,104 @@ router.post('/request-email-verification', async (req, res) => {
   }
 });
 
-router.post('/request-password-reset', async (req, res) => {
+const handlePasswordResetRequest = async (req, res) => {
   try {
-    const { email } = req.body || {};
+    const email = String(req.body?.email || '').trim().toLowerCase();
+    const genericResponse = {
+      success: true,
+      message: 'If an account exists for this email, a password reset link has been sent.',
+    };
 
     if (!email) {
-      return res.status(400).json({ message: 'Email is required.' });
+      return res.json(genericResponse);
     }
 
-    const user = await User.findOne({ email: String(email).toLowerCase() }).exec();
+    const user = await User.findOne({ email }).select('+passwordResetRequestedAt +passwordResetTokenHash +passwordResetExpires').exec();
     if (!user) {
-      return res.status(404).json({ message: 'User not found.' });
+      console.info(`[password-reset] No user found for email=${email} requestId=${crypto.randomUUID()}`);
+      return res.json(genericResponse);
+    }
+
+    const now = Date.now();
+    const lastRequestedAt = user.passwordResetRequestedAt ? new Date(user.passwordResetRequestedAt).getTime() : 0;
+    if (lastRequestedAt && now - lastRequestedAt < PASSWORD_RESET_COOLDOWN_MS) {
+      console.warn(`[password-reset] Throttled email=${email} requestId=${crypto.randomUUID()} nextAllowedAt=${new Date(lastRequestedAt + PASSWORD_RESET_COOLDOWN_MS).toISOString()}`);
+      return res.json(genericResponse);
     }
 
     const resetToken = user.generatePasswordResetToken();
     await user.save();
 
-    await sendEmailToken(user.email, 'Password Reset', resetToken);
+    try {
+      await sendPasswordResetEmail(user.email, resetToken);
+    } catch (emailError) {
+      console.error(`[password-reset] Email send error for email=${user.email} requestId=${crypto.randomUUID()} error=${emailError.message}`);
+    }
 
-    res.json({
-      message: 'Password reset code generated. Use the code shown in the app or check the backend console while email is not configured.',
-      resetToken,
-    });
+    return res.json(genericResponse);
   } catch (error) {
     console.error('Request password reset error:', error);
-    res.status(500).json({ message: 'Password reset request failed. Please try again later.' });
+    return res.status(500).json({ success: false, message: 'Password reset request failed. Please try again later.' });
+  }
+};
+
+router.post('/forgot-password', handlePasswordResetRequest);
+router.post('/request-password-reset', handlePasswordResetRequest);
+
+router.get('/validate-reset-token', async (req, res) => {
+  try {
+    const token = String(req.query?.token || '').trim();
+    if (!token) {
+      return res.status(400).json({ success: false, message: 'Password reset link is invalid or has expired.' });
+    }
+
+    const users = await User.find({ passwordResetExpires: { $gt: new Date() } })
+      .select('+passwordResetTokenHash +passwordResetExpires')
+      .exec();
+
+    const match = users.some((user) => user.matchesPasswordResetToken(token));
+    if (!match) {
+      return res.status(400).json({ success: false, message: 'Password reset link is invalid or has expired.' });
+    }
+
+    return res.json({ success: true, message: 'Valid reset link.' });
+  } catch (error) {
+    console.error('Validate password reset token error:', error.message);
+    return res.status(400).json({ success: false, message: 'Password reset link is invalid or has expired.' });
   }
 });
 
 router.post('/reset-password', async (req, res) => {
   try {
-    const { email, token, newPassword } = req.body || {};
+    const { token, password, confirmPassword, email, newPassword } = req.body || {};
+    const submittedPassword = password || newPassword;
+    const normalizedToken = String(token || '').trim();
 
-    if (!email || !token || !newPassword) {
-      return res.status(400).json({ message: 'Email, token, and new password are required.' });
+    if (!normalizedToken || !submittedPassword || (confirmPassword !== undefined && String(submittedPassword) !== String(confirmPassword))) {
+      return res.status(400).json({ success: false, message: 'Password reset link is invalid or has expired.' });
     }
 
-    const user = await User.findOne({ email: String(email).toLowerCase(), passwordResetToken: token }).exec();
-    if (!user || !user.passwordResetExpires || user.passwordResetExpires < new Date()) {
-      return res.status(400).json({ message: 'Invalid or expired password reset token.' });
+    if (String(submittedPassword).length < 6) {
+      return res.status(400).json({ success: false, message: 'Password must be at least 6 characters long.' });
     }
 
-    user.setPassword(newPassword);
+    const users = await User.find({ passwordResetExpires: { $gt: new Date() } })
+      .select('+passwordResetTokenHash +passwordResetExpires')
+      .exec();
+
+    const user = users.find((candidate) => candidate.matchesPasswordResetToken(normalizedToken));
+    if (!user) {
+      return res.status(400).json({ success: false, message: 'Password reset link is invalid or has expired.' });
+    }
+
+    user.setPassword(String(submittedPassword));
     user.clearPasswordResetToken();
     await user.save();
 
-    res.json({ message: 'Password reset successfully.' });
+    res.json({ success: true, message: 'Password updated successfully. Please login with your new password.' });
   } catch (error) {
     console.error('Reset password error:', error);
-    res.status(500).json({ message: 'Password reset failed. Please try again later.' });
+    res.status(500).json({ success: false, message: 'Password reset failed. Please try again later.' });
   }
 });
 
@@ -386,6 +481,8 @@ router.post('/admin/create', async (req, res) => {
   user.setPassword(password);
   await user.save();
 
+  if (user.role !== 'admin') void notifyAdmins({ type: 'CUSTOMER_REGISTERED', title: 'New customer registered', message: `${user.name} created a new customer account.`, relatedId: user._id, relatedType: 'User', eventKey: `customer:${user._id}:registered` });
+
   res.status(201).json(createAuthResponse(user));
 });
 
@@ -429,7 +526,7 @@ router.put('/customers/:id/status', authMiddleware, requireAdmin, async (req, re
   });
 });
 
-router.put('/profile', authMiddleware, async (req, res) => {
+router.put('/profile', authMiddleware, requireCustomer, async (req, res) => {
   const user = req.user;
   const body = req.body || {};
 

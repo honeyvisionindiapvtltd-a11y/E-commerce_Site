@@ -57,7 +57,7 @@ export const seedData = {
   settings: {
     storeName:"Honey Vision India Pvt. Ltd.",
     email:"support@honeyvision.in",
-    phone:"+91 98765 43210",
+    phone:"9777941117",
     currency:"INR",
     taxRate:18,
     lowStockLimit:5,

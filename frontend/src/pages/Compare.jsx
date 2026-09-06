@@ -1,4 +1,4 @@
-﻿import { useMemo, useState } from "react";
+﻿import { useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import {
   ArrowLeft,
@@ -16,7 +16,6 @@ import { money, normalizeProduct } from "../lib/products";
 
 const buildComparePool = (products = []) =>
   (Array.isArray(products) ? products : [])
-    .slice(0, 8)
     .map((product) => {
       const normalized = normalizeProduct(product);
       if (!normalized) return null;
@@ -53,6 +52,7 @@ export default function CompareProducts() {
   const [searchParams] = useSearchParams();
   const [searchTerm, setSearchTerm] = useState("");
   const [localSelectedIds, setLocalSelectedIds] = useState([]);
+  const searchInputRef = useRef(null);
 
   const urlSelectedIds = useMemo(() => {
     const urlIds = searchParams.getAll("compare");
@@ -67,7 +67,7 @@ export default function CompareProducts() {
 
   const selectedProducts = useMemo(
     () => selectedIds.map((id) => comparePool.find((product) => product.id === id)).filter(Boolean),
-    [selectedIds]
+    [comparePool, selectedIds]
   );
 
   const filteredProducts = useMemo(() => {
@@ -82,7 +82,7 @@ export default function CompareProducts() {
         !selectedIds.includes(product.id) &&
         (product.name.toLowerCase().includes(term) || product.brand.toLowerCase().includes(term))
     );
-  }, [searchTerm, selectedIds]);
+  }, [comparePool, searchTerm, selectedIds]);
 
   const specKeys = useMemo(() => {
     if (!selectedProducts.length) return [];
@@ -167,6 +167,7 @@ export default function CompareProducts() {
               size={18}
             />
             <input
+              ref={searchInputRef}
               type="text"
               value={searchTerm}
               onChange={(event) => setSearchTerm(event.target.value)}
@@ -238,7 +239,7 @@ export default function CompareProducts() {
                     >
                       <Heart size={18} fill={isWishlisted ? "currentColor" : "none"} />
                     </button>
-                    <Link to={`/products/${product.id}`}>
+                    <Link to={productDetailsPath(product.id, selectedIds)}>
                       <img
                         src={product.image}
                         alt={product.name}
@@ -255,7 +256,7 @@ export default function CompareProducts() {
                       {product.brand}
                     </p>
                     <Link
-                      to={`/products/${product.id}`}
+                      to={productDetailsPath(product.id, selectedIds)}
                       className="mt-2 block text-lg font-bold text-slate-900 hover:text-amber-600"
                     >
                       {product.name}
@@ -344,7 +345,7 @@ export default function CompareProducts() {
                       </td>
                       {selectedProducts.map((product) => (
                         <td key={`${product.id}-${key}`} className="px-5 py-4 text-sm text-slate-700">
-                          {product.specs[key]}
+                          {formatSpecificationValue(product.specs[key])}
                         </td>
                       ))}
                     </tr>
@@ -362,7 +363,10 @@ export default function CompareProducts() {
             </span>
             <button
               type="button"
-              onClick={() => setSearchTerm("")}
+              onClick={() => {
+                setSearchTerm("");
+                searchInputRef.current?.focus();
+              }}
               className="font-semibold text-amber-800 underline underline-offset-2"
             >
               Add another product
@@ -372,4 +376,17 @@ export default function CompareProducts() {
       </div>
     </main>
   );
+}
+
+function formatSpecificationValue(value) {
+  if (value === null || value === undefined || value === "") return "N/A";
+  if (Array.isArray(value)) return value.join(", ");
+  if (typeof value === "object") return Object.entries(value).map(([key, entry]) => `${key}: ${entry}`).join(", ");
+  return String(value);
+}
+
+function productDetailsPath(productId, selectedIds) {
+  const params = new URLSearchParams();
+  selectedIds.forEach((id) => params.append("compare", id));
+  return `/products/${encodeURIComponent(productId)}?${params.toString()}`;
 }

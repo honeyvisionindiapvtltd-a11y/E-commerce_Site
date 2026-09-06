@@ -2,6 +2,11 @@ import { useEffect, useRef, useCallback } from 'react';
 import io from 'socket.io-client';
 import { SOCKET_URL } from '../lib/socketConfig.js';
 
+let sharedSocket = null;
+let sharedSocketKey = '';
+let sharedConsumers = 0;
+let disconnectTimer = null;
+
 /**
  * useRealtimeUpdates Hook
  * Manages Socket.io connection and real-time updates
@@ -14,42 +19,41 @@ export const useRealtimeUpdates = (userId, token) => {
   useEffect(() => {
     if (!userId || !token) return;
 
-    socketRef.current = io(SOCKET_URL, {
-      auth: { token },
-      reconnection: true,
-      reconnectionDelay: 1000,
-      reconnectionDelayMax: 5000,
-      reconnectionAttempts: 5,
-    });
-
-    socketRef.current.on('connect', () => {
-      console.log('Socket connected:', socketRef.current.id);
-      socketRef.current.emit('user:login', userId);
-    });
-
-    const handleDisconnect = () => {
-      console.log('Socket disconnected');
-    };
-    const handlePageHide = () => {
-      socketRef.current?.disconnect();
-    };
-    const handlePageShow = (event) => {
-      if (event.persisted) socketRef.current?.connect();
-    };
-
-    socketRef.current.on('disconnect', handleDisconnect);
-    window.addEventListener('pagehide', handlePageHide);
-    window.addEventListener('pageshow', handlePageShow);
+    const socketKey = `${userId}:${token}`;
+    if (disconnectTimer) {
+      window.clearTimeout(disconnectTimer);
+      disconnectTimer = null;
+    }
+    if (!sharedSocket || sharedSocketKey !== socketKey) {
+      sharedSocket?.disconnect();
+      sharedSocket = io(SOCKET_URL, {
+        auth: { token },
+        reconnection: true,
+        reconnectionDelay: 1000,
+        reconnectionDelayMax: 5000,
+        reconnectionAttempts: 5,
+      });
+      sharedSocketKey = socketKey;
+      sharedSocket.on('connect', () => {
+        console.log('Socket connected:', sharedSocket.id);
+      });
+      sharedSocket.on('disconnect', () => console.log('Socket disconnected'));
+    }
+    socketRef.current = sharedSocket;
+    sharedConsumers += 1;
 
     return () => {
-      if (socketRef.current) {
-        socketRef.current.off('connect');
-        socketRef.current.off('disconnect', handleDisconnect);
-        socketRef.current.disconnect();
-        socketRef.current = null;
+      sharedConsumers = Math.max(0, sharedConsumers - 1);
+      if (sharedConsumers === 0 && sharedSocketKey === socketKey) {
+        disconnectTimer = window.setTimeout(() => {
+          if (sharedConsumers !== 0 || sharedSocketKey !== socketKey) return;
+          sharedSocket?.disconnect();
+          sharedSocket = null;
+          sharedSocketKey = '';
+          disconnectTimer = null;
+        }, 1000);
       }
-      window.removeEventListener('pagehide', handlePageHide);
-      window.removeEventListener('pageshow', handlePageShow);
+      socketRef.current = null;
     };
   }, [userId, token]);
 
@@ -116,6 +120,22 @@ export const useRealtimeUpdates = (userId, token) => {
     };
   }, []);
 
+  const subscribeToPersistentNotifications = useCallback((callback) => {
+    if (!socketRef.current) return;
+    socketRef.current.on('notification:new', callback);
+    return () => socketRef.current?.off('notification:new', callback);
+  }, []);
+
+  const subscribeToNotificationState = useCallback(({ onRead, onUnreadCount }) => {
+    if (!socketRef.current) return;
+    if (onRead) socketRef.current.on('notification:read', onRead);
+    if (onUnreadCount) socketRef.current.on('notification:unreadCount', onUnreadCount);
+    return () => {
+      if (onRead) socketRef.current?.off('notification:read', onRead);
+      if (onUnreadCount) socketRef.current?.off('notification:unreadCount', onUnreadCount);
+    };
+  }, []);
+
   /**
    * Subscribe to announcements
    */
@@ -126,21 +146,6 @@ export const useRealtimeUpdates = (userId, token) => {
 
     return () => {
       socketRef.current?.off('announcement', callback);
-    };
-  }, []);
-
-  /**
-   * Subscribe to admin notifications (for admins only)
-   */
-  const subscribeToAdminNotifications = useCallback((callback) => {
-    if (!socketRef.current) return;
-
-    socketRef.current.on('admin:notification', callback);
-    socketRef.current.on('admin:orderUpdate', callback);
-
-    return () => {
-      socketRef.current?.off('admin:notification', callback);
-      socketRef.current?.off('admin:orderUpdate', callback);
     };
   }, []);
 
@@ -162,8 +167,9 @@ export const useRealtimeUpdates = (userId, token) => {
     subscribeToDelivery,
     subscribeToInventory,
     subscribeToNotifications,
+    subscribeToPersistentNotifications,
+    subscribeToNotificationState,
     subscribeToAnnouncements,
-    subscribeToAdminNotifications,
     sendMessage,
     getSocket,
   };

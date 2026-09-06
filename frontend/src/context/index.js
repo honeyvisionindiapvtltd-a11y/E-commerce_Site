@@ -1,5 +1,6 @@
 import { createElement } from "react";
-import { AuthProvider, useAuth } from "./AuthContext";
+import { AuthProvider } from "./AuthContext";
+import { useAuth } from "./useAuth";
 import { CartProvider, useCart } from "./CartContext";
 import { WishlistProvider, useWishlist } from "./WishlistContext";
 import { ProfileProvider, useProfile } from "./ProfileContext";
@@ -7,6 +8,8 @@ import { UIProvider, useUI } from "./UIContext";
 import { CatalogProvider, useCatalog } from "./CatalogContext";
 import { DeliveryProvider, useDelivery } from "./DeliveryContext";
 import { OrdersProvider, useOrders } from "./OrdersContext";
+import { NotificationProvider } from "./NotificationContext";
+import { useNotificationContext } from "./useNotificationContext";
 
 /**
  * CommerceProvider - Main wrapper for all commerce-related contexts
@@ -22,6 +25,7 @@ export function CommerceProvider({ children }) {
     CatalogProvider,
     DeliveryProvider,
     OrdersProvider,
+    NotificationProvider,
   ];
 
   return providers.reduceRight(
@@ -99,8 +103,10 @@ export function useCommerce() {
     deliveryPin: deliveryCtx.deliveryPin,
     deliveryLocation: deliveryCtx.deliveryLocation,
     couponApplied: deliveryCtx.couponApplied,
+    selectedDeliveryAddress: deliveryCtx.selectedDeliveryAddress,
     setCouponApplied: deliveryCtx.setCouponApplied,
     setDeliveryPin: deliveryCtx.setDeliveryPin,
+    setSelectedDeliveryAddress: deliveryCtx.setSelectedDeliveryAddress,
     checkDeliveryByPincode: deliveryCtx.checkDeliveryByPincode,
     checkDeliveryByLocation: deliveryCtx.checkDeliveryByLocation,
 
@@ -110,9 +116,15 @@ export function useCommerce() {
     placeOrder: ordersCtx.placeOrder,
     fetchOrders: ordersCtx.fetchOrders,
     fetchInstallations: ordersCtx.fetchInstallations,
-    addInstallationBooking: ordersCtx.addInstallationBooking,
+    createInstallationBooking: ordersCtx.createInstallationBooking,
+    createInstallationPayment: ordersCtx.createInstallationPayment,
+    verifyInstallationPayment: ordersCtx.verifyInstallationPayment,
+    fetchInstallation: ordersCtx.fetchInstallation,
 
     // Internal helpers
     requestJson: auth.requestJson,
+
+    // Persistent notifications
+    notificationContext: useNotificationContext(),
   };
 }

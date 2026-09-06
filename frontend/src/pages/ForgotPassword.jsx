@@ -1,26 +1,19 @@
-import { useMemo, useState } from "react";
-import { ArrowLeft, CheckCircle2, KeyRound, Mail, ShieldCheck } from "lucide-react";
-import { Link, useNavigate } from "react-router-dom";
+import { useState } from "react";
+import { ArrowLeft, CheckCircle2, Mail } from "lucide-react";
+import { Link } from "react-router-dom";
 import { useCommerce } from "../context/index.js";
 
+const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
 const ForgotPasswordImage = "https://res.cloudinary.com/vhrkwyzs/image/upload/v1786189628/login_odyhdp.png";
 
 export default function ForgotPassword() {
-  const navigate = useNavigate();
-  const { requestPasswordReset, resetPassword } = useCommerce();
+  const { requestPasswordReset } = useCommerce();
 
   const [step, setStep] = useState("email");
   const [email, setEmail] = useState("");
-  const [token, setToken] = useState("");
-  const [newPassword, setNewPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
-
-  const isResetReady = useMemo(() => {
-    return email.trim() && token.trim() && newPassword.trim() && confirmPassword.trim();
-  }, [email, token, newPassword, confirmPassword]);
 
   const handleRequestReset = async (event) => {
     event.preventDefault();
@@ -36,55 +29,10 @@ export default function ForgotPassword() {
       setMessage("");
 
       const data = await requestPasswordReset(email.trim());
-      const resetCode = data?.resetToken || "";
-
-      setMessage(
-        resetCode
-          ? `${data.message} Reset code: ${resetCode}`
-          : data?.message || "Password reset code sent. Check your email."
-      );
-      setToken(resetCode);
+      setMessage(data?.message || "If an account exists for this email, a password reset link has been sent.");
       setStep("reset");
     } catch (err) {
       setError(err.message || "Unable to send reset email.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleResetPassword = async (event) => {
-    event.preventDefault();
-
-    if (!email.trim() || !token.trim()) {
-      setError("Please enter your email and the reset code sent to you.");
-      return;
-    }
-
-    if (newPassword.length < 6) {
-      setError("Password must be at least 6 characters long.");
-      return;
-    }
-
-    if (newPassword !== confirmPassword) {
-      setError("Passwords do not match.");
-      return;
-    }
-
-    try {
-      setLoading(true);
-      setError("");
-      setMessage("");
-
-      const data = await resetPassword({
-        email: email.trim(),
-        token: token.trim(),
-        newPassword,
-      });
-
-      setMessage(data?.message || "Password reset successful.");
-      setTimeout(() => navigate("/login"), 1500);
-    } catch (err) {
-      setError(err.message || "Password reset failed. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -105,7 +53,7 @@ export default function ForgotPassword() {
                 <span className="block text-yellow-400">Password?</span>
               </h1>
               <p className="text-gray-300 mt-6 text-lg leading-8 max-w-md">
-                No worries. Enter your email and we’ll send a secure reset code so you can regain access.
+                No worries. Enter your email and we’ll send a secure reset link so you can regain access.
               </p>
             </div>
           </div>
@@ -159,90 +107,24 @@ export default function ForgotPassword() {
                     disabled={loading}
                     className="w-full bg-yellow-500 hover:bg-yellow-400 text-[#071426] font-bold text-lg py-4 rounded-xl transition disabled:opacity-70 disabled:cursor-not-allowed"
                   >
-                    {loading ? "Sending code..." : "Send Reset Code"}
+                    {loading ? "Sending reset link..." : "Send Reset Link"}
                   </button>
                 </form>
               ) : (
-                <form onSubmit={handleResetPassword} className="space-y-6">
-                  <div>
-                    <label className="font-semibold text-gray-700">Email Address</label>
-                    <div className="mt-3 flex items-center border border-gray-300 rounded-xl overflow-hidden focus-within:border-yellow-500">
-                      <div className="px-4 text-gray-400"><Mail size={20} /></div>
-                      <input
-                        type="email"
-                        value={email}
-                        onChange={(event) => setEmail(event.target.value)}
-                        placeholder="Enter your email"
-                        className="w-full px-2 py-4 outline-none"
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="font-semibold text-gray-700">Reset Code</label>
-                    <div className="mt-3 flex items-center border border-gray-300 rounded-xl overflow-hidden focus-within:border-yellow-500">
-                      <div className="px-4 text-gray-400"><ShieldCheck size={20} /></div>
-                      <input
-                        type="text"
-                        value={token}
-                        onChange={(event) => setToken(event.target.value)}
-                        placeholder="Enter code from your email"
-                        className="w-full px-2 py-4 outline-none uppercase"
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="font-semibold text-gray-700">New Password</label>
-                    <div className="mt-3 flex items-center border border-gray-300 rounded-xl overflow-hidden focus-within:border-yellow-500">
-                      <div className="px-4 text-gray-400"><KeyRound size={20} /></div>
-                      <input
-                        type="password"
-                        value={newPassword}
-                        onChange={(event) => setNewPassword(event.target.value)}
-                        placeholder="Create a new password"
-                        className="w-full px-2 py-4 outline-none"
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="font-semibold text-gray-700">Confirm Password</label>
-                    <div className="mt-3 flex items-center border border-gray-300 rounded-xl overflow-hidden focus-within:border-yellow-500">
-                      <div className="px-4 text-gray-400"><KeyRound size={20} /></div>
-                      <input
-                        type="password"
-                        value={confirmPassword}
-                        onChange={(event) => setConfirmPassword(event.target.value)}
-                        placeholder="Confirm new password"
-                        className="w-full px-2 py-4 outline-none"
-                      />
-                    </div>
-                  </div>
-
-                  <button
-                    type="submit"
-                    disabled={loading || !isResetReady}
-                    className="w-full bg-yellow-500 hover:bg-yellow-400 text-[#071426] font-bold text-lg py-4 rounded-xl transition disabled:opacity-70 disabled:cursor-not-allowed"
-                  >
-                    {loading ? "Updating password..." : "Update Password"}
-                  </button>
-
+                <div className="space-y-5">
+                  <p className="text-gray-600">Check your email for a secure password reset link. The link expires in 15 minutes.</p>
                   <button
                     type="button"
                     onClick={() => {
                       setStep("email");
                       setError("");
                       setMessage("");
-                      setToken("");
-                      setNewPassword("");
-                      setConfirmPassword("");
                     }}
                     className="w-full border border-gray-300 text-gray-700 font-semibold py-3 rounded-xl hover:border-yellow-500 hover:bg-yellow-50 transition"
                   >
-                    Request another code
+                    Request a new reset link
                   </button>
-                </form>
+                </div>
               )}
             </div>
           </div>

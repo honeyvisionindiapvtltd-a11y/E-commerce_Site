@@ -38,25 +38,38 @@ import SupportTicketDetails from './pages/SupportTicketDetails.jsx'
 import Compare from './pages/Compare.jsx'
 import Login from './pages/Login.jsx'
 import ForgotPassword from './pages/ForgotPassword.jsx'
+import ResetPassword from './pages/ResetPassword.jsx'
 import Profile from './pages/Profile.jsx'
 import EditProfile from './pages/EditProfile.jsx'
 import Delivery from './pages/Delivery.jsx'
 import DeliveryAgentDashboard from './pages/DeliveryAgentDashboard.jsx'
+import AgentInstallationDashboard from './pages/AgentInstallationDashboard.jsx'
 import Installation from './pages/Installation.jsx'
 import InstallationSuccess from './pages/InstallationSuccess.jsx'
 import InstallationHistory from './pages/InstallationHistory.jsx'
+import CustomerInstallationDetails from './pages/CustomerInstallationDetails.jsx'
 import AMC from "./pages/AMC";
 import RequestDemo from './pages/RequestDemo.jsx'
 import GetStarted from './pages/GetStarted.jsx'
 import ServiceDetail from './pages/ServiceDetail.jsx'
 import NotFound from './pages/NotFound.jsx'
+import InformationPage from './pages/InformationPage.jsx'
 import Register from './pages/Register.jsx'
 import AdminRoutes from "./pages/admin/AdminRoutes.jsx";
 import TrackOrder from "./pages/TrackOrder";
 import ChatWidget from "./components/chat/ChatWidget.jsx";
+import NotificationCenter from "./components/Notifications/NotificationCenter.jsx";
 import './App.css'
 
 const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
+
+function RoleRoute({ roles, children }) {
+  const { isLoggedIn, user } = useCommerce();
+  const location = useLocation();
+  if (!isLoggedIn) return <Navigate to="/login" replace state={{ from: location }} />;
+  if (!roles.includes(user?.role)) return <Navigate to={user?.role === "admin" ? "/admin" : user?.role === "delivery_agent" ? "/delivery-agent" : "/"} replace />;
+  return children;
+}
 
 function App() {
   const location = useLocation();
@@ -96,36 +109,43 @@ function App() {
           <Route path="/industries" element={<Industries />} />
           <Route path="/blogs" element={<Blog />} />
           <Route path="/contact" element={<Contact />} />
-          <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/cart" element={<Cart />} />
+          <Route path="/warranty" element={<InformationPage />} />
+          <Route path="/faqs" element={<InformationPage />} />
+          <Route path="/privacy-policy" element={<InformationPage />} />
+          <Route path="/terms" element={<InformationPage />} />
+          <Route path="/dashboard" element={<RoleRoute roles={["customer"]}><Dashboard /></RoleRoute>} />
+          <Route path="/cart" element={<RoleRoute roles={["customer"]}><Cart /></RoleRoute>} />
           <Route path="/ai-tools" element={<AITools />} />
-          <Route path="/wishlist" element={<Wishlist />} />
-          <Route path="/orders" element={<Orders />} />
-          <Route path="/orders/:id/tracking" element={<OrderTracking />} />
-          <Route path="/addresses" element={<Addresses />} />
-          <Route path="/payment" element={<Payment />} />
-          <Route path="/payment/success" element={<PaymentSuccess />} />
-          <Route path="/payment-methods" element={<Payment />} />
-          <Route path="/notifications" element={<Notifications />} />
-          <Route path="/account-settings" element={<AccountSettings />} />
-          <Route path="/checkout" element={<Checkout />} />
+          <Route path="/wishlist" element={<RoleRoute roles={["customer"]}><Wishlist /></RoleRoute>} />
+          <Route path="/orders" element={<RoleRoute roles={["customer"]}><Orders /></RoleRoute>} />
+          <Route path="/orders/:id/tracking" element={<RoleRoute roles={["customer"]}><OrderTracking /></RoleRoute>} />
+          <Route path="/addresses" element={<RoleRoute roles={["customer"]}><Addresses /></RoleRoute>} />
+          <Route path="/payment" element={<RoleRoute roles={["customer"]}><Payment /></RoleRoute>} />
+          <Route path="/payment/success" element={<RoleRoute roles={["customer"]}><PaymentSuccess /></RoleRoute>} />
+          <Route path="/payment-methods" element={<RoleRoute roles={["customer"]}><Payment /></RoleRoute>} />
+          <Route path="/notifications" element={<RoleRoute roles={["customer"]}><Notifications /></RoleRoute>} />
+          <Route path="/account-settings" element={<RoleRoute roles={["customer"]}><AccountSettings /></RoleRoute>} />
+          <Route path="/checkout" element={<RoleRoute roles={["customer"]}><Checkout /></RoleRoute>} />
           <Route path="/order-tracking" element={<OrderTracking />} />
           <Route path="/track-order" element={<OrderTracking />} />
           <Route path="/tracking" element={<OrderTracking />} />
           <Route path="/dealer-locator" element={<DealerLocator />} />
           <Route path="/combo-deals" element={<ComboDeals />} />
-          <Route path="/support" element={<Support />} />
-          <Route path="/support/tickets" element={<SupportTickets />} />
-          <Route path="/support/tickets/:ticketId" element={<SupportTicketDetails />} />
+          <Route path="/support" element={<RoleRoute roles={["customer"]}><Support /></RoleRoute>} />
+          <Route path="/support/tickets" element={<RoleRoute roles={["customer"]}><SupportTickets /></RoleRoute>} />
+          <Route path="/support/tickets/:ticketId" element={<RoleRoute roles={["customer"]}><SupportTicketDetails /></RoleRoute>} />
           <Route path="/compare" element={<Compare />} />
           <Route path="/login" element={<Login />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
-          <Route path="/profile" element={<Profile />} />
-          <Route path="/edit-profile" element={<EditProfile />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
+          <Route path="/reset-password/:token" element={<ResetPassword />} />
+          <Route path="/profile" element={<RoleRoute roles={["customer"]}><Profile /></RoleRoute>} />
+          <Route path="/edit-profile" element={<RoleRoute roles={["customer"]}><EditProfile /></RoleRoute>} />
           <Route path="/delivery" element={<Delivery />} />
           <Route path="/installation" element={<Installation />} />
           <Route path="/installation/success" element={<InstallationSuccess />} />
           <Route path="/installation/history" element={<InstallationHistory />} />
+          <Route path="/installation/history/:id" element={<CustomerInstallationDetails />} />
           <Route path="/services/:serviceSlug" element={<ServiceDetail />} />
           <Route path="/amc" element={<AMC />} />
           <Route path="/request-demo" element={<RequestDemo />} />
@@ -145,6 +165,16 @@ function App() {
               )
             }
           />
+          <Route
+            path="/delivery-agent/installations"
+            element={
+              isLoggedIn && user?.role === 'delivery_agent' ? (
+                <AgentInstallationDashboard />
+              ) : (
+                <Navigate to="/login" replace />
+              )
+            }
+          />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </div>
@@ -153,6 +183,7 @@ function App() {
         notifications={notifications} 
         onRemove={removeNotification} 
       />
+      {isLoggedIn && !isAdminRoute && <div className="fixed right-4 top-4 z-40"><NotificationCenter /></div>}
       {!isAdminRoute && !isDeliveryAgentRoute && <ChatWidget />}
     </div>
   );

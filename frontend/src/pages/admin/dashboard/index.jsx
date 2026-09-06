@@ -1,25 +1,43 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { BarChart3, ChevronLeft, ChevronRight, ClipboardList, CreditCard, Percent, Plus, Settings, Truck } from "lucide-react";
+import { AlertTriangle, BarChart3, CheckCircle2, ChevronLeft, ChevronRight, ClipboardList, CreditCard, Clock3, Eye, Percent, Plus, Settings, Truck, Wrench } from "lucide-react";
 import SalesChart from "./SalesChart";
 import OrderStatusChart from "./OrderStatusChart";
 import StatCard from "./StatCard";
-import { loadAdminData } from "../adminData";
-import { adminList } from "../api";
-import { products as projectProducts } from "../../../lib/products";
 import { useCommerce } from "../../../context/index.js";
 import { getStatusLabel } from "../../../services/orderTrackingService";
+import useRealtimeUpdates from "../../../hooks/useRealtimeUpdates.js";
+import { getAdminDashboard } from "../../../services/adminDashboardService.js";
 
 const API_BASE = import.meta.env.VITE_API_URL || "/api";
 
-const productImages = {
-  "4MP AI CCTV Camera": "https://res.cloudinary.com/vhrkwyzs/image/upload/v1786174380/blog2_fyfiq2.png",
-  "Solar CCTV Camera": "https://res.cloudinary.com/vhrkwyzs/image/upload/v1786178835/blog3_rezrfp.png",
-  "8 Channel NVR": "https://res.cloudinary.com/vhrkwyzs/image/upload/v1786174374/blog4_fgkwc0.png",
-  "1TB Surveillance HDD": "https://res.cloudinary.com/vhrkwyzs/image/upload/v1786173897/blog1_jetmtz.png",
-  "128GB Memory Card": "https://res.cloudinary.com/vhrkwyzs/image/upload/v1786174380/blog2_fyfiq2.png",
-  default: "https://res.cloudinary.com/vhrkwyzs/image/upload/v1786174380/blog2_fyfiq2.png",
+const installationStatusMap = {
+  total: { label: "Total Installations", status: null, icon: Wrench },
+  BOOKED: { label: "Pending", status: "BOOKED", icon: Clock3 },
+  CONFIRMED: { label: "Confirmed", status: "CONFIRMED", icon: ClipboardList },
+  ASSIGNED: { label: "Assigned", status: "ASSIGNED", icon: Wrench },
+  ON_THE_WAY: { label: "On The Way", status: "ON_THE_WAY", icon: Truck },
+  INSTALLATION_IN_PROGRESS: { label: "Installation In Progress", status: "INSTALLATION_IN_PROGRESS", icon: Clock3 },
+  INSTALLATION_COMPLETED: { label: "Completed", status: "INSTALLATION_COMPLETED", icon: CheckCircle2 },
+  FAILED: { label: "Failed", status: "FAILED", icon: AlertTriangle },
+  CANCELLED: { label: "Cancelled", status: "CANCELLED", icon: AlertTriangle },
 };
+
+const formatInstallationDate = (value) => {
+  if (!value) return "—";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+};
+
+const formatInstallationDateTime = (value) => {
+  if (!value) return "—";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleString("en-IN", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
+};
+
+const installationStatusLabel = (status) => installationStatusMap[status]?.label || status || "Pending";
 
 const formatCurrency = (value) =>
   new Intl.NumberFormat("en-IN", {
@@ -75,175 +93,153 @@ function StatusBadge({ status }) {
   );
 }
 
-const normalizeOrder = (order, index = 0) => ({
-  id: order?.orderNumber || order?.id || order?._id || `HV${String(index + 1).padStart(4, "0")}`,
-  customer: order?.customer || order?.shippingAddress?.name || `Customer ${index + 1}`,
-  phone: order?.phone || order?.shippingAddress?.phone || "",
-  status: order?.status || "ORDER_PLACED",
-  statusLabel: getStatusLabel(order?.status || "ORDER_PLACED"),
-  amount: Number(order?.totalAmount || order?.total || order?.amount || 0),
-  product: order?.items?.[0]?.name || "Product",
-  date: order?.createdAt ? new Date(order.createdAt).toISOString().split("T")[0] : order?.date || new Date().toISOString().split("T")[0],
-});
-
-const mergeOrderRows = (source = []) => {
-  const map = new Map();
-
-  (Array.isArray(source) ? source : []).forEach((order, index) => {
-    const normalized = normalizeOrder(order, index);
-    if (normalized.id) {
-      map.set(normalized.id, { ...map.get(normalized.id), ...normalized });
-    }
-  });
-
-  return Array.from(map.values());
-};
-
 export default function DashboardIndex() {
-  const { authToken } = useCommerce();
+  const { authToken, user } = useCommerce();
+  const { getSocket } = useRealtimeUpdates(user?.id || user?._id, authToken);
   const navigate = useNavigate();
   const [period, setPeriod] = useState("Last 7 Days");
   const [orderPage, setOrderPage] = useState(1);
-  const [dashboardData, setDashboardData] = useState({
-    orders: [],
-    products: [],
-    categories: [],
-    customers: [],
-    settings: { lowStockLimit: 5 },
-  });
+  const [dashboardData, setDashboardData] = useState(null);
+  const [installationStats, setInstallationStats] = useState({});
+  const [recentInstallations, setRecentInstallations] = useState([]);
+  const [installationLoading, setInstallationLoading] = useState(true);
+  const [installationError, setInstallationError] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [reloadKey, setReloadKey] = useState(0);
+
+  const periodKey = { "Last 7 Days": "7days", "Last 30 Days": "30days", "Last 6 Months": "6months", "This Year": "year" }[period];
 
   useEffect(() => {
     let active = true;
-
     const loadData = async () => {
-      const adminData = loadAdminData() || {};
-      const fallbackProducts = Array.isArray(adminData.products) && adminData.products.length ? adminData.products : projectProducts;
-      const fallbackCustomers = Array.isArray(adminData.customers) ? adminData.customers : [];
-      const fallbackSettings = adminData.settings || {};
-
-      let liveProducts = [];
-      let liveCategories = [];
-      let liveOrders = [];
+      setLoading(true);
+      setError("");
       try {
-        const headers = { Authorization: `Bearer ${authToken}` };
-        const [ordersResponse, products, categories] = await Promise.all([
-          fetch(`${API_BASE}/admin/orders?limit=100`, { headers }),
-          adminList("products"),
-          adminList("categories"),
-        ]);
-        if (ordersResponse.ok) {
-          const payload = await ordersResponse.json();
-          liveOrders = Array.isArray(payload.orders) ? payload.orders : [];
-        }
-        liveProducts = Array.isArray(products) ? products : [];
-        liveCategories = Array.isArray(categories) ? categories : [];
-      } catch {
-        // Keep local fallback data when the live admin resources are unavailable.
+        const data = await getAdminDashboard(authToken, periodKey);
+        if (active) setDashboardData(data);
+      } catch (loadError) {
+        if (active) setError(loadError.message || "Unable to load dashboard data");
+      } finally {
+        if (active) setLoading(false);
       }
-
-      const storedOrders = Array.isArray(adminData.orders) ? adminData.orders : [];
-      const orders = mergeOrderRows([...liveOrders, ...storedOrders]);
-      const products = liveProducts.length ? liveProducts : fallbackProducts;
-      const categories = liveCategories.length ? liveCategories : (adminData.categories || []);
-
-      if (!active) return;
-      setDashboardData({
-        orders,
-        products,
-        categories,
-        customers: fallbackCustomers,
-        settings: fallbackSettings,
-      });
     };
-
     loadData();
     return () => { active = false; };
-  }, [authToken]);
+  }, [authToken, periodKey, reloadKey]);
 
-  const { orders, products, categories, customers, settings } = dashboardData;
-  const lowStockLimit = Number(settings.lowStockLimit || 5);
+  useEffect(() => {
+    const socket = getSocket();
+    if (!socket) return undefined;
+    const refresh = () => setReloadKey((key) => key + 1);
+    socket.on("admin:orderUpdate", refresh);
+    socket.on("admin:dashboardUpdate", refresh);
+    socket.on("inventory:update", refresh);
+    socket.on("admin:installationUpdate", refresh);
+    socket.on("admin:installationAssigned", refresh);
+    socket.on("admin:installationCompleted", refresh);
+    socket.on("admin:installationFailed", refresh);
+    socket.on("admin:installationCancelled", refresh);
+    return () => {
+      socket.off("admin:orderUpdate", refresh);
+      socket.off("admin:dashboardUpdate", refresh);
+      socket.off("inventory:update", refresh);
+      socket.off("admin:installationUpdate", refresh);
+      socket.off("admin:installationAssigned", refresh);
+      socket.off("admin:installationCompleted", refresh);
+      socket.off("admin:installationFailed", refresh);
+      socket.off("admin:installationCancelled", refresh);
+    };
+  }, [getSocket]);
 
-  const salesData = useMemo(() => {
-    const map = {};
-    orders.forEach((order) => {
-      const key = order.date;
-      if (!key) return;
-      map[key] = (map[key] || 0) + Number(order.amount || 0);
-    });
+  useEffect(() => {
+    let active = true;
+    const loadInstallations = async () => {
+      if (!authToken) return;
+      setInstallationLoading(true);
+      setInstallationError("");
 
-    const sortedDates = Object.keys(map).sort((a, b) => new Date(a) - new Date(b));
-    const periodDays = { "Last 7 Days": 7, "Last 30 Days": 30, "Last 6 Months": 180, "This Year": 365 }[period] || 7;
-    const cutoff = new Date();
-    cutoff.setDate(cutoff.getDate() - periodDays);
-    const lastDates = sortedDates.filter((date) => new Date(date) >= cutoff);
+      try {
+        const [statsRes, recentRes] = await Promise.all([
+          fetch(`${API_BASE}/admin/installations/stats`, { headers: { Authorization: `Bearer ${authToken}` } }),
+          fetch(`${API_BASE}/admin/installations/recent?limit=8`, { headers: { Authorization: `Bearer ${authToken}` } }),
+        ]);
 
-    if (!lastDates.length) {
-      const fallback = [];
-      for (let index = 6; index >= 0; index -= 1) {
-        const date = new Date();
-        date.setDate(date.getDate() - index);
-        fallback.push({
-          label: date.toLocaleDateString("en-IN", { day: "2-digit", month: "short" }),
-          value: 0,
-        });
+        if (!statsRes.ok || !recentRes.ok) {
+          throw new Error("Unable to load installation data");
+        }
+
+        const [statsPayload, recentPayload] = await Promise.all([statsRes.json(), recentRes.json()]);
+        if (active) {
+          setInstallationStats(statsPayload.data || {});
+          setRecentInstallations(recentPayload.data || []);
+        }
+      } catch (loadError) {
+        if (active) setInstallationError(loadError.message || "Unable to load installation data");
+      } finally {
+        if (active) setInstallationLoading(false);
       }
-      return fallback;
-    }
+    };
 
-    return lastDates.map((date) => ({
-      label: new Date(date).toLocaleDateString("en-IN", { day: "2-digit", month: "short" }),
-      value: map[date],
-    }));
-  }, [orders, period]);
+    loadInstallations();
+    return () => { active = false; };
+  }, [authToken, reloadKey]);
 
-  const dashboardStats = useMemo(() => {
-    const totalRevenue = orders.reduce((sum, order) => sum + Number(order.amount || 0), 0);
-    const pendingOrders = orders.filter((order) => !["DELIVERED", "CANCELLED", "RETURNED"].includes(order.status)).length;
-    const lowStockItems = products.filter((product) => Number(product.stock || 0) <= lowStockLimit).length;
-
-    return [
-      { title: "Total Revenue", value: formatCurrency(totalRevenue), change: "18.4%", type: "revenue" },
-      { title: "Total Orders", value: String(orders.length), change: "12.5%", type: "orders" },
-      { title: "Customers", value: String(customers.length), change: "8.2%", type: "customers" },
-      { title: "Products", value: String(products.length), change: "4.1%", type: "products" },
-      { title: "Categories", value: String(categories.length), change: "Live", type: "products" },
-      { title: "Pending Orders", value: String(pendingOrders), type: "pending" },
-      { title: "Low Stock Items", value: String(lowStockItems), type: "lowstock" },
-    ];
-  }, [categories.length, customers.length, lowStockLimit, orders, products]);
-
+  const refresh = () => { setDashboardData(null); setLoading(true); setError(""); setReloadKey((key) => key + 1); };
+  const summary = dashboardData?.summary || { totalRevenue: 0, totalOrders: 0, totalCustomers: 0, totalProducts: 0, totalCategories: 0, pendingOrders: 0, lowStockItems: 0 };
+  const orders = dashboardData?.recentOrders || [];
+  const installationTotals = useMemo(() => {
+    const values = installationStats || {};
+    const total = Number(values.total || 0);
+    return {
+      total,
+      BOOKED: Number(values.BOOKED || 0),
+      CONFIRMED: Number(values.CONFIRMED || 0),
+      ASSIGNED: Number(values.ASSIGNED || 0),
+      ON_THE_WAY: Number(values.ON_THE_WAY || 0),
+      INSTALLATION_IN_PROGRESS: Number(values.INSTALLATION_IN_PROGRESS || 0),
+      INSTALLATION_COMPLETED: Number(values.INSTALLATION_COMPLETED || 0),
+      FAILED: Number(values.FAILED || 0),
+      CANCELLED: Number(values.CANCELLED || 0),
+    };
+  }, [installationStats]);
+  const installationCards = [
+    { key: "total", label: "Total Installations", value: installationTotals.total, status: null },
+    { key: "BOOKED", label: "Pending", value: installationTotals.BOOKED, status: "BOOKED" },
+    { key: "CONFIRMED", label: "Confirmed", value: installationTotals.CONFIRMED, status: "CONFIRMED" },
+    { key: "ASSIGNED", label: "Assigned", value: installationTotals.ASSIGNED, status: "ASSIGNED" },
+    { key: "ON_THE_WAY", label: "On The Way", value: installationTotals.ON_THE_WAY, status: "ON_THE_WAY" },
+    { key: "INSTALLATION_IN_PROGRESS", label: "Installation In Progress", value: installationTotals.INSTALLATION_IN_PROGRESS, status: "INSTALLATION_IN_PROGRESS" },
+    { key: "INSTALLATION_COMPLETED", label: "Completed", value: installationTotals.INSTALLATION_COMPLETED, status: "INSTALLATION_COMPLETED" },
+    { key: "FAILED", label: "Failed", value: installationTotals.FAILED, status: "FAILED" },
+    { key: "CANCELLED", label: "Cancelled", value: installationTotals.CANCELLED, status: "CANCELLED" },
+  ];
+  const salesData = (dashboardData?.salesOverview?.labels || []).map((label, index) => ({ label, value: dashboardData.salesOverview.revenue[index] || 0 }));
+  const dashboardStats = [
+    { title: "Total Revenue", value: formatCurrency(summary.totalRevenue), change: summary.revenueChange ? `${summary.revenueChange.percentageChange}%` : "", type: "revenue" },
+    { title: "Total Orders", value: String(summary.totalOrders), change: summary.ordersChange ? `${summary.ordersChange.percentageChange}%` : "", type: "orders" },
+    { title: "Customers", value: String(summary.totalCustomers), type: "customers" },
+    { title: "Products", value: String(summary.totalProducts), type: "products" },
+    { title: "Categories", value: String(summary.totalCategories), type: "products" },
+    { title: "Pending Orders", value: String(summary.pendingOrders), type: "pending" },
+    { title: "Low Stock Items", value: String(summary.lowStockItems), type: "lowstock" },
+  ];
   const ordersPerPage = 5;
   const totalOrderPages = Math.max(1, Math.ceil(orders.length / ordersPerPage));
-  const pagedOrders = [...orders].slice((orderPage - 1) * ordersPerPage, orderPage * ordersPerPage).map((order, index) => {
-    const product = products.find((item) => item.name === order.product) || products[index % Math.max(products.length, 1)] || { name: "Product", image: productImages.default };
-    return {
-      id: order.id,
-      customer: order.customer,
-      product: product.name,
-      amount: formatCurrency(order.amount),
-      status: order.statusLabel,
-      date: formatDate(order.date),
-      image: productImages[product.name] || productImages.default,
-    };
-  });
+  const pagedOrders = orders.slice((orderPage - 1) * ordersPerPage, orderPage * ordersPerPage).map((order) => ({
+    id: order.orderNumber,
+    customer: order.customerName,
+    product: order.items?.[0]?.name || "Product",
+    amount: formatCurrency(order.totalAmount),
+    status: getStatusLabel(order.status),
+    date: formatDate(order.createdAt),
+    image: order.items?.[0]?.image || "",
+  }));
+  const lowStockProducts = (dashboardData?.lowStockProducts || []).slice(0, 4).map((product) => ({ name: product.name, stock: product.stock, image: product.thumbnail || product.images?.[0] || "" }));
+  const topProducts = (dashboardData?.topSellingProducts || []).slice(0, 4).map((product) => ({ name: product.name, sold: product.unitsSold, image: product.image || "" }));
 
-  const lowStockProducts = [...products]
-    .filter((product) => Number(product.stock || 0) <= lowStockLimit)
-    .slice(0, 4)
-    .map((product) => ({
-      name: product.name,
-      stock: Number(product.stock || 0),
-      image: productImages[product.name] || productImages.default,
-    }));
-
-  const topProducts = [...products]
-    .sort((a, b) => Number(b.price || 0) - Number(a.price || 0))
-    .slice(0, 4)
-    .map((product) => ({
-      name: product.name,
-      sold: Math.max(12, Math.round(Number(product.stock || 0) * 2.5)),
-      image: productImages[product.name] || productImages.default,
-    }));
+  if (loading && !dashboardData) return <div className="min-w-0 flex-1 bg-[#f5f7fa] p-6"><div className="rounded-xl border border-slate-200 bg-white p-8 text-center text-sm text-slate-500">Loading dashboard data...</div></div>;
+  if (error && !dashboardData) return <div className="min-w-0 flex-1 bg-[#f5f7fa] p-6"><div className="rounded-xl border border-red-200 bg-white p-8 text-center"><p className="text-sm text-red-600">{error}</p><button type="button" onClick={refresh} className="mt-4 rounded-lg bg-[#071426] px-4 py-2 text-xs font-semibold text-white">Retry</button></div></div>;
 
   return (
     <div className="min-w-0 flex-1 bg-[#f5f7fa] text-slate-900">
@@ -298,9 +294,145 @@ export default function DashboardIndex() {
                 <option>This Year</option>
               </select>
             </div>
-            <OrderStatusChart orders={orders} />
+            <OrderStatusChart statusCounts={dashboardData?.orderStatus || {}} />
           </section>
         </div>
+
+        <section className="mt-5 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-500">Installation management</p>
+              <h2 className="mt-1 text-xl font-bold text-slate-900">Installation Management</h2>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <button type="button" onClick={() => navigate("/admin/installations")} className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-[11px] font-semibold text-slate-700 hover:border-slate-300">
+                View Installation History
+              </button>
+              <button type="button" onClick={() => navigate("/admin/installations?view=new")} className="rounded-lg bg-[#071426] px-3 py-2 text-[11px] font-semibold text-white hover:bg-amber-400 hover:text-slate-950">
+                + New Installation Booking
+              </button>
+            </div>
+          </div>
+
+          {installationError ? (
+            <div className="rounded-xl border border-red-200 bg-red-50 p-5 text-center">
+              <p className="text-sm font-semibold text-red-700">Unable to load installation data.</p>
+              <button type="button" onClick={() => setReloadKey((value) => value + 1)} className="mt-3 rounded-lg bg-red-600 px-4 py-2 text-xs font-semibold text-white">Retry</button>
+            </div>
+          ) : (
+            <>
+              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                {installationCards.slice(0, 4).map(({ key, label, value, status }) => {
+                  const Icon = installationStatusMap[status || "total"].icon;
+                  return (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => navigate(status ? `/admin/installations?status=${encodeURIComponent(status)}` : "/admin/installations")}
+                      className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-left transition hover:border-slate-300 hover:bg-white"
+                    >
+                      <div className="flex items-center justify-between">
+                        <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">{label}</p>
+                        <Icon size={16} className="text-slate-500" />
+                      </div>
+                      <p className="mt-3 text-3xl font-bold text-slate-900">{value}</p>
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                {installationCards.slice(4).map(({ key, label, value, status }) => {
+                  const Icon = installationStatusMap[status || "total"].icon;
+                  return (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => navigate(`/admin/installations?status=${encodeURIComponent(status)}`)}
+                      className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-left transition hover:border-slate-300 hover:bg-white"
+                    >
+                      <div className="flex items-center justify-between">
+                        <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">{label}</p>
+                        <Icon size={16} className="text-slate-500" />
+                      </div>
+                      <p className="mt-3 text-3xl font-bold text-slate-900">{value}</p>
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div className="mt-6 rounded-xl border border-slate-200 bg-white">
+                <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
+                  <h3 className="text-sm font-bold text-slate-900">Recent Installation Bookings</h3>
+                  <button type="button" onClick={() => navigate("/admin/installations")} className="text-[11px] font-semibold text-blue-600 hover:text-amber-500">
+                    View All Installations →
+                  </button>
+                </div>
+
+                {installationLoading ? (
+                  <div className="p-6 text-center text-sm text-slate-500">Loading installation data...</div>
+                ) : recentInstallations.length === 0 ? (
+                  <div className="p-8 text-center">
+                    <p className="text-sm font-medium text-slate-700">No installation bookings yet.</p>
+                    <p className="mt-2 text-sm text-slate-500">Once customers book an installation, their bookings will appear here.</p>
+                    <button type="button" onClick={() => navigate("/admin/installations")} className="mt-4 rounded-lg bg-[#071426] px-4 py-2 text-xs font-semibold text-white">View Installation Management</button>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full min-w-[980px] text-left">
+                      <thead>
+                        <tr className="border-b border-slate-200 bg-slate-50">
+                          <th className="px-4 py-3 text-[9px] font-bold uppercase tracking-[0.12em] text-slate-500">Booking ID</th>
+                          <th className="px-4 py-3 text-[9px] font-bold uppercase tracking-[0.12em] text-slate-500">Customer</th>
+                          <th className="px-4 py-3 text-[9px] font-bold uppercase tracking-[0.12em] text-slate-500">Installation Type</th>
+                          <th className="px-4 py-3 text-[9px] font-bold uppercase tracking-[0.12em] text-slate-500">Scheduled Date</th>
+                          <th className="px-4 py-3 text-[9px] font-bold uppercase tracking-[0.12em] text-slate-500">Assigned Agent</th>
+                          <th className="px-4 py-3 text-[9px] font-bold uppercase tracking-[0.12em] text-slate-500">Status</th>
+                          <th className="px-4 py-3 text-[9px] font-bold uppercase tracking-[0.12em] text-slate-500">Last Updated</th>
+                          <th className="px-4 py-3 text-[9px] font-bold uppercase tracking-[0.12em] text-slate-500">Action</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {recentInstallations.map((booking) => {
+                          const agentName = booking.assignedAgentId?.name || booking.assignedAgentName || "—";
+                          const status = booking.status || "BOOKED";
+                          const bookingId = booking.id || booking.bookingNumber || booking._id;
+                          return (
+                            <tr key={String(booking._id)} className="border-b border-slate-100 hover:bg-slate-50">
+                              <td className="px-4 py-3 text-[11px] font-semibold text-slate-900">{bookingId}</td>
+                              <td className="px-4 py-3 text-[11px] text-slate-700">{booking.customerName || booking.customer?.name || booking.userId?.name || "Unknown customer"}</td>
+                              <td className="px-4 py-3 text-[11px] text-slate-700">{booking.service || "Installation"}</td>
+                              <td className="px-4 py-3 text-[11px] text-slate-700">{formatInstallationDate(booking.scheduledDate || booking.preferredDate)}</td>
+                              <td className="px-4 py-3 text-[11px] text-slate-700">{agentName}</td>
+                              <td className="px-4 py-3">
+                                <span className={`rounded-full px-2 py-1 text-[9px] font-semibold ${
+                                  status === "INSTALLATION_COMPLETED" ? "bg-emerald-50 text-emerald-600" :
+                                  status === "FAILED" ? "bg-red-50 text-red-600" :
+                                  status === "ASSIGNED" || status === "ON_THE_WAY" ? "bg-purple-50 text-purple-600" :
+                                  status === "BOOKED" ? "bg-amber-50 text-amber-600" :
+                                  status === "INSTALLATION_IN_PROGRESS" ? "bg-lime-50 text-lime-600" :
+                                  "bg-slate-100 text-slate-600"
+                                }`}>
+                                  {installationStatusLabel(status)}
+                                </span>
+                              </td>
+                              <td className="px-4 py-3 text-[10px] text-slate-500">{formatInstallationDateTime(booking.updatedAt || booking.createdAt)}</td>
+                              <td className="px-4 py-3">
+                                <button type="button" onClick={() => navigate(`/admin/installations/${encodeURIComponent(bookingId)}`)} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-[10px] font-semibold text-slate-700 hover:border-slate-300">
+                                  <Eye size={12} /> View
+                                </button>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+        </section>
 
         <div className="mt-5 grid gap-5 xl:grid-cols-[minmax(0,1.7fr)_minmax(300px,0.9fr)]">
           <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
@@ -330,7 +462,7 @@ export default function DashboardIndex() {
                       <td className="px-4 py-3 text-[11px]">{order.customer}</td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2">
-                          <img src={order.image} alt={order.product} className="h-7 w-8 rounded object-cover" />
+                          {order.image ? <img src={order.image} alt={order.product} className="h-7 w-8 rounded object-cover" /> : <span className="h-7 w-8 rounded bg-slate-100" aria-hidden="true" />}
                           <span className="text-[10px] text-slate-600">{order.product}</span>
                         </div>
                       </td>
@@ -365,7 +497,7 @@ export default function DashboardIndex() {
                 {lowStockProducts.map((product) => (
                   <button type="button" key={product.name} onClick={() => navigate("/admin/inventory")} className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left hover:bg-slate-50">
                     <div className="flex min-w-0 items-center gap-3">
-                      <img src={product.image} alt={product.name} className="h-8 w-9 rounded object-cover" />
+                      {product.image ? <img src={product.image} alt={product.name} className="h-8 w-9 rounded object-cover" /> : <span className="h-8 w-9 rounded bg-slate-100" aria-hidden="true" />}
                       <p className="truncate text-[10px] font-medium">{product.name}</p>
                     </div>
                     <span className="shrink-0 rounded-md bg-red-50 px-2 py-1 text-[9px] font-semibold text-red-500">{product.stock} left</span>
@@ -384,7 +516,7 @@ export default function DashboardIndex() {
                 {topProducts.map((product) => (
                   <button type="button" key={product.name} onClick={() => navigate("/admin/products")} className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left hover:bg-slate-50">
                     <div className="flex min-w-0 items-center gap-3">
-                      <img src={product.image} alt={product.name} className="h-8 w-9 rounded object-cover" />
+                      {product.image ? <img src={product.image} alt={product.name} className="h-8 w-9 rounded bg-slate-100 object-cover" aria-hidden="true" /> : <span className="h-8 w-9 rounded bg-slate-100" aria-hidden="true" />}
                       <p className="truncate text-[10px] font-medium">{product.name}</p>
                     </div>
                     <span className="shrink-0 rounded-md bg-emerald-50 px-2 py-1 text-[9px] font-semibold text-emerald-600">{product.sold} sold</span>

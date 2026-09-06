@@ -17,15 +17,73 @@ export const isValidCoordinatePair = (latitude, longitude) => (
   && !(latitude === 0 && longitude === 0)
 );
 
-export const toLocationPoint = (value) => {
-  if (!value || typeof value !== "object") return null;
+export const normalizeDeliveryLocation = (location) => {
+  if (!location) return null;
 
-  const latitude = Number(value.latitude ?? value.lat ?? value?.coordinates?.latitude ?? value?.coordinates?.lat ?? value?.latitudeValue);
-  const longitude = Number(value.longitude ?? value.lng ?? value?.coordinates?.longitude ?? value?.coordinates?.lng ?? value?.longitudeValue);
+  const candidate = Array.isArray(location)
+    ? { coordinates: location }
+    : typeof location === "object"
+      ? location
+      : null;
+
+  if (!candidate) return null;
+
+  const geoCoordinates = Array.isArray(candidate.location?.coordinates)
+    ? candidate.location.coordinates
+    : Array.isArray(candidate.coordinates)
+      ? candidate.coordinates
+      : null;
+
+  const latitudeFromGeo = Array.isArray(geoCoordinates) && geoCoordinates.length >= 2
+    ? Number(geoCoordinates[1])
+    : null;
+  const longitudeFromGeo = Array.isArray(geoCoordinates) && geoCoordinates.length >= 2
+    ? Number(geoCoordinates[0])
+    : null;
+
+  const latitude = Number(
+    candidate.latitude ??
+    candidate.lat ??
+    candidate?.coordinates?.latitude ??
+    candidate?.coordinates?.lat ??
+    candidate?.location?.latitude ??
+    candidate?.location?.lat ??
+    latitudeFromGeo ??
+    candidate?.latitudeValue ??
+    null,
+  );
+  const longitude = Number(
+    candidate.longitude ??
+    candidate.lng ??
+    candidate?.coordinates?.longitude ??
+    candidate?.coordinates?.lng ??
+    candidate?.location?.longitude ??
+    candidate?.location?.lng ??
+    longitudeFromGeo ??
+    candidate?.longitudeValue ??
+    null,
+  );
 
   if (!isValidCoordinatePair(latitude, longitude)) return null;
 
-  return { latitude, longitude };
+  const accuracy = Number(candidate.accuracy ?? candidate.accuracyMeters ?? candidate?.location?.accuracy ?? null);
+  const timestamp = candidate.updatedAt || candidate.timestamp || candidate?.location?.updatedAt || candidate?.location?.timestamp || null;
+
+  return {
+    lat: latitude,
+    lng: longitude,
+    latitude,
+    longitude,
+    accuracy: Number.isFinite(accuracy) ? accuracy : null,
+    timestamp: timestamp ? new Date(timestamp).toISOString() : null,
+  };
+};
+
+export const toLocationPoint = (value) => {
+  const normalized = normalizeDeliveryLocation(value);
+  if (!normalized) return null;
+
+  return { latitude: normalized.latitude, longitude: normalized.longitude };
 };
 
 export const calculateDistanceMeters = (first, second) => {
@@ -219,4 +277,84 @@ export const geocodeAddress = async (address) => {
     ? "Google Maps could not verify this location right now. You can still save the delivery address."
     : "Google Maps could not locate this address. Please check your address details or save it and verify the location later.";
   throw new Error(message);
+};
+
+export const reverseGeocodeCoordinates = async (latitude, longitude) => {
+  const numericLatitude = Number(latitude);
+  const numericLongitude = Number(longitude);
+
+  if (!isValidCoordinatePair(numericLatitude, numericLongitude)) {
+    throw new Error("A valid latitude and longitude are required to resolve the address.");
+  }
+
+  if (typeof window === "undefined" || !window.google?.maps) {
+    throw new Error("Google Maps is still loading. Please try again in a moment.");
+  }
+
+  const geocoder = new window.google.maps.Geocoder();
+  const result = await new Promise((resolve, reject) => {
+    geocoder.geocode({ location: { lat: numericLatitude, lng: numericLongitude } }, (responses, status) => {
+      if (status === "OK" && Array.isArray(responses) && responses.length > 0) {
+        resolve(responses[0]);
+        return;
+      }
+
+      if (status === "ZERO_RESULTS") {
+        resolve(null);
+        return;
+      }
+
+      if (status === "OVER_QUERY_LIMIT") {
+        reject(new Error("Google Maps rate limit was reached. Please wait a moment and try again."));
+        return;
+      }
+
+      if (status === "REQUEST_DENIED") {
+        reject(new Error("Google Maps access was denied. You can continue by entering the address manually."));
+        return;
+      }
+
+      if (status === "INVALID_REQUEST") {
+        reject(new Error("The selected location could not be resolved. Please finish the address manually."));
+        return;
+      }
+
+      reject(new Error("Google Maps could not resolve this location. Please continue with a manual address entry if needed."));
+    });
+  });
+
+  const addressComponents = Object.fromEntries(
+    (result?.address_components || []).flatMap((component) => component.types.map((type) => [type, component.long_name]))
+  );
+
+  const houseNumber = addressComponents.street_number || "";
+  const street = addressComponents.route || "";
+  const area = addressComponents.neighborhood || addressComponents.sublocality || addressComponents.sublocality_level_1 || "";
+  const locality = addressComponents.locality || addressComponents.administrative_area_level_2 || "";
+  const city = locality || addressComponents.suburb || "";
+  const state = addressComponents.administrative_area_level_1 || "";
+  const pincode = addressComponents.postal_code || "";
+  const country = addressComponents.country || "";
+  const formattedAddress = result?.formatted_address || [
+    [houseNumber, street].filter(Boolean).join(" "),
+    area,
+    city,
+    state,
+    pincode,
+    country,
+  ].filter(Boolean).join(", ");
+
+  return {
+    formattedAddress,
+    addressLine1: [houseNumber, street].filter(Boolean).join(" ").trim(),
+    addressLine2: area,
+    landmark: "",
+    city,
+    state,
+    pincode,
+    country,
+    latitude: numericLatitude,
+    longitude: numericLongitude,
+    status: result ? "OK" : "ZERO_RESULTS",
+  };
 };

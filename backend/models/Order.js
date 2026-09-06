@@ -118,6 +118,24 @@ const addressSchema = new mongoose.Schema(
       default: "",
     },
 
+    label: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+
+    deliveryInstructions: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+
+    addressType: {
+      type: String,
+      enum: ["HOME", "WORK", "OTHER"],
+      default: "HOME",
+    },
+
     district: {
       type: String,
       default: "",
@@ -407,6 +425,13 @@ const orderSchema = new mongoose.Schema(
     cancelledAt: {
       type: Date,
       default: null,
+    },
+
+    cancellationReason: {
+      type: String,
+      default: "",
+      trim: true,
+      maxlength: 200,
     },
 
     stockRestoredAt: {

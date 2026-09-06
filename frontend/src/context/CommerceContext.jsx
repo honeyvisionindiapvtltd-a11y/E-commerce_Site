@@ -9,8 +9,8 @@ const API_BASE = import.meta.env.VITE_API_URL || "/api";
 const defaultProfile = {
   fullName: "Biswapriti Jena",
   email: "info@honeyvision.in",
-  phone: "+91 98765 43210",
-  alternatePhone: "+91 674 123 4567",
+  phone: "9777941117",
+  alternatePhone: "9777941117",
   dateOfBirth: "",
   gender: "Female",
   location: "Bhubaneswar, Odisha",
@@ -18,7 +18,7 @@ const defaultProfile = {
   state: "Odisha",
   pinCode: "751001",
   country: "India",
-  address: "Plot No. 123, Patia, Bhubaneswar",
+  address: "Rukmani Plaza, Lane-1, Kendriya Vihar, Bhubaneswar, Odisha 752054",
   emergencyContact: "+91 70000 12345",
   bio: "",
   memberSince: "2026",
@@ -37,8 +37,8 @@ const defaultAddresses = [
     type: "Home",
     label: "Default Address",
     fullName: "Biswapriti Jena",
-    phone: "+91 98765 43210",
-    address: "Plot No. 123, Patia",
+    phone: "9777941117",
+    address: "Rukmani Plaza, Lane-1, Kendriya Vihar",
     city: "Bhubaneswar",
     state: "Odisha",
     pin: "751024",
@@ -50,8 +50,8 @@ const defaultAddresses = [
     type: "Office",
     label: "Work Address",
     fullName: "Biswapriti Jena",
-    phone: "+91 70445 12345",
-    address: "Honey Vision Office, 3rd Floor",
+    phone: "9777941117",
+    address: "Rukmani Plaza, Lane-1, Kendriya Vihar",
     city: "Bhubaneswar",
     state: "Odisha",
     pin: "751001",
@@ -569,7 +569,7 @@ export function CommerceProvider({ children }) {
   };
 
   const requestPasswordReset = async (email) => {
-    const data = await requestJson("/auth/request-password-reset", {
+    const data = await requestJson("/auth/forgot-password", {
       method: "POST",
       body: JSON.stringify({ email }),
     });
@@ -577,10 +577,10 @@ export function CommerceProvider({ children }) {
     return data;
   };
 
-  const resetPassword = async ({ email, token, newPassword }) => {
+  const resetPassword = async ({ email, token, password, confirmPassword, newPassword }) => {
     const data = await requestJson("/auth/reset-password", {
       method: "POST",
-      body: JSON.stringify({ email, token, newPassword }),
+      body: JSON.stringify({ email, token, password: password || newPassword, confirmPassword }),
     });
 
     return data;
@@ -632,22 +632,22 @@ export function CommerceProvider({ children }) {
   };
 
   const addInstallationBooking = async (booking) => {
-    const data = authToken
-      ? await requestJson("/installations", {
-          method: "POST",
-          body: JSON.stringify({ ...booking, userId: user?.id }),
-        })
-      : {
-          ...booking,
-          id: `INSTALL-${Date.now().toString().slice(-6)}`,
-          status: "requested",
-          userId: user?.id || null,
-          createdAt: new Date().toISOString(),
-        };
+    if (!authToken || !(user?.id || user?._id)) {
+      throw new Error("Please log in as a customer to book installation.");
+    }
 
-    update({ installationBookings: [data, ...installationBookings] });
+    const data = await requestJson("/installations", {
+      method: "POST",
+      body: JSON.stringify({ ...booking, userId: user.id || user._id }),
+    });
 
-    return data;
+    const savedBooking = data?.data || data || booking;
+    if (!savedBooking || !savedBooking.id) {
+      throw new Error(data?.message || "Unable to create installation booking.");
+    }
+
+    update({ installationBookings: [savedBooking, ...installationBookings] });
+    return savedBooking;
   };
 
   const updateProfile = async (nextProfile) => {

@@ -98,11 +98,11 @@ mail credentials or the customer email are missing, so an order cannot enter
 out-for-delivery without a way to receive its OTP. Local development keeps the
 `developmentOtp` fallback when email credentials are not configured.
 
-Delivery OTP SMS uses Twilio. Configure `TWILIO_ACCOUNT_SID`,
-`TWILIO_AUTH_TOKEN`, and a Twilio `TWILIO_FROM_NUMBER`. Customer phone numbers
+Delivery OTP SMS uses 2Factor. Configure the server-only `TWO_FACTOR_API_KEY`.
+Customer phone numbers
 should be stored in E.164 format, such as `+919876543210`. For this India-based
 application, a ten-digit number can use `SMS_DEFAULT_COUNTRY_CODE=+91`.
-Production delivery start fails when Twilio is not configured or the customer
+Production delivery start fails when 2Factor is not configured or the customer
 phone number is invalid. Email remains an optional secondary notification.
 
 # Keep existing Stripe & Razorpay keys

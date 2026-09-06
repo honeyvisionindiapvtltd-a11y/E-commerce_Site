@@ -2,10 +2,14 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import io from "socket.io-client";
 import { getOrderTracking } from "../services/orderTrackingService.js";
 import { SOCKET_URL } from "../lib/socketConfig.js";
-import { isValidCoordinatePair } from "../utils/locationUtils.js";
+import { normalizeDeliveryLocation } from "../utils/locationUtils.js";
 
 /**
  * Custom hook for real-time order tracking with polling fallback
+ * Features:
+ * - Real-time Socket.IO updates with sequence number ordering
+ * - Polling fallback when Socket.IO is unavailable
+ * - Prevents old events from overwriting new state
  * 
  * Usage:
  * const { order, tracking, timeline, loading, error, refresh } = useOrderTracking(orderNumber, token);
@@ -22,6 +26,7 @@ export const useOrderTracking = (orderNumber, token, pollInterval = 15000) => {
   const socketConnectedRef = useRef(false);
   const orderRef = useRef(null);
   const latestRealtimeAtRef = useRef(0);
+  const latestSequenceRef = useRef(-1); // Track event sequence for ordering
   const isMountedRef = useRef(true);
   const fetchInFlightRef = useRef(false);
 
@@ -94,8 +99,24 @@ export const useOrderTracking = (orderNumber, token, pollInterval = 15000) => {
     const markRealtimeUpdate = (update) => {
       const timestamp = new Date(update?.updatedAt || update?.trackingEvent?.timestamp || 0).getTime();
       latestRealtimeAtRef.current = Math.max(latestRealtimeAtRef.current, timestamp || Date.now());
+      // Update sequence number if available
+      if (typeof update?.sequence === 'number' && update.sequence >= 0) {
+        latestSequenceRef.current = Math.max(latestSequenceRef.current, update.sequence);
+      }
     };
     const isFreshRealtimeUpdate = (update) => {
+      // Check sequence number first (if available from new delivery event service)
+      if (typeof update?.sequence === 'number' && update.sequence >= 0) {
+        if (update.sequence < latestSequenceRef.current) {
+          // Old event based on sequence number - ignore it
+          if (import.meta.env.DEV) {
+            console.debug('Ignoring old event with sequence', update.sequence, 'vs latest', latestSequenceRef.current);
+          }
+          return false;
+        }
+      }
+      
+      // Fall back to timestamp-based freshness check
       const timestamp = new Date(update?.updatedAt || update?.trackingEvent?.timestamp || 0).getTime();
       return !timestamp || timestamp >= latestRealtimeAtRef.current;
     };
@@ -109,6 +130,11 @@ export const useOrderTracking = (orderNumber, token, pollInterval = 15000) => {
       setOrder((currentOrder) => currentOrder ? {
         ...currentOrder,
         status: update.status,
+        actions: {
+          ...currentOrder.actions,
+          canCancel: ["ORDER_PLACED", "PAYMENT_CONFIRMED", "PROCESSING", "PACKED"].includes(update.status),
+          canReturn: update.status === "DELIVERED" ? currentOrder.actions?.canReturn : false,
+        },
         deliveryAgent: update.deliveryAgent || currentOrder.deliveryAgent,
         failedDelivery: update.failedDelivery ?? (isActiveDelivery ? null : currentOrder.failedDelivery),
         deliveryLocation: isActiveDelivery ? currentOrder.deliveryLocation : null,
@@ -141,19 +167,33 @@ export const useOrderTracking = (orderNumber, token, pollInterval = 15000) => {
     };
     const applyLocationUpdate = (update) => {
       if (!isMountedRef.current || String(update?.orderNumber) !== String(orderNumber)) return;
-      const latitude = Number(update?.latitude);
-      const longitude = Number(update?.longitude);
-      if (!isValidCoordinatePair(latitude, longitude) || (latitude === 0 && longitude === 0)) return;
+
+      const candidate = {
+        ...update,
+        ...(update?.payload || {}),
+        ...(Array.isArray(update?.location?.coordinates) ? {
+          latitude: update.latitude ?? update.payload?.latitude ?? Number(update.location.coordinates[1]),
+          longitude: update.longitude ?? update.payload?.longitude ?? Number(update.location.coordinates[0]),
+          accuracy: update.accuracy ?? update.payload?.accuracy ?? null,
+          heading: update.heading ?? update.payload?.heading ?? null,
+          speed: update.speed ?? update.payload?.speed ?? null,
+          updatedAt: update.updatedAt ?? update.eventTimestamp ?? update.payload?.updatedAt ?? null,
+        } : {}),
+      };
+
+      const normalized = normalizeDeliveryLocation(candidate);
+      if (!normalized) return;
+
       if (!isFreshRealtimeUpdate(update)) return;
       markRealtimeUpdate(update);
+
       const location = {
-        latitude,
-        longitude,
-        accuracy: update.accuracy,
-        heading: update.heading,
-        speed: update.speed,
-        updatedAt: update.updatedAt,
+        latitude: normalized.latitude,
+        longitude: normalized.longitude,
+        accuracy: normalized.accuracy,
+        updatedAt: normalized.timestamp || update.updatedAt || update.eventTimestamp,
       };
+
       if (import.meta.env.DEV) {
         setLocationDebug({
           latitude: location.latitude,
@@ -173,7 +213,7 @@ export const useOrderTracking = (orderNumber, token, pollInterval = 15000) => {
       setOrder((currentOrder) => currentOrder ? {
         ...currentOrder,
         deliveryLocation: location,
-        updatedAt: update.updatedAt || currentOrder.updatedAt,
+        updatedAt: location.updatedAt || currentOrder.updatedAt,
       } : currentOrder);
     };
     const applyDeliveryUpdate = (update) => {

@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useCallback, useEffect } from "react";
-import { useAuth } from "./AuthContext";
+import { useAuth } from "./useAuth";
 
 const ProfileContext = createContext(null);
 const API_BASE = import.meta.env.VITE_API_URL || "/api";
@@ -47,6 +47,7 @@ function normalizeSavedAddress(address) {
 
 export function ProfileProvider({ children }) {
   const { authToken, user } = useAuth();
+  const isCustomer = user?.role === "customer";
   const [profile, setProfile] = useState(defaultProfile);
   const [addresses, setAddresses] = useState([]);
   const [paymentMethods, setPaymentMethods] = useState([]);
@@ -78,10 +79,12 @@ export function ProfileProvider({ children }) {
   // Fetch profile, addresses, and payment methods when user logs in
   useEffect(() => {
     if (!authToken || !user?.id) {
-      setProfile(defaultProfile);
-      setAddresses([]);
-      setPaymentMethods([]);
-      return;
+      const timer = window.setTimeout(() => {
+        setProfile(defaultProfile);
+        setAddresses([]);
+        setPaymentMethods([]);
+      }, 0);
+      return () => window.clearTimeout(timer);
     }
 
     let ignore = false;
@@ -90,7 +93,7 @@ export function ProfileProvider({ children }) {
       try {
         const [profileData, addressesData] = await Promise.all([
           requestJson("/auth/profile").catch(() => ({})),
-          requestJson("/users/addresses").catch(() => ({})),
+          isCustomer ? requestJson("/users/addresses").catch(() => ({})) : Promise.resolve({}),
         ]);
 
         if (ignore) return;
@@ -117,7 +120,7 @@ export function ProfileProvider({ children }) {
     return () => {
       ignore = true;
     };
-  }, [authToken, user?.id, requestJson]);
+  }, [authToken, user?.id, isCustomer, requestJson]);
 
   const updateProfile = useCallback(
     async (nextProfile) => {
@@ -153,7 +156,7 @@ export function ProfileProvider({ children }) {
   }, [authToken, requestJson]);
 
   const fetchAddresses = useCallback(async () => {
-    if (!authToken) return [];
+    if (!authToken || !isCustomer) return [];
     try {
       const data = await requestJson("/users/addresses");
       const nextAddresses = (data.addresses || []).map(normalizeSavedAddress);
@@ -162,10 +165,11 @@ export function ProfileProvider({ children }) {
     } catch {
       return addresses;
     }
-  }, [authToken, addresses, requestJson]);
+  }, [authToken, isCustomer, addresses, requestJson]);
 
   const addAddress = useCallback(
     async (newAddress) => {
+      if (!isCustomer) return [];
       const data = await requestJson("/users/addresses", {
         method: "POST",
         body: JSON.stringify({
@@ -179,11 +183,12 @@ export function ProfileProvider({ children }) {
       setAddresses(nextAddresses);
       return normalizeSavedAddress(data.address);
     },
-    [requestJson]
+    [isCustomer, requestJson]
   );
 
   const updateAddress = useCallback(
     async (id, nextAddress) => {
+      if (!isCustomer) return null;
       const data = await requestJson(`/users/addresses/${encodeURIComponent(id)}`, {
         method: "PUT",
         body: JSON.stringify({
@@ -196,23 +201,25 @@ export function ProfileProvider({ children }) {
       setAddresses((data.addresses || []).map(normalizeSavedAddress));
       return normalizeSavedAddress(data.address);
     },
-    [requestJson]
+    [isCustomer, requestJson]
   );
 
   const removeAddress = useCallback(
     async (id) => {
+      if (!isCustomer) return;
       const data = await requestJson(`/users/addresses/${encodeURIComponent(id)}`, { method: "DELETE" });
       setAddresses((data.addresses || []).map(normalizeSavedAddress));
     },
-    [requestJson]
+    [isCustomer, requestJson]
   );
 
   const setDefaultAddress = useCallback(
     async (id) => {
+      if (!isCustomer) return;
       const data = await requestJson(`/users/addresses/${encodeURIComponent(id)}/default`, { method: "PATCH" });
       setAddresses((data.addresses || []).map(normalizeSavedAddress));
     },
-    [requestJson]
+    [isCustomer, requestJson]
   );
 
   const validateAddress = useCallback(

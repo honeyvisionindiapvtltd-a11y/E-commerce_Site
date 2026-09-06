@@ -1,12 +1,11 @@
 import { createContext, useContext, useState, useCallback, useEffect } from "react";
-import { useAuth } from "./AuthContext";
+import { useAuth } from "./useAuth";
 import { useCatalog } from "./CatalogContext";
 import { useDelivery } from "./DeliveryContext";
 import { useCart } from "./CartContext";
 import { computeTotals } from "../lib/orderTotals";
 
 const OrdersContext = createContext(null);
-const API_BASE = import.meta.env.VITE_API_URL || "/api";
 
 function sameProductId(first, second) {
   return String(first?.id || first?.productId || first) === String(second?.id || second?.productId || second);
@@ -14,6 +13,7 @@ function sameProductId(first, second) {
 
 export function OrdersProvider({ children }) {
   const { authToken, user, requestJson } = useAuth();
+  const isCustomer = user?.role === "customer";
   const { products } = useCatalog();
   const { couponApplied } = useDelivery();
   const { cart, clearCart } = useCart();
@@ -22,10 +22,12 @@ export function OrdersProvider({ children }) {
 
   // Load user orders when logged in
   useEffect(() => {
-    if (!authToken || !user?.id) {
-      setOrders([]);
-      setInstallationBookings([]);
-      return;
+    if (!authToken || !user?.id || !isCustomer) {
+      const timer = window.setTimeout(() => {
+        setOrders([]);
+        setInstallationBookings([]);
+      }, 0);
+      return () => window.clearTimeout(timer);
     }
 
     let ignore = false;
@@ -39,7 +41,13 @@ export function OrdersProvider({ children }) {
 
         if (ignore) return;
 
-        const serverOrders = Array.isArray(ordersData.orders) ? ordersData.orders : [];
+        const serverOrders = Array.isArray(ordersData)
+          ? ordersData
+          : Array.isArray(ordersData.orders)
+            ? ordersData.orders
+            : Array.isArray(ordersData.data)
+              ? ordersData.data
+              : [];
         const mergedOrders = new Map();
         serverOrders.forEach((order) => {
           const key = order.orderNumber || order._id || order.id;
@@ -59,7 +67,7 @@ export function OrdersProvider({ children }) {
     return () => {
       ignore = true;
     };
-  }, [authToken, user?.id, requestJson]);
+  }, [authToken, user?.id, user?.role, isCustomer, requestJson]);
 
   const placeOrder = useCallback(
     async ({ address, paymentMethod, installationSlot, secureShipping = false }) => {
@@ -105,7 +113,7 @@ export function OrdersProvider({ children }) {
   );
 
   const fetchOrders = useCallback(async () => {
-    if (!authToken || !user?.id) return [];
+    if (!authToken || !user?.id || !isCustomer) return [];
     try {
       const data = await requestJson("/orders/my-orders");
       const nextOrders = Array.isArray(data) ? data : data.orders || [];
@@ -115,43 +123,62 @@ export function OrdersProvider({ children }) {
       console.error("Failed to fetch orders:", error);
       return orders;
     }
-  }, [authToken, user?.id, orders, requestJson]);
+  }, [authToken, user?.id, isCustomer, orders, requestJson]);
 
   const fetchInstallations = useCallback(async () => {
-    if (!authToken || !user?.id) return [];
+    if (!authToken || !user?.id || !isCustomer) return [];
     try {
       const data = await requestJson("/installations");
-      setInstallationBookings(Array.isArray(data) ? data : data.data || []);
-      return installationBookings;
+      const nextInstallations = Array.isArray(data) ? data : data.data || [];
+      setInstallationBookings(nextInstallations);
+      return nextInstallations;
     } catch (error) {
       console.error("Failed to fetch installations:", error);
       return installationBookings;
     }
-  }, [authToken, user?.id, installationBookings, requestJson]);
+  }, [authToken, user?.id, isCustomer, installationBookings, requestJson]);
 
-  const addInstallationBooking = useCallback(
+  const createInstallationBooking = useCallback(
     async (booking) => {
-      let data;
-      if (authToken && user?.id) {
-        data = await requestJson("/installations", {
-          method: "POST",
-          body: JSON.stringify(booking),
-        });
-      } else {
-        data = {
-          ...booking,
-          id: `INSTALL-${Date.now().toString().slice(-6)}`,
-          status: "requested",
-          userId: user?.id || null,
-          createdAt: new Date().toISOString(),
-        };
+      if (!authToken || !(user?.id || user?._id) || !isCustomer) {
+        throw new Error("Please log in as a customer to book installation.");
       }
 
-      setInstallationBookings((current) => [data, ...current]);
-      return data;
+      const data = await requestJson("/installations", {
+        method: "POST",
+        body: JSON.stringify(booking),
+      });
+      const savedBooking = data?.data || data;
+
+      if (!savedBooking || !(savedBooking.id || savedBooking._id || savedBooking.bookingNumber)) {
+        throw new Error(data?.message || "Unable to create installation booking.");
+      }
+
+      setInstallationBookings((current) => [savedBooking, ...current]);
+      return savedBooking;
     },
-    [authToken, user?.id, requestJson]
+    [authToken, user?.id, user?._id, isCustomer, requestJson]
   );
+
+  const createInstallationPayment = useCallback(async (bookingId) => {
+    const data = await requestJson(`/installations/${encodeURIComponent(bookingId)}/payment/create-order`, { method: "POST", body: JSON.stringify({}) });
+    return data?.data || data;
+  }, [requestJson]);
+
+  const verifyInstallationPayment = useCallback(async (bookingId, payment) => {
+    const data = await requestJson(`/installations/${encodeURIComponent(bookingId)}/payment/verify`, {
+      method: "POST",
+      body: JSON.stringify(payment),
+    });
+    const installation = data?.data?.installation || data?.installation;
+    if (installation) setInstallationBookings((current) => [installation, ...current.filter((item) => String(item._id || item.id || item.bookingNumber) !== String(installation._id || installation.id || installation.bookingNumber))]);
+    return data?.data || data;
+  }, [requestJson]);
+
+  const fetchInstallation = useCallback(async (bookingId) => {
+    const data = await requestJson(`/customer/installations/${encodeURIComponent(bookingId)}`);
+    return data?.data || data;
+  }, [requestJson]);
 
   const value = {
     orders,
@@ -159,7 +186,10 @@ export function OrdersProvider({ children }) {
     placeOrder,
     fetchOrders,
     fetchInstallations,
-    addInstallationBooking,
+    createInstallationBooking,
+    createInstallationPayment,
+    verifyInstallationPayment,
+    fetchInstallation,
   };
 
   return <OrdersContext.Provider value={value}>{children}</OrdersContext.Provider>;

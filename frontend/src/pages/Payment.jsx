@@ -117,7 +117,6 @@ const Payment = () => {
   const [paymentError, setPaymentError] = useState("");
 
   const razorpayMinimumAmount = 100;
-  const isRazorpayBlocked = ["razorpay", "card", "netbanking", "wallet", "emi", "later", "upi"].includes(paymentMethod) && total < razorpayMinimumAmount;
 
   /* ============================================================
      BILLING INFORMATION
@@ -219,6 +218,7 @@ const Payment = () => {
 
   const subtotal = subtotalCalc;
   const total = totalCalc;
+  const isRazorpayBlocked = ["razorpay", "card", "netbanking", "wallet", "emi", "later", "upi"].includes(paymentMethod) && total < razorpayMinimumAmount;
 
   const itemCount = checkoutItems.reduce(
     (count, item) => count + item.quantity,
@@ -1701,7 +1701,7 @@ const Payment = () => {
             <SupportItem
               icon={Smartphone}
               title="Call Us"
-              text="+91 98765 43210"
+              text="9777941117"
             />
 
             <SupportItem

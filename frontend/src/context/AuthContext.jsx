@@ -1,6 +1,6 @@
-import { createContext, useContext, useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect } from "react";
+import { AuthContext } from "./AuthContextValue.js";
 
-const AuthContext = createContext(null);
 const AUTH_STORAGE_KEY = "hv-auth";
 const API_BASE = import.meta.env.VITE_API_URL || "/api";
 
@@ -18,7 +18,6 @@ function readAuthStore() {
     return { isLoggedIn: false, user: null, authToken: null };
   }
 }
-
 function writeAuthStore(auth) {
   try {
     localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(auth));
@@ -29,6 +28,16 @@ function writeAuthStore(auth) {
 
 export function AuthProvider({ children }) {
   const [auth, setAuth] = useState(readAuthStore);
+
+  useEffect(() => {
+    if (!auth.authToken) return undefined;
+    let active = true;
+    fetch(`${API_BASE}/auth/profile`, { headers: { Authorization: `Bearer ${auth.authToken}` } })
+      .then((response) => response.ok ? response.json() : Promise.reject(new Error("Session expired")))
+      .then((data) => { if (active && data.user?.role !== auth.user?.role) setAuth({ isLoggedIn: false, user: null, authToken: null }); })
+      .catch(() => { if (active) setAuth({ isLoggedIn: false, user: null, authToken: null }); });
+    return () => { active = false; };
+  }, [auth.authToken, auth.user?.role]);
 
   useEffect(() => {
     writeAuthStore(auth);
@@ -106,6 +115,8 @@ export function AuthProvider({ children }) {
   );
 
   const logout = useCallback(() => {
+    localStorage.removeItem(AUTH_STORAGE_KEY);
+    sessionStorage.clear();
     setAuthState({
       isLoggedIn: false,
       user: null,
@@ -133,7 +144,7 @@ export function AuthProvider({ children }) {
 
   const requestPasswordReset = useCallback(
     async (email) => {
-      return requestJson("/auth/request-password-reset", {
+      return requestJson("/auth/forgot-password", {
         method: "POST",
         body: JSON.stringify({ email }),
       });
@@ -142,10 +153,10 @@ export function AuthProvider({ children }) {
   );
 
   const resetPassword = useCallback(
-    async ({ email, token, newPassword }) => {
+    async ({ email, token, password, confirmPassword, newPassword }) => {
       return requestJson("/auth/reset-password", {
         method: "POST",
-        body: JSON.stringify({ email, token, newPassword }),
+        body: JSON.stringify({ email, token, password: password || newPassword, confirmPassword }),
       });
     },
     [requestJson]
@@ -167,8 +178,6 @@ export function AuthProvider({ children }) {
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
-export function useAuth() {
-  const context = useContext(AuthContext);
-  if (!context) throw new Error("useAuth must be used within AuthProvider");
-  return context;
-}
+export default AuthProvider;
+
+export { AuthContext };

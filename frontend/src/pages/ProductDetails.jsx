@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useEffect, useMemo, useState } from "react";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { useCommerce } from "../context/index.js";
 import DeliveryAvailability from "../components/DeliveryAvailability";
 import { money, normalizeProduct } from "../lib/products";
@@ -23,6 +23,7 @@ const API_BASE = import.meta.env.VITE_API_URL || "/api";
 export default function ProductDetails() {
   const { productId } = useParams();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { products, addToCart, toggleWishlist, wishlist } = useCommerce();
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -69,21 +70,21 @@ export default function ProductDetails() {
     };
   }, [productId, products]);
 
-  const images = [
-    ...(Array.isArray(product?.images) ? product.images : []),
-    product?.thumbnail,
-    product?.image,
-  ].filter((image) => typeof image === "string" && image.trim());
-
-  if (!images.length) {
-    images.push("https://res.cloudinary.com/vhrkwyzs/image/upload/v1786017607/AI_PTZ_Camera_jdwn7h.webp");
-  }
+  const images = useMemo(() => {
+    const productImages = [
+      ...(Array.isArray(product?.images) ? product.images : []),
+      product?.thumbnail,
+      product?.image,
+    ].filter((image) => typeof image === "string" && image.trim());
+    return productImages.length ? productImages : ["https://res.cloudinary.com/vhrkwyzs/image/upload/v1786017607/AI_PTZ_Camera_jdwn7h.webp"];
+  }, [product]);
   const [imageIndex, setImageIndex] = useState(0);
 
   useEffect(() => {
     const idx = Math.max(0, images.indexOf(selectedImage));
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setImageIndex(idx >= 0 ? idx : 0);
-  }, [selectedImage]);
+  }, [images, selectedImage]);
 
   const inWishlist = product ? wishlist.includes(product.id) : false;
   const relatedProducts = products.filter((item) => item.id !== product?.id).slice(0, 4);
@@ -135,7 +136,10 @@ export default function ProductDetails() {
 
   const handleCompare = () => {
     if (!product) return;
-    navigate(`/compare?compare=${product.id}`);
+    const selectedIds = [...new Set([...searchParams.getAll("compare"), product.id].filter(Boolean))].slice(0, 3);
+    const compareParams = new URLSearchParams();
+    selectedIds.forEach((id) => compareParams.append("compare", id));
+    navigate(`/compare?${compareParams.toString()}`);
   };
 
   if (loading) {

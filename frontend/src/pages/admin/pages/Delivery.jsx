@@ -1,11 +1,13 @@
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { Truck } from "lucide-react";
+import io from "socket.io-client";
 import { adminList, adminUpdate } from "../api";
 import { useCommerce } from "../../../context/index.js";
 import PageHeader from "../components/PageHeader";
 import Toolbar from "../components/Toolbar";
 import Table from "../components/Table";
+import { SOCKET_URL } from "../../../lib/socketConfig.js";
 
 const API_BASE = import.meta.env.VITE_API_URL || "/api";
 
@@ -77,6 +79,8 @@ export default function Delivery() {
   const [agents, setAgents] = useState([]);
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState("All");
+  const socketRef = useRef(null);
+  const rowsRef = useRef(new Map()); // Keep track of current rows for quick updates
 
   const refreshRows = async () => {
     try {
@@ -103,8 +107,15 @@ export default function Delivery() {
         ]);
         const agentPayload = await agentResponse.json();
         if (!agentResponse.ok) throw new Error(agentPayload.message || "Unable to load agents");
-        if (active) setAgents(agentPayload.agents || []);
-        if (active) setRows(buildDeliveryRows(stored));
+        if (active) {
+          setAgents(agentPayload.agents || []);
+          const builtRows = buildDeliveryRows(stored);
+          setRows(builtRows);
+          // Update ref for quick lookups
+          const map = new Map();
+          builtRows.forEach((row) => map.set(row.order, row));
+          rowsRef.current = map;
+        }
       } catch {
         if (active) setRows([]);
       }
@@ -112,6 +123,86 @@ export default function Delivery() {
 
     loadRows();
     return () => { active = false; };
+  }, [authToken]);
+
+  // Real-time Socket.IO updates for delivery events
+  useEffect(() => {
+    if (!authToken) return undefined;
+
+    const socket = io(SOCKET_URL, {
+      auth: { token: authToken },
+      autoConnect: false,
+      reconnection: true,
+    });
+
+    // Listen for admin room events
+    const handleDeliveryUpdate = (update) => {
+      // Update a specific delivery row based on order number
+      setRows((currentRows) => {
+        const updated = currentRows.map((row) => {
+          if (String(row.order) === String(update.orderNumber || update.orderId)) {
+            return {
+              ...row,
+              status: normalizeDeliveryStatus(update.currentStatus || update.status),
+              rawStatus: update.currentStatus || update.status,
+              deliveryAgent: update.agentId || row.deliveryAgent,
+              failedDeliveryReason: update.failedDeliveryReason || row.failedDeliveryReason,
+              failedDeliveryNotes: update.failedDeliveryNotes || row.failedDeliveryNotes,
+              failedDeliveryAt: update.failedDeliveryAt ? new Date(update.failedDeliveryAt).toLocaleString("en-IN") : row.failedDeliveryAt,
+            };
+          }
+          return row;
+        });
+        // Update ref
+        const map = new Map();
+        updated.forEach((row) => map.set(row.order, row));
+        rowsRef.current = map;
+        return updated;
+      });
+    };
+
+    const handleAgentUpdate = (update) => {
+      // Update agent status in the sidebar
+      if (update.agentId) {
+        setAgents((currentAgents) =>
+          currentAgents.map((agent) =>
+            String(agent._id || agent.id) === String(update.agentId)
+              ? { ...agent, isOnline: update.isOnline }
+              : agent
+          )
+        );
+      }
+    };
+
+    socket.on('connect', () => {
+      // Admin automatically receives delivery events in the admins room
+      if (import.meta.env.DEV) {
+        console.debug('Admin delivery dashboard connected to real-time updates');
+      }
+    });
+
+    socket.on('DELIVERY_COMPLETED', handleDeliveryUpdate);
+    socket.on('DELIVERY_FAILED', handleDeliveryUpdate);
+    socket.on('ORDER_ASSIGNED', handleDeliveryUpdate);
+    socket.on('delivery:statusUpdate', handleDeliveryUpdate);
+    socket.on('order:statusUpdate', handleDeliveryUpdate);
+    socket.on('AGENT_ONLINE', handleAgentUpdate);
+    socket.on('AGENT_OFFLINE', handleAgentUpdate);
+
+    socketRef.current = socket;
+    socket.connect();
+
+    return () => {
+      socket.off('DELIVERY_COMPLETED', handleDeliveryUpdate);
+      socket.off('DELIVERY_FAILED', handleDeliveryUpdate);
+      socket.off('ORDER_ASSIGNED', handleDeliveryUpdate);
+      socket.off('delivery:statusUpdate', handleDeliveryUpdate);
+      socket.off('order:statusUpdate', handleDeliveryUpdate);
+      socket.off('AGENT_ONLINE', handleAgentUpdate);
+      socket.off('AGENT_OFFLINE', handleAgentUpdate);
+      socket.disconnect();
+      socketRef.current = null;
+    };
   }, [authToken]);
 
   const assignAgent = async (orderNumber, agentId) => {

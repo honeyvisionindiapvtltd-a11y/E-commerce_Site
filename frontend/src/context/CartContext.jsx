@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, useRef } from "react";
-import { useAuth } from "./AuthContext";
+import { useAuth } from "./useAuth";
 
 const CartContext = createContext(null);
 const CART_STORAGE_KEY = "hv-cart";

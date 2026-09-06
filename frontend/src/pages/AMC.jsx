@@ -595,13 +595,13 @@ const AMC = () => {
               <ContactCard
                 icon={Phone}
                 title="Call Us"
-                value="+91 98765 43210"
+                value="9777941117"
               />
 
               <ContactCard
                 icon={MessageCircle}
                 title="WhatsApp"
-                value="+91 98765 43210"
+                value="9777941117"
               />
 
               <ContactCard

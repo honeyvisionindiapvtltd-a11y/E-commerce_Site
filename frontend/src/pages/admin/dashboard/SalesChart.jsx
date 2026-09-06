@@ -1,15 +1,5 @@
 export default function SalesChart({ data = [] }) {
-  const chartData = data.length
-    ? data
-    : [
-        { label: "04 Aug", value: 20000 },
-        { label: "05 Aug", value: 12000 },
-        { label: "06 Aug", value: 26000 },
-        { label: "07 Aug", value: 14000 },
-        { label: "08 Aug", value: 24000 },
-        { label: "09 Aug", value: 19000 },
-        { label: "10 Aug", value: 31000 },
-      ];
+  const chartData = data.length ? data : [{ label: "No data", value: 0 }];
 
   const maxValue = Math.max(...chartData.map((point) => Number(point.value || 0)), 1);
   const points = chartData.map((point, index) => {

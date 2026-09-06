@@ -6,6 +6,7 @@ import {
   generateTrackingNumber,
 } from "../utils/tracking.js";
 import { ORDER_STATUSES } from "../constants/orderStatuses.js";
+import { notifyAdmins, notifyCustomer } from "../services/notificationService.js";
 
 // ==========================================
 // CREATE ORDER
@@ -198,6 +199,9 @@ export const createOrder = async (req, res) => {
     order.shipment = shipment._id;
 
     await order.save();
+
+    void notifyCustomer({ recipient: req.user._id, type: "ORDER_PLACED", title: "Order placed successfully", message: `Your order ${order.orderNumber} has been placed successfully.`, orderId: order._id, orderNumber: order.orderNumber, eventKey: `order:${order.orderNumber}:placed` });
+    void notifyAdmins({ type: "ORDER_PLACED", title: "New order received", message: `New order ${order.orderNumber} has been received.`, orderId: order._id, orderNumber: order.orderNumber, eventKey: `admin:order:${order.orderNumber}:placed` });
 
     const populatedOrder =
       await Order.findById(order._id)

@@ -19,7 +19,7 @@ import {
   Wrench,
   X,
 } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useCommerce } from "../context/index.js";
 import {
   addSupportTicketMessage,
@@ -29,33 +29,33 @@ import {
 } from "../services/supportService.js";
 
 const categories = [
-  { key: "orders", title: "My Orders", description: "Track, cancel, or get help with your order", icon: Package, keywords: "order track cancel" },
-  { key: "delivery", title: "Delivery & Tracking", description: "Track your shipment and delivery", icon: Truck, keywords: "delivery shipment tracking delayed" },
-  { key: "installation", title: "Installation Support", description: "Get help with CCTV and product installation", icon: Wrench, keywords: "installation technician setup" },
-  { key: "returns", title: "Returns & Refunds", description: "Request a return or check your refund", icon: RotateCcw, keywords: "return refund replace damaged" },
-  { key: "payments", title: "Payments", description: "Payment issues and transaction support", icon: CreditCard, keywords: "payment transaction razorpay card" },
-  { key: "warranty", title: "Warranty & AMC", description: "Warranty information and annual maintenance", icon: ShieldCheck, keywords: "warranty amc maintenance guarantee" },
-  { key: "account", title: "Account & Login", description: "Login, password, and account help", icon: User, keywords: "account login password profile" },
-  { key: "technical", title: "Technical Support", description: "Help with HoneyVision products", icon: Headphones, keywords: "technical camera nvr product help" },
-  { key: "contact", title: "Contact Support", description: "Talk to our support team about any issue", icon: Mail, keywords: "contact human agent email support" },
+  { key: "orders", title: "My Orders", description: "Track, cancel, or get help with your order", icon: Package, keywords: "order track cancel", href: "/orders" },
+  { key: "delivery", title: "Delivery & Tracking", description: "Track your shipment and delivery", icon: Truck, keywords: "delivery shipment tracking delayed", href: "/track-order" },
+  { key: "installation", title: "Installation Support", description: "Get help with CCTV and product installation", icon: Wrench, keywords: "installation technician setup", href: "/installation" },
+  { key: "returns", title: "Returns & Refunds", description: "Request a return or check your refund", icon: RotateCcw, keywords: "return refund replace damaged", href: "/support/tickets" },
+  { key: "payments", title: "Payments", description: "Payment issues and transaction support", icon: CreditCard, keywords: "payment transaction razorpay card", href: "/orders" },
+  { key: "warranty", title: "Warranty & AMC", description: "Warranty information and annual maintenance", icon: ShieldCheck, keywords: "warranty amc maintenance guarantee", href: "/warranty" },
+  { key: "account", title: "Account & Login", description: "Login, password, and account help", icon: User, keywords: "account login password profile", href: "/profile" },
+  { key: "technical", title: "Technical Support", description: "Help with HoneyVision products", icon: Headphones, keywords: "technical camera nvr product help", href: "/contact" },
+  { key: "contact", title: "Contact Support", description: "Talk to our support team about any issue", icon: Mail, keywords: "contact human agent email support", href: "/contact" },
 ];
 
 const faqs = [
-  { category: "Orders", question: "How can I track my order?", answer: "Open My Orders from your account and choose Track Order. The latest shipment timeline and delivery details come from our order service." },
-  { category: "Orders", question: "Can I cancel my order?", answer: "Open the order and choose the cancellation option while it is still in a cancellable status. Orders already shipped or delivered may not be cancellable." },
-  { category: "Orders", question: "How do I change my delivery address?", answer: "Contact support as soon as possible with your order number. Address changes depend on whether fulfilment has started." },
-  { category: "Delivery", question: "How long will delivery take?", answer: "Estimated delivery information is shown on your order and tracking page. It can vary by product, destination, and serviceability." },
-  { category: "Delivery", question: "What should I do if my order is delayed?", answer: "Check the tracking timeline first. If the promised window has passed, select Delivery is delayed in order support so the team has the right context." },
-  { category: "Delivery", question: "What happens if I miss my delivery?", answer: "The courier may attempt delivery again. Contact support with your order number if you need help coordinating the next attempt." },
-  { category: "Returns", question: "How do I return a product?", answer: "Select the order below, choose Return or replace product, and submit the reason. Returns are available for eligible delivered orders." },
-  { category: "Returns", question: "When will I receive my refund?", answer: "Refund timing depends on approval and your original payment method. The support team can confirm the status of an existing return." },
-  { category: "Returns", question: "Which products are eligible for return?", answer: "Eligibility can depend on delivery status, product condition, and the applicable policy. Select the order to check its current eligibility." },
-  { category: "Installation", question: "How do I book installation?", answer: "Choose Installation from the product or checkout flow. Your booking status is available in Installation History after submission." },
-  { category: "Installation", question: "How can I reschedule installation?", answer: "Contact the support team with your booking details. Rescheduling depends on technician availability." },
-  { category: "Installation", question: "What should I do if the technician does not arrive?", answer: "Contact support with your order or installation details so the appointment can be reviewed promptly." },
-  { category: "Warranty", question: "How do I claim warranty?", answer: "Keep your order details and product information ready, then contact support so eligibility and next steps can be checked." },
-  { category: "Warranty", question: "What does HoneyVision warranty cover?", answer: "Coverage varies by product. Your invoice and product documentation contain the applicable warranty terms." },
-  { category: "Warranty", question: "How do I purchase AMC?", answer: "Contact the team with your product model and installation location. AMC availability is confirmed case by case." },
+  { category: "Orders", question: "How can I track my order?", answer: "Open your account and go to My Orders, then choose the order you want to track. The tracking page shows the latest status, shipment timeline, and delivery updates for a live order. If the item has not started moving yet, it may still be in processing or packed for dispatch." },
+  { category: "Orders", question: "Can I cancel my order?", answer: "Yes, depending on the status of your order. Cancellation is usually available before fulfilment begins. If the order has already been packed or dispatched, the option may no longer be available and you can instead raise a support ticket for the next best step." },
+  { category: "Orders", question: "How do I change my delivery address?", answer: "If the order has not been fulfilled yet, the address can often be updated from the order details or by contacting support. Include your order number and the correct address details so our team can review whether the delivery can be changed before the shipment is out for delivery." },
+  { category: "Delivery", question: "How long will delivery take?", answer: "Delivery times vary by product type, destination, and serviceability in your area. You can check the estimated delivery window on the order page and the live tracking timeline. For local or installation-based orders, the timeline may also depend on technician scheduling." },
+  { category: "Delivery", question: "What should I do if my order is delayed?", answer: "First, check the tracking page for the latest milestone and any shipping notes. If the delivery window has passed or the status has not moved for several days, use the support flow for that order and mention the delay so the team can investigate the courier or dispatch status." },
+  { category: "Delivery", question: "What happens if I miss my delivery?", answer: "Most courier partners will retry delivery based on their standard process. If the item is returned to the warehouse or you need a new delivery window, contact support with the order number and we can help coordinate the next step. For large or installed products, the support team may also advise on alternate scheduling." },
+  { category: "Returns", question: "How do I return a product?", answer: "Go to the order details page and choose the return option if the product is eligible. You’ll need to provide a reason, confirm the product condition, and follow the return request flow. Once the return is approved, the courier or warehouse process will be updated and the refund or replacement timeline will be communicated." },
+  { category: "Returns", question: "When will I receive my refund?", answer: "Refund timing depends on the approved return, your original payment method, and the bank or payment gateway processing schedule. In most cases, you will receive an update once the return is approved and the refund is initiated. If the status is pending beyond the usual window, open a support ticket for an update." },
+  { category: "Returns", question: "Which products are eligible for return?", answer: "Eligibility depends on product type, delivery condition, and our return policy at the time of purchase. Some products, especially custom or installed items, may not be eligible. You can check your order details to see whether the return option is available or contact support for a policy check." },
+  { category: "Installation", question: "How do I book installation?", answer: "Installation can be booked while placing your order or later from the installation section in your account. Choose the date, confirm your location, and provide the service details. Once the booking is created, you’ll get the status updates and can reschedule if needed." },
+  { category: "Installation", question: "How can I reschedule installation?", answer: "If the booking is not yet completed, you can usually reschedule from the installation details page. If a technician is already assigned or the service window is locked, contact support with your booking details so we can coordinate the next available time with the team." },
+  { category: "Installation", question: "What should I do if the technician does not arrive?", answer: "Please contact support with the booking reference, order number, and the scheduled time. Our team can review the appointment status, contact the technician, and update the service timeline if there was a missed or delayed visit." },
+  { category: "Warranty", question: "How do I claim warranty?", answer: "Keep your product invoice, model number, and purchase details ready, then contact support. We will check the warranty eligibility, confirm the coverage period, and advise the next step for repair, replacement, or service support." },
+  { category: "Warranty", question: "What does HoneyVision warranty cover?", answer: "Warranty coverage differs by brand and product category, but it normally includes manufacturing defects and the product's stated service terms. Your invoice and product documentation contain the specific warranty details. If you are unsure, support can help confirm what is covered and what requires a paid service call." },
+  { category: "Warranty", question: "How do I purchase AMC?", answer: "Annual Maintenance Contracts are available for eligible products and services. Contact the support team with the model, installation address, and the duration you need. We can recommend the right AMC package based on your equipment and operating environment." },
 ];
 
 const orderIssues = [
@@ -229,7 +229,19 @@ export default function Support() {
 }
 
 function SectionHeading({ eyebrow, title, subtitle }) { return <div><p className="text-xs font-black uppercase tracking-[.18em] text-[#b27800]">{eyebrow}</p><h2 className="mt-2 text-3xl font-black tracking-tight text-[#071426] sm:text-4xl">{title}</h2><p className="mt-2 text-sm leading-6 text-slate-600 sm:text-base">{subtitle}</p></div>; }
-function CategoryCard({ category, active, onClick }) { const Icon = category.icon; return <button type="button" onClick={onClick} className={`group rounded-2xl border p-5 text-left shadow-sm transition hover:-translate-y-1 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-[#f4b400] ${active ? "border-[#f4b400] bg-[#fff8df]" : "border-slate-200 bg-white"}`}><span className={`grid h-11 w-11 place-items-center rounded-xl ${active ? "bg-[#f4b400] text-[#071426]" : "bg-[#edf3f7] text-[#0b4162]"}`}><Icon size={22} /></span><span className="mt-5 block text-base font-extrabold">{category.title}</span><span className="mt-2 block text-sm leading-5 text-slate-500">{category.description}</span><span className="mt-4 inline-flex items-center gap-1 text-xs font-black text-[#0b4162]">Explore help <ArrowRight size={14} className="transition group-hover:translate-x-1" /></span></button>; }
+function CategoryCard({ category, active, onClick }) {
+  const Icon = category.icon;
+  const navigate = useNavigate();
+
+  const handleClick = () => {
+    onClick();
+    if (category.href) {
+      navigate(category.href);
+    }
+  };
+
+  return <button type="button" onClick={handleClick} className={`group rounded-2xl border p-5 text-left shadow-sm transition hover:-translate-y-1 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-[#f4b400] ${active ? "border-[#f4b400] bg-[#fff8df]" : "border-slate-200 bg-white"}`}><span className={`grid h-11 w-11 place-items-center rounded-xl ${active ? "bg-[#f4b400] text-[#071426]" : "bg-[#edf3f7] text-[#0b4162]"}`}><Icon size={22} /></span><span className="mt-5 block text-base font-extrabold">{category.title}</span><span className="mt-2 block text-sm leading-5 text-slate-500">{category.description}</span><span className="mt-4 inline-flex items-center gap-1 text-xs font-black text-[#0b4162]">Explore help <ArrowRight size={14} className="transition group-hover:translate-x-1" /></span></button>;
+}
 function SearchResults({ results, onCategorySelect }) { if (!results.categories.length && !results.faqs.length) return <div className="mt-3 rounded-2xl bg-white p-5 text-sm text-slate-600 shadow-lg"><p className="font-bold text-slate-900">We couldn't find an answer.</p><p className="mt-1">Try another phrase or browse help categories below.</p></div>; return <div className="mt-3 grid gap-3 rounded-2xl bg-white p-4 text-slate-900 shadow-lg sm:grid-cols-2">{results.categories.slice(0, 4).map((item) => <button type="button" key={item.key} onClick={() => onCategorySelect(item.key)} className="rounded-xl bg-slate-50 p-3 text-left hover:bg-[#fff8df]"><span className="text-sm font-extrabold">{item.title}</span><span className="mt-1 block text-xs text-slate-500">Support category</span></button>)}{results.faqs.slice(0, 4).map((item) => <a key={item.question} href="#faqs" className="rounded-xl bg-slate-50 p-3 text-left hover:bg-[#fff8df]"><span className="text-sm font-extrabold">{item.question}</span><span className="mt-1 block text-xs text-slate-500">{item.category} FAQ</span></a>)}</div>; }
 function SmartSuggestions({ query }) { const suggestion = smartSuggestions.find((item) => item.match.test(query)); if (!suggestion) return null; return <div className="mt-3 max-w-3xl rounded-2xl border border-[#f4b400]/30 bg-[#fff8df] p-4 text-[#071426] shadow-lg"><div className="flex items-start gap-3"><CheckCircle2 className="mt-0.5 shrink-0 text-[#b27800]" size={19} /><div className="min-w-0"><p className="text-sm font-black">Suggested solution: {suggestion.title}</p><p className="mt-1 text-xs leading-5 text-slate-600">{suggestion.text}</p><Link to={suggestion.href} className="mt-3 inline-flex items-center gap-1 text-xs font-black text-[#0b4162]">{suggestion.action} <ArrowRight size={13} /></Link></div></div></div>; }
 function SignInPrompt() { return <div className="mt-6 flex flex-col items-start justify-between gap-5 rounded-3xl border border-[#f2d67a] bg-[#fff8df] p-6 sm:flex-row sm:items-center sm:p-8"><div><h3 className="text-lg font-black">Sign in to get help with your orders</h3><p className="mt-2 text-sm text-slate-600">Your order history and support options will appear here.</p></div><Link to="/login" className="inline-flex items-center gap-2 rounded-xl bg-[#071426] px-5 py-3 text-sm font-extrabold text-white hover:bg-[#0d3150]">Sign In <ArrowRight size={16} /></Link></div>; }

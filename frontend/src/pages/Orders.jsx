@@ -16,8 +16,37 @@ export default function Orders() {
   const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
+  const [cancellingOrderNumber, setCancellingOrderNumber] = useState('');
   const { subscribeToNotifications } = useRealtimeUpdates(user?.id, authToken);
   const { info } = useNotifications();
+
+  const handleCancelOrder = async (event, order) => {
+    event.preventDefault();
+    event.stopPropagation();
+    const orderNumber = order.orderNumber || order.id;
+    if (!orderNumber || cancellingOrderNumber) return;
+    if (!window.confirm('Cancel this order?')) return;
+
+    try {
+      setCancellingOrderNumber(orderNumber);
+      const response = await fetch(`${API_BASE}/orders/${encodeURIComponent(orderNumber)}/cancel`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${authToken}` },
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.message || 'Unable to cancel order');
+      setAllOrders((current) => current.map((item) => (
+        (item.orderNumber || item.id) === orderNumber
+          ? { ...item, ...(data.order || {}), status: 'CANCELLED', actions: { canCancel: false, canReturn: false, canReplace: false } }
+          : item
+      )));
+      info('Your order has been cancelled.');
+    } catch (error) {
+      info(error.message || 'Unable to cancel order');
+    } finally {
+      setCancellingOrderNumber('');
+    }
+  };
 
   const ownOrders = user ? orders.filter((order) => {
     const orderUserId = order.userId || order.user?._id || order.user?.id || order.user;
@@ -280,6 +309,16 @@ export default function Orders() {
                         </div>
                       </div>
                     </Link>
+                    {((order.actions?.canCancel ?? ['ORDER_PLACED', 'PAYMENT_CONFIRMED', 'PROCESSING', 'PACKED'].includes(order.status)) && order.status !== 'DELIVERED') && (
+                      <button
+                        type="button"
+                        onClick={(event) => handleCancelOrder(event, order)}
+                        disabled={cancellingOrderNumber === (order.orderNumber || order.id)}
+                        className="mt-4 rounded-xl border border-red-200 px-4 py-2 text-sm font-semibold text-red-700 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        {cancellingOrderNumber === (order.orderNumber || order.id) ? 'Cancelling...' : 'Cancel Order'}
+                      </button>
+                    )}
                   </article>
                 ))}
               </div>
