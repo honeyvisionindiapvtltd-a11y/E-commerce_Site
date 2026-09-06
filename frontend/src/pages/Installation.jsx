@@ -222,7 +222,6 @@ function BookInstallation() {
   // State labels for UI
   const hasNoOrders = allOrdersCount === 0;
   const allOrdersUnpaid = allOrdersCount > 0 && paidOrdersCount === 0;
-  const noPaidWithInstallation = paidOrdersCount > 0 && paidWithInstallationCount === 0;
   const hasSelectableOrders = paidWithInstallationCount > 0;
 
   const today = new Date().toISOString().split("T")[0];
@@ -233,8 +232,6 @@ function BookInstallation() {
   ];
 
   const currentService = services.find((service) => service.id === selectedService);
-  const productPrice = currentService?.price || 0;
-  const quantity = 1;
   const selectedItemLabel = currentService?.title || "Installation Service";
 
   const additionalTotal = useMemo(() => {
@@ -270,15 +267,18 @@ function BookInstallation() {
   const validateCurrentStep = () => {
     const nextErrors = {};
 
-    if (!selectedService) {
-      nextErrors.service = "Please select an installation service.";
-    }
-
-    if (currentStep === 2) {
+    // Step 1: Service and Order Selection
+    if (currentStep === 1) {
+      if (!selectedService) {
+        nextErrors.service = "Please select an installation service.";
+      }
       if (!selectedOrderId || !selectedOrder) {
         nextErrors.orderId = "Please select a paid order for which installation is required.";
       }
+    }
 
+    // Step 2: Customer Details
+    if (currentStep === 2) {
       if (!formData.name.trim()) nextErrors.name = "Full name is required.";
       if (!formData.phone.trim()) nextErrors.phone = "Phone number is required.";
       else if (formData.phone.replace(/\D/g, "").length < 10) nextErrors.phone = "Enter a valid 10-digit phone number.";
@@ -289,9 +289,9 @@ function BookInstallation() {
       if (!formData.state.trim()) nextErrors.state = "State is required.";
       if (!formData.pinCode.trim()) nextErrors.pinCode = "PIN code is required.";
       else if (formData.pinCode.replace(/\D/g, "").length !== 6) nextErrors.pinCode = "Enter a valid 6-digit PIN code.";
-
     }
 
+    // Step 3: Appointment Scheduling
     if (currentStep === 3) {
       if (!formData.preferredDate) nextErrors.preferredDate = "Choose a preferred date.";
       if (!formData.preferredSlot) nextErrors.preferredSlot = "Choose a preferred slot.";
@@ -622,7 +622,12 @@ function BookInstallation() {
 
             {currentStep === 1 && (
               <div>
-                <div className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                <div className="mt-5">
+                  <h3 className="text-sm font-bold text-gray-900">Select Installation Service</h3>
+                  <p className="mt-1 text-xs text-gray-600">Choose the installation service you need.</p>
+                </div>
+
+                <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
                   {services.map((service) => {
                     const Icon = service.icon;
                     const isSelected = selectedService === service.id;
@@ -650,12 +655,8 @@ function BookInstallation() {
                   })}
                 </div>
 
-                <div className="mt-5">
-                  <h3 className="text-sm font-bold">
-                    Additional Services
-                    <span className="font-normal text-gray-500"> (Optional)</span>
-                  </h3>
-
+                <div className="mt-7">
+                  <h3 className="text-sm font-bold text-gray-900">Additional Services (Optional)</h3>
                   <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                     {additionalServices.map((service) => {
                       const checked = selectedAdditional.includes(service.id);
@@ -680,26 +681,12 @@ function BookInstallation() {
                   </div>
                 </div>
 
-                <div className="mt-5 flex justify-end">
-                  <button
-                    type="button"
-                    onClick={handleContinue}
-                    className="flex items-center gap-5 rounded-lg bg-[#03111f] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#10273d]"
-                  >
-                    Continue
-                    <ArrowRight size={17} />
-                  </button>
-                </div>
-              </div>
-            )}
+                <div className="mt-7 rounded-2xl border border-gray-200 bg-gray-50 p-5">
+                  <h3 className="text-sm font-bold text-gray-900">Select Product Order</h3>
+                  <p className="mt-1 text-xs text-gray-600">Choose the paid product order for which you want installation.</p>
 
-            {currentStep === 2 && (
-              <form className="mt-6 space-y-4" onSubmit={(event) => event.preventDefault()}>
-                {hasSelectableOrders ? (
-                  <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
-                    <h3 className="text-sm font-bold text-gray-900">Select a paid product order</h3>
-                    <p className="mt-1 text-xs text-gray-600">Choose the order for which you want to book installation.</p>
-                    <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                  {hasSelectableOrders ? (
+                    <div className="mt-4 grid gap-3 sm:grid-cols-2">
                       {selectableOrders.map((order) => {
                         const orderId = order.id || order.orderNumber || order._id;
                         const orderLabel = order.orderNumber || `Order ${order.id || order._id}`;
@@ -732,36 +719,100 @@ function BookInstallation() {
                             </div>
                             
                             <div className="mt-3 flex flex-wrap items-center gap-2">
-                              <span className="inline-block rounded-full bg-green-100 px-2 py-1 text-[10px] font-semibold text-green-700">Payment Confirmed</span>
+                              <span className="inline-block rounded-full bg-green-100 px-2 py-1 text-[10px] font-semibold text-green-700">PAID</span>
                               <span className="inline-block rounded-full bg-blue-100 px-2 py-1 text-[10px] font-semibold text-blue-700">Installation Available</span>
                             </div>
                           </button>
                         );
                       })}
                     </div>
-                    {errors.orderId && <p className="mt-2 text-sm text-red-600">{errors.orderId}</p>}
+                  ) : hasNoOrders ? (
+                    <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+                      <strong>No product orders found.</strong> Please place and pay for a qualifying product order before booking installation.
+                    </div>
+                  ) : allOrdersUnpaid ? (
+                    <div className="mt-4 rounded-lg border border-yellow-200 bg-yellow-50 p-4 text-sm text-yellow-800">
+                      <strong>Product payment pending.</strong> You have product orders, but installation can only be booked after payment is completed.
+                    </div>
+                  ) : (
+                    <div className="mt-4 rounded-lg border border-orange-200 bg-orange-50 p-4 text-sm text-orange-800">
+                      <strong>Installation not available.</strong> Your paid orders do not contain products currently eligible for installation service.
+                    </div>
+                  )}
+
+                  {errors.orderId && <p className="mt-2 text-sm text-red-600">{errors.orderId}</p>}
+                </div>
+
+                {selectedOrder && (
+                  <div className="mt-5 rounded-lg border border-green-200 bg-green-50 p-4">
+                    <div className="text-xs font-semibold text-gray-600">SELECTED ORDER</div>
+                    <div className="mt-2 text-sm font-bold text-gray-900">{selectedOrder.orderNumber || selectedOrder.id || selectedOrder._id}</div>
+                    <div className="mt-2 space-y-1 text-xs text-gray-700">
+                      {Array.isArray(selectedOrder.items) && selectedOrder.items.map((item, idx) => (
+                        <div key={idx}>
+                          {item.product?.name || item.name} × {item.quantity}
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                ) : hasNoOrders ? (
-                  <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
-                    <strong>No product orders found.</strong> Please place and pay for a qualifying product order first.
+                )}
+
+                <div className="mt-5 flex justify-between">
+                  <button
+                    type="button"
+                    onClick={handleBack}
+                    className="flex items-center gap-2 rounded-lg border border-gray-200 px-5 py-3 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
+                  >
+                    <ArrowLeft size={17} />
+                    Back
+                  </button>
+                  <div className="flex items-center gap-3">
+                    {Object.keys(errors).length > 0 && (
+                      <div className="max-w-sm text-right text-sm font-medium text-red-600">
+                        {Object.values(errors)[0]}
+                      </div>
+                    )}
+                    <button
+                      type="button"
+                      onClick={handleContinue}
+                      disabled={!selectedService || !selectedOrderId || !selectedOrder}
+                      className={`flex items-center gap-2 rounded-lg px-5 py-3 text-sm font-semibold transition ${
+                        selectedService && selectedOrderId && selectedOrder
+                          ? "bg-[#03111f] text-white hover:bg-[#10273d]"
+                          : "bg-gray-300 text-gray-500 cursor-not-allowed"
+                      }`}
+                    >
+                      Continue
+                      <ArrowRight size={17} />
+                    </button>
                   </div>
-                ) : allOrdersUnpaid ? (
-                  <div className="rounded-2xl border border-yellow-200 bg-yellow-50 p-4 text-sm text-yellow-800">
-                    <strong>Product payment pending.</strong> You have orders, but installation can be booked only after product payment is confirmed.
-                  </div>
-                ) : noPaidWithInstallation ? (
-                  <div className="rounded-2xl border border-orange-200 bg-orange-50 p-4 text-sm text-orange-800">
-                    <strong>Installation not available.</strong> Your paid orders do not contain products eligible for installation service.
-                  </div>
-                ) : (
-                  <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4 text-sm text-gray-700">
-                    Loading your orders...
+                </div>
+              </div>
+            )}
+
+            {currentStep === 2 && (
+              <form className="mt-6 space-y-4" onSubmit={(event) => event.preventDefault()}>
+                {selectedOrder && (
+                  <div className="rounded-2xl border border-green-200 bg-green-50 p-4">
+                    <div className="text-xs font-semibold text-gray-600">SELECTED PRODUCT ORDER</div>
+                    <div className="mt-2 text-sm font-bold text-gray-900">{selectedOrder.orderNumber || selectedOrder.id || selectedOrder._id}</div>
+                    <div className="mt-2 space-y-1 text-xs text-gray-700">
+                      {Array.isArray(selectedOrder.items) && selectedOrder.items.map((item, idx) => (
+                        <div key={idx}>
+                          {item.product?.name || item.name} × {item.quantity}
+                        </div>
+                      ))}
+                    </div>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <span className="inline-block rounded-full bg-green-100 px-2 py-1 text-[10px] font-semibold text-green-700">PAID</span>
+                      <span className="inline-block rounded-full bg-blue-100 px-2 py-1 text-[10px] font-semibold text-blue-700">Installation Eligible</span>
+                    </div>
                   </div>
                 )}
 
                 <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <h3 className="text-sm font-bold text-gray-900">Installation location</h3>
+                    <h3 className="text-sm font-bold text-gray-900">Installation Location</h3>
                     <button
                       type="button"
                       onClick={() => setShowLocationSelector(true)}
@@ -810,21 +861,30 @@ function BookInstallation() {
                   {errors.location && <p className="mt-1 text-sm text-red-600">{errors.location}</p>}
                 </div>
 
-                <div className="flex justify-end">
-                  {Object.keys(errors).length > 0 && (
-                    <div data-installation-errors className="mr-4 self-center max-w-sm text-right text-sm font-medium text-red-600">
-                      {Object.values(errors).join(" ")}
-                    </div>
-                  )}
-                  <button 
-                    type="button" 
-                    onClick={handleContinue} 
-                    disabled={!hasSelectableOrders}
-                    className={`flex items-center gap-5 rounded-lg px-5 py-3 text-sm font-semibold transition ${hasSelectableOrders ? "bg-[#03111f] text-white hover:bg-[#10273d]" : "bg-gray-300 text-gray-500 cursor-not-allowed"}`}
+                <div className="flex justify-between">
+                  <button
+                    type="button"
+                    onClick={handleBack}
+                    className="flex items-center gap-2 rounded-lg border border-gray-200 px-5 py-3 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
                   >
-                    Continue
-                    <ArrowRight size={17} />
+                    <ArrowLeft size={17} />
+                    Back
                   </button>
+                  <div className="flex items-center gap-3">
+                    {Object.keys(errors).length > 0 && (
+                      <div data-installation-errors className="max-w-sm text-right text-sm font-medium text-red-600">
+                        {Object.values(errors).join(" ")}
+                      </div>
+                    )}
+                    <button
+                      type="button"
+                      onClick={handleContinue}
+                      className="flex items-center gap-2 rounded-lg bg-[#03111f] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#10273d]"
+                    >
+                      Continue
+                      <ArrowRight size={17} />
+                    </button>
+                  </div>
                 </div>
               </form>
             )}
@@ -871,11 +931,30 @@ function BookInstallation() {
                   />
                 </label>
 
-                <div className="flex justify-end">
-                  <button type="button" onClick={handleContinue} className="flex items-center gap-5 rounded-lg bg-[#03111f] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#10273d]">
-                    Review Booking
-                    <ArrowRight size={17} />
+                <div className="flex justify-between">
+                  <button
+                    type="button"
+                    onClick={handleBack}
+                    className="flex items-center gap-2 rounded-lg border border-gray-200 px-5 py-3 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
+                  >
+                    <ArrowLeft size={17} />
+                    Back
                   </button>
+                  <div className="flex items-center gap-3">
+                    {Object.keys(errors).length > 0 && (
+                      <div className="max-w-sm text-right text-sm font-medium text-red-600">
+                        {Object.values(errors).join(" ")}
+                      </div>
+                    )}
+                    <button 
+                      type="button" 
+                      onClick={handleContinue} 
+                      className="flex items-center gap-2 rounded-lg bg-[#03111f] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#10273d]"
+                    >
+                      Review Booking
+                      <ArrowRight size={17} />
+                    </button>
+                  </div>
                 </div>
               </form>
             )}
