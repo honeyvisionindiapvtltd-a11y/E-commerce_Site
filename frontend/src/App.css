@@ -134,12 +134,106 @@
   animation: floatOrb 12s ease-in-out infinite alternate;
 }
 
+.mobile-benefits-shell {
+  position: relative;
+  overflow: hidden;
+  width: 100%;
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.38);
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  box-shadow: 0 18px 45px rgba(15, 23, 42, 0.06);
+  backdrop-filter: blur(12px);
+  padding: 0.5rem 0;
+}
+
+.mobile-benefits-shell::before,
+.mobile-benefits-shell::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 36px;
+  z-index: 1;
+  pointer-events: none;
+}
+
+.mobile-benefits-shell::before {
+  left: 0;
+  background: linear-gradient(90deg, rgba(248, 250, 252, 1), rgba(248, 250, 252, 0));
+}
+
+.mobile-benefits-shell::after {
+  right: 0;
+  background: linear-gradient(270deg, rgba(248, 250, 252, 1), rgba(248, 250, 252, 0));
+}
+
+.mobile-benefits-track {
+  display: flex;
+  width: max-content;
+  gap: 0.5rem;
+  animation: mobileBenefitsSlide 18s linear infinite;
+}
+
+.mobile-benefit-item {
+  flex: 0 0 auto;
+  width: 180px;
+}
+
 @keyframes floatOrb {
   0% {
     transform: translate3d(0, 0, 0) scale(1);
   }
   100% {
     transform: translate3d(0, -18px, 0) scale(1.08);
+  }
+}
+
+@keyframes mobileBenefitsSlide {
+  0% {
+    transform: translate3d(0, 0, 0);
+  }
+  100% {
+    transform: translate3d(-50%, 0, 0);
+  }
+}
+
+.mobile-offer-card {
+  transform: translateY(0);
+  transition: transform 0.35s ease, box-shadow 0.35s ease;
+}
+
+.mobile-offer-card::before {
+  content: "";
+  position: absolute;
+  inset: -30% auto auto -10%;
+  width: 110px;
+  height: 110px;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.12);
+  filter: blur(16px);
+  animation: mobileGlow 6s ease-in-out infinite alternate;
+}
+
+.mobile-offer-card--dark::before {
+  background: rgba(96, 165, 250, 0.18);
+}
+
+.mobile-offer-card--blue::before {
+  background: rgba(191, 219, 254, 0.2);
+}
+
+.mobile-offer-card--yellow::before {
+  background: rgba(255, 255, 255, 0.22);
+}
+
+@keyframes mobileGlow {
+  0% {
+    transform: translate3d(0, 0, 0) scale(0.95);
+    opacity: 0.7;
+  }
+  100% {
+    transform: translate3d(18px, 10px, 0) scale(1.15);
+    opacity: 1;
   }
 }
 
@@ -152,4 +246,192 @@
   .section-copy {
     font-size: 0.9rem;
   }
+
+  .mobile-offer-card {
+    animation: mobileCardFloat 4s ease-in-out infinite alternate;
+  }
+
+  .mobile-offer-card:nth-child(2) {
+    animation-delay: 0.3s;
+  }
+
+  .mobile-offer-card:nth-child(3) {
+    animation-delay: 0.6s;
+  }
+}
+
+@keyframes mobileCardFloat {
+  0% {
+    transform: translateY(0px) scale(1);
+  }
+  100% {
+    transform: translateY(-4px) scale(1.01);
+  }
+}
+
+/* Project-wide dark theme */
+:root {
+  --theme-bg: #f8fbff;
+  --theme-surface: #ffffff;
+  --theme-surface-raised: #f1f5f9;
+  --theme-border: rgba(148, 163, 184, 0.28);
+  --theme-text: #0f172a;
+  --theme-muted: #475569;
+}
+
+html.dark-theme {
+  color-scheme: dark;
+  --theme-bg: #080f1d;
+  --theme-surface: #101a2b;
+  --theme-surface-raised: #162338;
+  --theme-border: rgba(148, 163, 184, 0.2);
+  --theme-text: #f8fafc;
+  --theme-muted: #a9b6c9;
+}
+
+html.dark-theme,
+html.dark-theme body {
+  background: var(--theme-bg);
+  color: var(--theme-text);
+}
+
+html.dark-theme body {
+  color-scheme: dark;
+}
+
+html.dark-theme .app-shell,
+html.dark-theme .home-shell {
+  background:
+    radial-gradient(circle at top left, rgba(37, 99, 235, 0.16), transparent 30%),
+    radial-gradient(circle at top right, rgba(14, 116, 144, 0.13), transparent 28%),
+    linear-gradient(180deg, #0b1424 0%, #080f1d 100%);
+}
+
+html.dark-theme .home-shell::before {
+  background-image:
+    linear-gradient(rgba(148, 163, 184, 0.07) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(148, 163, 184, 0.07) 1px, transparent 1px);
+}
+
+html.dark-theme .bg-white,
+html.dark-theme .bg-white\/55,
+html.dark-theme .bg-white\/68 {
+  background-color: var(--theme-surface) !important;
+}
+
+html.dark-theme .bg-gray-50,
+html.dark-theme .bg-slate-50,
+html.dark-theme .bg-\[\#f5f7fb\] {
+  background-color: var(--theme-bg) !important;
+}
+
+html.dark-theme .bg-gray-100,
+html.dark-theme .bg-slate-100 {
+  background-color: var(--theme-surface-raised) !important;
+}
+
+html.dark-theme .bg-amber-50,
+html.dark-theme .bg-blue-50,
+html.dark-theme .bg-green-50,
+html.dark-theme .bg-yellow-50,
+html.dark-theme .bg-emerald-50,
+html.dark-theme .bg-sky-50,
+html.dark-theme .bg-rose-50,
+html.dark-theme .bg-purple-50,
+html.dark-theme .bg-\[\#f5f7fb\],
+html.dark-theme .bg-\[\#f5f7fa\],
+html.dark-theme .bg-\[\#f5f7f9\],
+html.dark-theme .bg-\[\#f6f8fb\],
+html.dark-theme .bg-\[\#f8f9fb\],
+html.dark-theme .bg-\[\#f8fafc\],
+html.dark-theme .bg-\[\#f8fbf8\],
+html.dark-theme .bg-\[\#f9fafb\],
+html.dark-theme .bg-\[\#fff7dd\],
+html.dark-theme .bg-\[\#fff7db\],
+html.dark-theme .bg-\[\#fff8df\],
+html.dark-theme .bg-\[\#fffaf0\],
+html.dark-theme .bg-\[\#fffdf5\],
+html.dark-theme .bg-\[\#fffdf6\],
+html.dark-theme .bg-\[\#fff4d6\],
+html.dark-theme .bg-\[\#fff4d0\],
+html.dark-theme .bg-\[\#fff9e8\] {
+  background-color: var(--theme-surface-raised) !important;
+}
+
+html.dark-theme .border-gray-100,
+html.dark-theme .border-gray-200,
+html.dark-theme .border-gray-300,
+html.dark-theme .border-slate-200,
+html.dark-theme .border-slate-300,
+html.dark-theme .border-white\/10,
+html.dark-theme .border-white\/15 {
+  border-color: var(--theme-border) !important;
+}
+
+html.dark-theme .text-black,
+html.dark-theme .text-slate-950,
+html.dark-theme .text-slate-900,
+html.dark-theme .text-slate-800,
+html.dark-theme .text-\[\#071426\],
+html.dark-theme .text-\[\#0A1931\],
+html.dark-theme .text-\[\#111827\],
+html.dark-theme .text-gray-900 {
+  color: var(--theme-text) !important;
+}
+
+html.dark-theme .text-slate-700,
+html.dark-theme .text-slate-600,
+html.dark-theme .text-gray-700,
+html.dark-theme .text-gray-600,
+html.dark-theme .text-gray-500,
+html.dark-theme .text-gray-400 {
+  color: var(--theme-muted) !important;
+}
+
+html.dark-theme input,
+html.dark-theme textarea,
+html.dark-theme select {
+  color: var(--theme-text);
+  background-color: var(--theme-surface);
+  border-color: var(--theme-border);
+}
+
+html.dark-theme input::placeholder,
+html.dark-theme textarea::placeholder {
+  color: #7f8da3;
+}
+
+html.dark-theme table,
+html.dark-theme thead,
+html.dark-theme tbody,
+html.dark-theme tr,
+html.dark-theme th,
+html.dark-theme td {
+  border-color: var(--theme-border) !important;
+}
+
+html.dark-theme .glass-panel,
+html.dark-theme .mobile-benefits-shell {
+  background: rgba(16, 26, 43, 0.78);
+  border-color: var(--theme-border);
+  box-shadow: 0 18px 45px rgba(0, 0, 0, 0.2);
+}
+
+html.dark-theme .mobile-benefits-shell::before {
+  background: linear-gradient(90deg, rgba(8, 15, 29, 1), rgba(8, 15, 29, 0));
+}
+
+html.dark-theme .mobile-benefits-shell::after {
+  background: linear-gradient(270deg, rgba(8, 15, 29, 1), rgba(8, 15, 29, 0));
+}
+
+html.dark-theme button:not([class*="bg-yellow"]):not([class*="bg-amber"]):not([class*="bg-red"]),
+html.dark-theme a[class*="border-gray"],
+html.dark-theme a[class*="border-slate"] {
+  border-color: var(--theme-border);
+}
+
+html.dark-theme ::selection {
+  background: rgba(245, 158, 11, 0.35);
+  color: #fff;
 }

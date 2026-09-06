@@ -57,13 +57,13 @@ export default function TrendingProducts() {
   };
 
   return (
-    <section className="w-full px-3 py-6 sm:px-6">
-      <div className="mb-5 flex items-center justify-between">
-        <h2 className="text-xl font-bold text-slate-900">CCTV & Security Products</h2>
+    <section className="w-full px-3 py-4 sm:px-6 sm:py-6">
+      <div className="mb-3 flex items-center justify-between gap-2 sm:mb-5">
+        <h2 className="text-lg font-bold leading-tight text-slate-900 sm:text-xl">CCTV & Security Products</h2>
 
         <Link
           to="/products"
-          className="text-sm font-semibold text-blue-600 hover:text-amber-500"
+          className="shrink-0 text-xs font-semibold text-blue-600 hover:text-amber-500 sm:text-sm"
         >
           View All Products →
         </Link>
@@ -74,7 +74,7 @@ export default function TrendingProducts() {
           type="button"
           onClick={() => scrollProducts(-1)}
           aria-label="Scroll trending products left"
-          className="absolute left-0 top-1/2 z-10 grid h-10 w-10 -translate-y-1/2 place-items-center rounded-full bg-white text-slate-700 shadow-md transition hover:bg-amber-400 hover:text-slate-950"
+          className="absolute left-0 top-1/2 z-10 grid h-8 w-8 -translate-y-1/2 place-items-center rounded-full bg-white text-slate-700 shadow-md transition hover:bg-amber-400 hover:text-slate-950 sm:h-10 sm:w-10"
         >
           <ChevronRight size={18} className="rotate-180" />
         </button>
@@ -82,13 +82,13 @@ export default function TrendingProducts() {
           type="button"
           onClick={() => scrollProducts(1)}
           aria-label="Scroll trending products right"
-          className="absolute right-0 top-1/2 z-10 grid h-10 w-10 -translate-y-1/2 place-items-center rounded-full bg-white text-slate-700 shadow-md transition hover:bg-amber-400 hover:text-slate-950"
+          className="absolute right-0 top-1/2 z-10 grid h-8 w-8 -translate-y-1/2 place-items-center rounded-full bg-white text-slate-700 shadow-md transition hover:bg-amber-400 hover:text-slate-950 sm:h-10 sm:w-10"
         >
           <ChevronRight size={18} />
         </button>
 
-        <div ref={productRailRef} className="overflow-x-auto pb-2 pl-10 pr-10 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-          <div className="flex min-w-max gap-4">
+        <div ref={productRailRef} className="overflow-x-auto pb-1.5 pl-9 pr-9 sm:pb-2 sm:pl-10 sm:pr-10 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <div className="flex min-w-max gap-2.5 sm:gap-4">
           {trendingProducts.map((product) => {
             const isWishlisted = wishlist.includes(product.id);
             const discount = Math.round(((product.mrp - product.price) / product.mrp) * 100);
@@ -96,50 +96,50 @@ export default function TrendingProducts() {
             return (
               <article
                 key={product.id}
-                className="group relative w-[240px] shrink-0 rounded-xl border border-slate-200 bg-white p-4 transition hover:-translate-y-1 hover:border-amber-300 hover:shadow-lg"
+                className="group relative w-[185px] shrink-0 rounded-xl border border-slate-200 bg-white p-3 transition hover:-translate-y-1 hover:border-amber-300 hover:shadow-lg sm:w-[240px] sm:p-4"
               >
-              <span className="absolute left-3 top-3 rounded bg-red-500 px-2 py-1 text-[10px] font-bold text-white">
+              <span className="absolute left-2 top-2 rounded bg-red-500 px-1.5 py-0.5 text-[9px] font-bold text-white sm:left-3 sm:top-3 sm:px-2 sm:py-1 sm:text-[10px]">
                 {discount}% OFF
               </span>
 
               <button
                 type="button"
                 onClick={() => toggleWishlist(product.id)}
-                className={`absolute right-3 top-3 rounded-full p-2 ${isWishlisted ? "bg-red-50 text-red-500" : "bg-slate-100 text-slate-400 hover:text-red-500"}`}
+                className={`absolute right-2 top-2 rounded-full p-1.5 sm:right-3 sm:top-3 sm:p-2 ${isWishlisted ? "bg-red-50 text-red-500" : "bg-slate-100 text-slate-400 hover:text-red-500"}`}
                 aria-label={`Add ${product.name} to wishlist`}
               >
-                <Heart size={19} fill={isWishlisted ? "currentColor" : "none"} />
+                <Heart size={16} className="sm:h-[19px] sm:w-[19px]" fill={isWishlisted ? "currentColor" : "none"} />
               </button>
 
               <Link to={`/products/${product.id}`}>
                 <img
                   src={product.image}
                   alt={product.name}
-                  className="mt-5 h-35 w-full object-contain transition group-hover:scale-105"
+                  className="mt-4 h-28 w-full object-contain transition group-hover:scale-105 sm:mt-5 sm:h-35"
                 />
 
-                <h3 className="mt-4 min-h-10 text-sm font-semibold text-slate-800">
+                <h3 className="mt-2 min-h-9 text-xs font-semibold leading-4 text-slate-800 sm:mt-4 sm:min-h-10 sm:text-sm sm:leading-normal">
                   {product.name}
                 </h3>
 
-                <div className="mt-2 flex items-center gap-2">
-                  <span className="text-lg font-bold text-slate-900">
+                <div className="mt-1.5 flex items-center gap-1.5 sm:mt-2 sm:gap-2">
+                  <span className="text-base font-bold text-slate-900 sm:text-lg">
                     {money(product.price)}
                   </span>
-                  <span className="text-xs text-slate-400 line-through">
+                  <span className="text-[10px] text-slate-400 line-through sm:text-xs">
                     {money(product.mrp)}
                   </span>
                 </div>
 
-                <div className="mt-3 flex items-center gap-1">
+                <div className="mt-2 flex items-center gap-0.5 sm:mt-3 sm:gap-1">
                   {[1, 2, 3, 4, 5].map((star) => (
                     <Star
                       key={star}
-                      size={14}
-                      className="fill-amber-400 text-amber-400"
+                      size={12}
+                      className="fill-amber-400 text-amber-400 sm:h-[14px] sm:w-[14px]"
                     />
                   ))}
-                  <span className="ml-1 text-xs text-slate-500">
+                  <span className="ml-1 text-[10px] text-slate-500 sm:text-xs">
                     ({product.reviews})
                   </span>
                 </div>
@@ -148,9 +148,9 @@ export default function TrendingProducts() {
                 <button
                   type="button"
                   onClick={() => addToCart(product.id)}
-                  className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg bg-[#071426] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800"
+                  className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-lg bg-[#071426] px-2.5 py-2 text-xs font-semibold text-white transition hover:bg-slate-800 sm:mt-4 sm:gap-2 sm:px-4 sm:py-2.5 sm:text-sm"
                 >
-                  <ShoppingCart size={16} />
+                  <ShoppingCart size={14} className="sm:h-4 sm:w-4" />
                   Add to cart
                 </button>
               </article>

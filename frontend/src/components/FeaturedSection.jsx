@@ -1,12 +1,11 @@
 import {
   Clock3,
   ChevronRight,
-  ShoppingCart,
   Heart,
   Eye,
   Star,
 } from "lucide-react";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { useCommerce } from "../context/index.js";
 import { money, normalizeProduct } from "../lib/products";
@@ -45,9 +44,10 @@ const requestedBrands = [
 ];
 
 export default function FeaturedSection() {
-  const { addToCart, toggleWishlist, wishlist, products } = useCommerce();
+  const { toggleWishlist, wishlist, products } = useCommerce();
   const brandRailRef = useRef(null);
   const [draggingBrands, setDraggingBrands] = useState(false);
+  const [saleSeconds, setSaleSeconds] = useState((12 * 24 * 60 * 60) + (8 * 60 * 60) + (45 * 60) + 21);
   const dragState = useRef({ active: false, startX: 0, startScroll: 0 });
   const brands = requestedBrands.map((name) => ({
     name,
@@ -70,6 +70,22 @@ export default function FeaturedSection() {
     dragState.current.active = false;
     setDraggingBrands(false);
   };
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      setSaleSeconds((remaining) => Math.max(remaining - 1, 0));
+    }, 1000);
+
+    return () => window.clearInterval(timer);
+  }, []);
+
+  const saleTime = [
+    Math.floor(saleSeconds / 86400),
+    Math.floor((saleSeconds % 86400) / 3600),
+    Math.floor((saleSeconds % 3600) / 60),
+    saleSeconds % 60,
+  ];
+  const saleLabels = ["Days", "Hours", "Minutes", "Seconds"];
   const isCameraOnlyProduct = (product) => {
     const haystack = `${product?.name || ""} ${product?.category || ""} ${product?.subCategory || ""}`.toLowerCase();
 
@@ -116,205 +132,189 @@ export default function FeaturedSection() {
   const finalProductsToShow = selectMixedBrandProducts(normalizedProducts, 18);
 
   return (
-    <section className="py-20 bg-gray-50">
-
-      <div className="max-w-7xl mx-auto px-6">
-
-        {/* Heading */}
-
-        <div className="flex justify-between items-center">
-
+    <section className="bg-gray-50 py-12 sm:py-16 lg:py-20">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
-
-            <p className="text-yellow-500 uppercase font-semibold">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-yellow-500 sm:text-sm">
               Trusted CCTV Brands
             </p>
 
-            <h2 className="text-4xl font-bold mt-2">
+            <h2 className="mt-2 text-2xl font-bold text-slate-900 sm:text-3xl lg:text-4xl">
               Shop by Top Security Brands
             </h2>
-
           </div>
 
-          <Link to="/brands" className="flex items-center gap-2 font-semibold text-slate-900 hover:text-amber-600">
+          <Link
+            className="inline-flex items-center gap-2 text-sm font-semibold text-slate-900 hover:text-amber-600"
+            to="/brands"
+          >
             View All Brands
             <ChevronRight size={18} />
           </Link>
-
         </div>
 
-        {/* Brands */}
+        <div className="relative mt-6 sm:mt-10" aria-label="Shop products by brand">
+          <button
+            type="button"
+            onClick={() => scrollBrands(-1)}
+            aria-label="Scroll brands left"
+            className="absolute left-2 top-1/2 z-10 grid h-8 w-8 -translate-y-1/2 place-items-center rounded-full bg-white text-slate-700 shadow-md transition hover:bg-amber-400 hover:text-slate-950 sm:h-9 sm:w-9"
+          >
+            <ChevronRight size={16} className="rotate-180" />
+          </button>
+          <button
+            type="button"
+            onClick={() => scrollBrands(1)}
+            aria-label="Scroll brands right"
+            className="absolute right-2 top-1/2 z-10 grid h-8 w-8 -translate-y-1/2 place-items-center rounded-full bg-white text-slate-700 shadow-md transition hover:bg-amber-400 hover:text-slate-950 sm:h-9 sm:w-9"
+          >
+            <ChevronRight size={16} />
+          </button>
 
-        <div className="relative mt-10" aria-label="Shop products by brand">
-          <button type="button" onClick={() => scrollBrands(-1)} aria-label="Scroll brands left" className="absolute left-2 top-1/2 z-10 grid h-9 w-9 -translate-y-1/2 place-items-center rounded-full bg-white text-slate-700 shadow-md transition hover:bg-amber-400 hover:text-slate-950">
-            <ChevronRight size={18} className="rotate-180" />
-          </button>
-          <button type="button" onClick={() => scrollBrands(1)} aria-label="Scroll brands right" className="absolute right-2 top-1/2 z-10 grid h-9 w-9 -translate-y-1/2 place-items-center rounded-full bg-white text-slate-700 shadow-md transition hover:bg-amber-400 hover:text-slate-950">
-            <ChevronRight size={18} />
-          </button>
           <div
             ref={brandRailRef}
-            className={`brand-marquee mt-10 ${draggingBrands ? "cursor-grabbing" : "cursor-grab"}`}
+            className={`brand-marquee mt-6 sm:mt-10 ${draggingBrands ? "cursor-grabbing" : "cursor-grab"}`}
             onPointerDown={startBrandDrag}
             onPointerMove={moveBrandDrag}
             onPointerUp={stopBrandDrag}
             onPointerCancel={stopBrandDrag}
             onPointerLeave={stopBrandDrag}
           >
-          <div className="brand-marquee-track">
-            {[...brands, ...brands].map((brand, index) => (
-              <Link
-                key={`${brand.name}-${index}`}
-                to={`/products?brand=${encodeURIComponent(brand.name)}`}
-                aria-label={`Shop ${brand.name} products`}
-                onPointerDown={(event) => event.stopPropagation()}
-                className="brand-marquee-card bg-white rounded-2xl p-6 shadow hover:shadow-xl transition flex items-center justify-center"
-              >
-                <img
-                  src={brand.logo}
-                  alt={brand.name}
-                  draggable="false"
-                  className="h-10 object-contain"
-                />
-              </Link>
-            ))}
-          </div>
+            <div className="brand-marquee-track">
+              {[...brands, ...brands].map((brand, index) => (
+                <Link
+                  key={`${brand.name}-${index}`}
+                  to={`/products?brand=${encodeURIComponent(brand.name)}`}
+                  aria-label={`Shop ${brand.name} products`}
+                  onPointerDown={(event) => event.stopPropagation()}
+                  className="brand-marquee-card flex items-center justify-center rounded-2xl bg-white p-3 shadow transition hover:shadow-xl sm:p-6"
+                >
+                  <img
+                    src={brand.logo}
+                    alt={brand.name}
+                    draggable="false"
+                    className="h-8 object-contain sm:h-10"
+                  />
+                </Link>
+              ))}
           </div>
         </div>
+        </div>
 
-        {/* Flash Sale */}
-
-        <div className="mt-20 rounded-3xl bg-[#0A1931] text-white p-10 flex flex-col lg:flex-row justify-between items-center">
-
+        <div className="mt-10 rounded-3xl bg-[#0A1931] p-5 text-white sm:mt-14 sm:p-8 lg:mt-20 lg:flex lg:items-center lg:justify-between lg:p-10">
           <div>
-
-            <p className="text-yellow-400 font-semibold">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-yellow-400 sm:text-sm">
               FLASH SALE
             </p>
 
-            <h2 className="text-4xl font-bold mt-3">
+            <h2 className="mt-2 text-2xl font-bold sm:text-3xl lg:text-4xl">
               Up to 40% OFF
             </h2>
 
-            <p className="mt-4 text-gray-300">
+            <p className="mt-2 text-xs text-gray-300 sm:mt-4 sm:text-sm">
               CCTV • Laptops • Networking • Drones • Gaming
             </p>
-
           </div>
 
-          <div className="flex gap-5 mt-8 lg:mt-0">
-
-            {["12", "08", "45", "21"].map((item, index) => (
-
+          <div className="mt-6 flex gap-2.5 sm:mt-8 lg:mt-0 lg:gap-5">
+            {saleTime.map((item, index) => (
               <div
                 key={index}
-                className="bg-white text-black rounded-xl w-20 h-20 flex flex-col justify-center items-center"
+                aria-label={`${String(item).padStart(2, "0")} ${saleLabels[index]}`}
+                className="flex h-14 w-14 flex-col items-center justify-center rounded-xl bg-white text-black sm:h-16 sm:w-16 lg:h-20 lg:w-20"
               >
-                <Clock3 size={18}/>
-                <span className="text-2xl font-bold">
-                  {item}
+                <Clock3 size={14} />
+                <span className="text-base font-bold sm:text-xl lg:text-2xl">
+                  {String(item).padStart(2, "0")}
                 </span>
+                <span className="sr-only">{saleLabels[index]}</span>
               </div>
-
             ))}
-
           </div>
 
         </div>
-
-        {/* Featured Products */}
-
-        <div className="relative mt-16">
+        <div className="relative mt-10 sm:mt-16">
           <button
             type="button"
             onClick={() => scrollProducts(-1)}
-            aria-label="Scroll featured products left"
-            className="absolute left-2 top-1/2 z-10 grid h-10 w-10 -translate-y-1/2 place-items-center rounded-full bg-white text-slate-700 shadow-md transition hover:bg-amber-400 hover:text-slate-950"
+            className="absolute left-2 top-1/2 z-10 grid h-8 w-8 -translate-y-1/2 place-items-center rounded-full bg-white text-slate-700 shadow-md transition hover:bg-amber-400 hover:text-slate-950 sm:h-10 sm:w-10"
           >
-            <ChevronRight size={18} className="rotate-180" />
+            <ChevronRight size={16} className="rotate-180" />
           </button>
           <button
             type="button"
             onClick={() => scrollProducts(1)}
             aria-label="Scroll featured products right"
-            className="absolute right-2 top-1/2 z-10 grid h-10 w-10 -translate-y-1/2 place-items-center rounded-full bg-white text-slate-700 shadow-md transition hover:bg-amber-400 hover:text-slate-950"
+            className="absolute right-2 top-1/2 z-10 grid h-8 w-8 -translate-y-1/2 place-items-center rounded-full bg-white text-slate-700 shadow-md transition hover:bg-amber-400 hover:text-slate-950 sm:h-10 sm:w-10"
           >
-            <ChevronRight size={18} />
+            <ChevronRight size={16} />
           </button>
 
-          <div ref={productRailRef} className="overflow-x-auto pb-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden px-10">
-            <div className="flex min-w-max gap-5">
+          <div ref={productRailRef} className="overflow-x-auto pb-2 px-8 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:px-10">
+            <div className="flex min-w-max gap-3 sm:gap-5">
+              {finalProductsToShow.map((item) => {
+                const isWishlisted = wishlist.includes(item.id);
+                const discount = Math.max(5, Math.round(((item.mrp - item.price) / Math.max(item.mrp, 1)) * 100));
 
-            {finalProductsToShow.map((item) => {
-              const isWishlisted = wishlist.includes(item.id);
-              const discount = Math.max(5, Math.round(((item.mrp - item.price) / Math.max(item.mrp, 1)) * 100));
-
-              return (
-                <div
-                  key={item.id}
-                  className="group relative w-[230px] shrink-0 overflow-hidden rounded-[26px] border border-slate-200 bg-white shadow-[0_8px_24px_rgba(15,23,42,0.06)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_12px_28px_rgba(15,23,42,0.12)]"
-                >
-                  <div className="absolute left-3 top-3 z-10 rounded bg-red-500 px-2 py-1 text-[10px] font-bold text-white">
-                    {discount}% OFF
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={() => toggleWishlist(item.id)}
-                    className={`absolute right-3 top-3 z-10 rounded-full p-2 shadow-sm transition ${isWishlisted ? "bg-red-50 text-red-500" : "bg-white/90 text-slate-500 hover:text-red-500"}`}
-                    aria-label={`Toggle wishlist for ${item.name}`}
+                return (
+                  <div
+                    key={item.id}
+                    className="group relative w-[180px] shrink-0 overflow-hidden rounded-[22px] border border-sky-100 bg-gradient-to-b from-white via-sky-50 to-slate-50 shadow-[0_10px_28px_rgba(15,23,42,0.08)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_16px_32px_rgba(14,116,144,0.12)] sm:w-[230px]"
                   >
-                    <Heart size={16} fill={isWishlisted ? "currentColor" : "none"} />
-                  </button>
-
-                  <div className="bg-slate-100 p-4 pt-10">
-                    <Link to={`/products/${item.id}`} className="block">
-                      <img
-                        src={item.image}
-                        className="mx-auto h-36 object-contain transition duration-500 group-hover:scale-105"
-                        alt={item.name}
-                      />
-                    </Link>
-                  </div>
-
-                  <div className="p-4">
-                    <div className="flex items-center gap-1 text-yellow-500">
-                      <Star fill="currentColor" size={13} />
-                      <span className="text-xs font-medium text-slate-700">{item.rating}</span>
-                    </div>
-
-                    <Link to={`/products/${item.id}`} className="mt-3 block text-sm font-semibold leading-snug text-slate-800 transition hover:text-amber-600">
-                      {item.name}
-                    </Link>
-
-                    <div className="mt-3 flex items-center gap-2">
-                      <span className="text-xl font-bold text-[#0A1931]">
-                        {money(item.price)}
-                      </span>
-                      <span className="text-xs text-slate-400 line-through">
-                        {money(item.mrp)}
-                      </span>
+                    <div className="absolute left-3 top-3 z-10 rounded bg-emerald-100 px-2 py-1 text-[10px] font-bold text-emerald-700 ring-1 ring-emerald-200">
+                      {discount}% OFF
                     </div>
 
                     <button
                       type="button"
-                      onClick={() => addToCart(item.id)}
-                      className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-[#071426] px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800"
+                      onClick={() => toggleWishlist(item.id)}
+                      className={`absolute right-3 top-3 z-10 rounded-full p-2 shadow-sm transition ${isWishlisted ? "bg-red-50 text-red-500" : "bg-white/90 text-slate-500 hover:text-red-500"}`}
+                      aria-label={`Toggle wishlist for ${item.name}`}
                     >
-                      <ShoppingCart size={15} />
-                      Add to cart
+                      <Heart size={14} fill={isWishlisted ? "currentColor" : "none"} />
                     </button>
-                  </div>
-                </div>
-              );
-            })}
 
+                    <div className="bg-white p-3 pt-8 sm:p-4 sm:pt-10">
+                      <Link to={`/products/${item.id}`} className="block">
+                        <img
+                          src={item.image}
+                          className="mx-auto h-28 rounded-xl object-contain transition duration-500 group-hover:scale-105 sm:h-36"
+                          alt={item.name}
+                        />
+                      </Link>
+                    </div>
+
+                    <div className="p-3 sm:p-4">
+                      <div className="flex items-center gap-1 text-yellow-500">
+                        <Star fill="currentColor" size={12} />
+                        <span className="text-[11px] font-medium text-slate-700 sm:text-xs">{item.rating}</span>
+                      </div>
+
+                      <Link
+                        to={`/products/${item.id}`}
+                        className="mt-2 block text-xs font-semibold leading-snug text-slate-800 transition hover:text-amber-600 sm:mt-3 sm:text-sm"
+                      >
+                        {item.name}
+                      </Link>
+
+                      <div className="mt-2 flex items-center gap-2 sm:mt-3">
+                        <span className="text-base font-bold text-[#0A1931] sm:text-xl">
+                          {money(item.price)}
+                        </span>
+                        <span className="text-[10px] text-slate-400 line-through sm:text-xs">
+                          {money(item.mrp)}
+                        </span>
+                      </div>
+
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
         </div>
-
       </div>
-
     </section>
   );
 }
