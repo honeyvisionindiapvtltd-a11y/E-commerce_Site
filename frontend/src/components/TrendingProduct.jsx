@@ -1,4 +1,4 @@
-import { Heart, Star, ShoppingCart, ChevronRight } from "lucide-react";
+import { Heart, Star, ChevronRight } from "lucide-react";
 import { useRef } from "react";
 import { Link } from "react-router-dom";
 import { useCommerce } from "../context/index.js";
@@ -46,7 +46,7 @@ const selectMixedBrandProducts = (items, limit = 18) => {
 };
 
 export default function TrendingProducts() {
-  const { addToCart, toggleWishlist, wishlist, products } = useCommerce();
+  const { toggleWishlist, wishlist, products } = useCommerce();
   const productRailRef = useRef(null);
   const allProducts = (Array.isArray(products) ? products : []).map(normalizeProduct).filter(Boolean);
   const cameraProducts = allProducts.filter(isCameraOnlyProduct);
@@ -145,14 +145,6 @@ export default function TrendingProducts() {
                 </div>
               </Link>
 
-                <button
-                  type="button"
-                  onClick={() => addToCart(product.id)}
-                  className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-lg bg-[#071426] px-2.5 py-2 text-xs font-semibold text-white transition hover:bg-slate-800 sm:mt-4 sm:gap-2 sm:px-4 sm:py-2.5 sm:text-sm"
-                >
-                  <ShoppingCart size={14} className="sm:h-4 sm:w-4" />
-                  Add to cart
-                </button>
               </article>
             );
           })}

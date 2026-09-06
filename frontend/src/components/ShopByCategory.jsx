@@ -16,7 +16,7 @@ export default function ShopByCategory() {
 
     const loadCategories = async () => {
       try {
-        const response = await fetch(`${API_BASE}/categories/tree`);
+        const response = await fetch(`${API_BASE}/categories/tree?light=true`);
         if (!response.ok) {
           throw new Error("Failed to load categories");
         }

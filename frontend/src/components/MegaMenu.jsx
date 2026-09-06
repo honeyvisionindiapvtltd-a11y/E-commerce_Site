@@ -2,10 +2,9 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { slugifyCategory } from '../lib/products';
 
-const API_BASE = '/api';
-let categoryTreePromise;
+const API_BASE = import.meta.env.VITE_API_URL || '/api';
 
-export default function MegaMenu({ onSelect } = {}) {
+export default function MegaMenu({ onSelect }) {
   const [tree, setTree] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -13,16 +12,12 @@ export default function MegaMenu({ onSelect } = {}) {
     let ignore = false;
     const load = async () => {
       try {
-        if (!categoryTreePromise) {
-          categoryTreePromise = fetch(`${API_BASE}/categories/tree`).then((res) => {
-            if (!res.ok) throw new Error('Failed');
-            return res.json();
-          });
-        }
-        const data = await categoryTreePromise;
+        const res = await fetch(`${API_BASE}/categories/tree?light=true`);
+        if (!res.ok) throw new Error('Failed');
+        const data = await res.json();
         if (!ignore) setTree(data.categories || data.data || []);
       } catch (e) {
-        categoryTreePromise = null;
+        // ignore
       } finally {
         if (!ignore) setLoading(false);
       }
@@ -34,31 +29,20 @@ export default function MegaMenu({ onSelect } = {}) {
   if (loading) return <div className="p-4 text-sm">Loading...</div>;
 
   return (
-    <div className="grid grid-cols-3 gap-4 p-5 text-slate-800">
+    <div className="grid grid-cols-1 gap-4 p-3 text-slate-800 sm:grid-cols-2 sm:p-5 lg:grid-cols-3">
       {tree.slice(0, 12).map((cat) => (
         <div key={cat._id || cat.slug}>
-          <Link
-            to={`/products?category=${encodeURIComponent(cat.slug)}`}
-            onClick={(event) => {
-              if (!onSelect) return;
-              event.preventDefault();
-              onSelect({ categorySlug: cat.slug });
-            }}
-            className="mb-2 block cursor-pointer font-semibold hover:text-yellow-500"
-          >
-            {cat.name}
-          </Link>
-          <ul className="space-y-1 text-sm">
-            {(cat.subcategories || cat.children || []).slice(0, 6).map((sub) => (
+          <h4 className="mb-2 font-bold">{cat.name}</h4>
+          <ul className="space-y-1 text-sm font-normal">
+            {(cat.children || []).slice(0, 6).map((sub) => (
               <li key={sub._id || sub.slug}>
                 <Link
-                  to={`/products?category=${encodeURIComponent(cat.slug)}&subCategory=${encodeURIComponent(sub.slug || slugifyCategory(sub.name))}`}
-                  onClick={(event) => {
-                    if (!onSelect) return;
-                    event.preventDefault();
-                    onSelect({ categorySlug: cat.slug, subCategorySlug: sub.slug || slugifyCategory(sub.name) });
-                  }}
-                  className="block cursor-pointer pointer-events-auto hover:text-yellow-500"
+                  to={`/products?category=${slugifyCategory(cat.name)}&subCategory=${slugifyCategory(sub.name)}`}
+                  onClick={() => onSelect?.({
+                    categorySlug: slugifyCategory(cat.name),
+                    subCategorySlug: slugifyCategory(sub.name),
+                  })}
+                  className="block rounded-md px-2 py-1.5 font-normal transition hover:bg-yellow-50 hover:text-yellow-600"
                 >
                   {sub.name}
                 </Link>

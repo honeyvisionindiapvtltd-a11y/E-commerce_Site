@@ -46,27 +46,17 @@ export function CatalogProvider({ children }) {
 
     const loadProducts = async () => {
       try {
-        const response = await fetch(`${API_BASE}/products?limit=100&page=1`);
+        const response = await fetch(`${API_BASE}/products?page=1&limit=24`);
         if (!response.ok) throw new Error("Failed to fetch products");
 
-        const firstPage = await response.json();
-        const getProducts = (data) =>
-          Array.isArray(data.products)
-            ? data.products
-            : Array.isArray(data.items)
+        const data = await response.json();
+        const apiProducts = Array.isArray(data?.products)
+          ? data.products
+          : Array.isArray(data?.items)
             ? data.items
-            : Array.isArray(data.data)
-            ? data.data
-            : [];
-        const totalPages = Math.max(1, Number(firstPage.totalPages) || 1);
-        const remainingPages = await Promise.all(
-          Array.from({ length: totalPages - 1 }, (_, index) =>
-            fetch(`${API_BASE}/products?limit=100&page=${index + 2}`)
-              .then((pageResponse) => (pageResponse.ok ? pageResponse.json() : null))
-              .catch(() => null)
-          )
-        );
-        const apiProducts = [firstPage, ...remainingPages].flatMap((page) => (page ? getProducts(page) : []));
+            : Array.isArray(data?.data)
+              ? data.data
+              : [];
 
         if (!ignore) {
           setProducts((apiProducts.length ? apiProducts : fallbackProducts).map(normalizeProduct));
