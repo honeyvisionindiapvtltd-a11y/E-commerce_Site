@@ -23,6 +23,8 @@ const getSafeUser = (user) => ({
   role: user.role || 'customer',
   status: user.status || 'Active',
   emailVerified: user.emailVerified,
+  authProvider: user.authProvider || 'password',
+  lastLoginAt: user.lastLoginAt || null,
 });
 
 const getProfile = (user) => ({
@@ -170,6 +172,7 @@ router.post('/register', async (req, res) => {
       interest: interest || 'AI Cameras',
       role: normalizedRole,
       status: 'Active',
+      authProvider: 'password',
       profile: {
         fullName: name,
         email: normalizedEmail,
@@ -222,6 +225,10 @@ router.post('/login', async (req, res) => {
       return res.status(401).json({ message: 'Invalid email or password.' });
     }
 
+    user.authProvider = 'password';
+    user.lastLoginAt = new Date();
+    await user.save();
+
     res.json(createAuthResponse(user));
   } catch (error) {
     console.error('Login error:', error);
@@ -259,6 +266,7 @@ router.post('/google', async (req, res) => {
         phone: `google-${crypto.randomUUID()}`,
         role: 'customer',
         status: 'Active',
+        authProvider: 'google',
         emailVerified: true,
         profile: {
           fullName: name,
@@ -270,6 +278,10 @@ router.post('/google', async (req, res) => {
       user.setPassword(crypto.randomUUID());
       await user.save();
     }
+
+    user.authProvider = 'google';
+    user.lastLoginAt = new Date();
+    await user.save();
 
     res.json(createAuthResponse(user));
   } catch (error) {
@@ -505,6 +517,13 @@ router.get('/customers', authMiddleware, requireAdmin, async (req, res) => {
     spent: Number(user.spent || 0),
     status: user.status || 'Active',
     joined: user.profile?.memberSince || user.createdAt || '2026',
+    authProvider: user.authProvider || 'password',
+    lastLoginAt: user.lastLoginAt || null,
+    location: user.addresses?.find((address) => address.isDefault)?.formattedAddress
+      || user.addresses?.find((address) => address.isDefault)?.city
+      || user.profile?.location
+      || [user.profile?.city, user.profile?.state].filter(Boolean).join(', ')
+      || 'Not provided',
   }));
 
   res.json({ customers });

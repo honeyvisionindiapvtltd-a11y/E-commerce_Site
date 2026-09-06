@@ -83,7 +83,7 @@ export default function PaymentSuccess() {
 
     try {
       const resp = await fetch(
-        `/api/payments/order/${encodeURIComponent(orderId)}/invoice`
+        `${API_BASE}/payments/order/${encodeURIComponent(orderId)}/invoice`
       );
 
       if (!resp.ok) {

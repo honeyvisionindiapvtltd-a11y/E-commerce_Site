@@ -488,15 +488,21 @@ export function CommerceProvider({ children }) {
   };
 
   const applyAuthResponse = (data) => {
+    const responseUser = data?.user || {};
+    const userId = String(responseUser.id || responseUser._id || "");
+
+    if (!userId) {
+      throw new Error("Login response did not include a user ID.");
+    }
 
     setStore((current) => {
       const userStates = current.userStates || {};
-      const userState = userStates[data.user.id] || {};
+      const userState = userStates[userId] || {};
 
       return {
         ...current,
         isLoggedIn: true,
-        user: data.user,
+        user: { ...responseUser, id: userId },
         authToken: data.token,
         profile: sanitizeProfile(data.profile || {}),
         cart: userState.cart || current.cart || [],
@@ -506,7 +512,7 @@ export function CommerceProvider({ children }) {
         addresses: userState.addresses || current.addresses || defaultAddresses,
         userStates: {
           ...userStates,
-          [data.user.id]: {
+          [userId]: {
             ...userState,
             cart: userState.cart || current.cart || [],
             wishlist: userState.wishlist || current.wishlist || [],
@@ -518,7 +524,7 @@ export function CommerceProvider({ children }) {
       };
     });
 
-    return data.user;
+    return { ...responseUser, id: userId };
   };
 
   const loginWithGoogle = async (credential) => {
@@ -536,14 +542,21 @@ export function CommerceProvider({ children }) {
       body: JSON.stringify(payload),
     });
 
+    const responseUser = data?.user || {};
+    const userId = String(responseUser.id || responseUser._id || "");
+
+    if (!userId) {
+      throw new Error("Registration response did not include a user ID.");
+    }
+
     setStore((current) => {
       const userStates = current.userStates || {};
-      const userState = userStates[data.user.id] || {};
+      const userState = userStates[userId] || {};
 
       return {
         ...current,
         isLoggedIn: true,
-        user: data.user,
+        user: { ...responseUser, id: userId },
         authToken: data.token,
         profile: sanitizeProfile(data.profile || {}),
         cart: userState.cart || current.cart || [],
@@ -553,7 +566,7 @@ export function CommerceProvider({ children }) {
         addresses: userState.addresses || current.addresses || defaultAddresses,
         userStates: {
           ...userStates,
-          [data.user.id]: {
+          [userId]: {
             ...userState,
             cart: userState.cart || current.cart || [],
             wishlist: userState.wishlist || current.wishlist || [],
@@ -565,7 +578,7 @@ export function CommerceProvider({ children }) {
       };
     });
 
-    return data.user;
+    return { ...responseUser, id: userId };
   };
 
   const requestPasswordReset = async (email) => {

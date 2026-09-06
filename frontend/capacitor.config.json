@@ -1,0 +1,38 @@
+{
+  "appId": "in.honeyvision.app",
+  "appName": "HoneyVision",
+  "webDir": "dist",
+  "bundledWebRuntime": false,
+  "server": {
+    "androidScheme": "http",
+    "cleartext": true
+  },
+  "android": {
+    "allowMixedContent": true,
+    "captureInput": true,
+    "webContentsDebuggingEnabled": false
+  },
+  "ios": {
+    "limitsNavigationsToAppBoundDomains": true
+  },
+  "plugins": {
+    "App": {},
+    "Camera": {
+      "saveToGallery": true
+    },
+    "Geolocation": {},
+    "LocalNotifications": {},
+    "Keyboard": {
+      "resize": "native",
+      "resizeOnFullScreen": true
+    },
+    "StatusBar": {
+      "style": "dark",
+      "backgroundColor": "#ffffff",
+      "overlaysWebView": false
+    },
+    "PushNotifications": {
+      "presentationOptions": ["badge", "sound", "alert"]
+    }
+  }
+}

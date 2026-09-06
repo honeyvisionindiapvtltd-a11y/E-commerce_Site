@@ -14,7 +14,7 @@ export default function ProductGrid({ products = [], gridView = true }) {
   return (
     <div>
       {gridView ? (
-        <div className={`grid gap-6 sm:grid-cols-2 xl:grid-cols-3`}>
+        <div className="grid grid-cols-2 gap-0 sm:gap-5 md:grid-cols-3 xl:grid-cols-3">
           {products.map((p) => (
             <ProductCard key={p._id || p.id || p.slug || p.name} product={p} onQuickView={onQuickView} />
           ))}

@@ -1,24 +1,48 @@
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { slugifyCategory } from "../lib/products";
 
-const categories = [
-  ["Laptops", "https://res.cloudinary.com/vhrkwyzs/image/upload/v1786010029/laptop_ktvxcs.png"],
-  ["Desktop PCs", "https://res.cloudinary.com/vhrkwyzs/image/upload/v1786010023/networking_ozm2kk.jpg"],
-  ["Components", "https://res.cloudinary.com/vhrkwyzs/image/upload/v1786010026/components_hlmuj1.jpg"],
-  ["Networking", "https://res.cloudinary.com/vhrkwyzs/image/upload/v1786010023/assesories_eizhmq.jpg"],
-  ["CCTV & Security", "https://res.cloudinary.com/vhrkwyzs/image/upload/v1786010027/cctv_y2raii.jpg"],
-  ["Drones & Cameras", "https://res.cloudinary.com/vhrkwyzs/image/upload/v1786010025/drones_lcgqbs.jpg"],
-  ["Accessories", "https://res.cloudinary.com/vhrkwyzs/image/upload/v1786012476/headphone_ami4sj.webp"],
-  ["Office Equipment", "https://res.cloudinary.com/vhrkwyzs/image/upload/v1786010025/officeeqp0.124_voj31y.jpg"],
-  ["Power Backup", "https://res.cloudinary.com/vhrkwyzs/image/upload/v1786010026/power_bank_kqypks.jpg"],
-  ["Display", "https://res.cloudinary.com/vhrkwyzs/image/upload/v1786010024/display_rar3xa.webp"],
-];
-
+const API_BASE = import.meta.env.VITE_API_URL || "/api";
+const FALLBACK_CATEGORY_IMAGE = "https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=600&q=80";
 
 export default function ShopByCategory() {
   const scrollRef = useRef(null);
+  const [categories, setCategories] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let ignore = false;
+
+    const loadCategories = async () => {
+      try {
+        const response = await fetch(`${API_BASE}/categories/tree`);
+        if (!response.ok) {
+          throw new Error("Failed to load categories");
+        }
+
+        const data = await response.json();
+        const tree = Array.isArray(data?.categories) ? data.categories : [];
+
+        if (!ignore) {
+          setCategories(
+            tree.filter((category) => category && category.name && category.isActive !== false).slice(0, 12)
+          );
+        }
+      } catch (error) {
+        console.error("Failed to load shop categories:", error);
+        if (!ignore) setCategories([]);
+      } finally {
+        if (!ignore) setLoading(false);
+      }
+    };
+
+    loadCategories();
+
+    return () => {
+      ignore = true;
+    };
+  }, []);
 
   const scroll = (direction) => {
     scrollRef.current?.scrollBy({
@@ -37,6 +61,7 @@ export default function ShopByCategory() {
             <button
               onClick={() => scroll("left")}
               className="grid h-8 w-8 place-items-center rounded-full border border-slate-200 text-slate-500 hover:bg-amber-500 hover:text-white"
+              type="button"
             >
               <ChevronLeft size={18} />
             </button>
@@ -44,34 +69,55 @@ export default function ShopByCategory() {
             <button
               onClick={() => scroll("right")}
               className="grid h-8 w-8 place-items-center rounded-full border border-slate-200 text-slate-500 hover:bg-amber-500 hover:text-white"
+              type="button"
             >
               <ChevronRight size={18} />
             </button>
           </div>
         </div>
 
-        <div
-          ref={scrollRef}
-          className="flex gap-3 overflow-x-auto scroll-smooth pb-2 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
-        >
-          {categories.map(([name, image]) => (
-            <Link
-              key={name}
-              to={`/products?category=${slugifyCategory(name)}`}
-              className="group min-w-35 rounded-xl border border-slate-200 bg-white p-3 text-center transition hover:-translate-y-1 hover:border-amber-300 hover:shadow-md"
-            >
-              <img
-                src={image}
-                alt={name}
-                className="mx-auto h-20 w-28 object-contain transition group-hover:scale-105"
-              />
-              <p className="mt-3 text-sm font-semibold text-slate-700">
-                {name}
-              </p>
-              <div className="mx-auto mt-2 h-0.5 w-7 bg-amber-300" />
-            </Link>
-          ))}
-        </div>
+        {loading ? (
+          <div className="flex gap-3 overflow-x-auto pb-2">
+            {Array.from({ length: 6 }).map((_, index) => (
+              <div key={index} className="min-w-35 rounded-xl border border-slate-200 bg-slate-100 p-3">
+                <div className="mx-auto h-20 w-28 animate-pulse rounded-lg bg-slate-200" />
+                <div className="mt-3 h-4 w-20 animate-pulse rounded bg-slate-200" />
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div
+            ref={scrollRef}
+            className="flex gap-3 overflow-x-auto scroll-smooth pb-2 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
+          >
+            {categories.map((category) => {
+              const firstSubcategory = category.subcategories?.[0];
+              const image = category.image || category.icon || firstSubcategory?.image || FALLBACK_CATEGORY_IMAGE;
+              const route = firstSubcategory
+                ? `/products?category=${slugifyCategory(category.name)}&subCategory=${slugifyCategory(firstSubcategory.name)}`
+                : `/products?category=${slugifyCategory(category.name)}`;
+
+              return (
+                <Link
+                  key={category._id || category.slug || category.name}
+                  to={route}
+                  className="group min-w-35 rounded-xl border border-slate-200 bg-white p-3 text-center transition hover:-translate-y-1 hover:border-amber-300 hover:shadow-md"
+                >
+                  <img
+                    src={image}
+                    alt={category.name}
+                    className="mx-auto h-20 w-28 object-cover transition group-hover:scale-105"
+                    onError={(event) => {
+                      event.currentTarget.src = FALLBACK_CATEGORY_IMAGE;
+                    }}
+                  />
+                  <p className="mt-3 text-sm font-semibold text-slate-700">{category.name}</p>
+                  <div className="mx-auto mt-2 h-0.5 w-7 bg-amber-300" />
+                </Link>
+              );
+            })}
+          </div>
+        )}
       </div>
     </section>
   );

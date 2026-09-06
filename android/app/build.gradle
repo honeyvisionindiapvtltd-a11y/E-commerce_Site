@@ -1,0 +1,90 @@
+plugins {
+    id 'com.android.application'
+    id 'com.google.gms.google-services' version '4.3.15'
+}
+
+android {
+    namespace 'in.honeyvision.app'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId 'in.honeyvision.app'
+        minSdk 26
+        targetSdk 34
+        versionCode 1
+        versionName "1.0.0"
+
+        // Multi-dex support for large apps
+        multiDexEnabled true
+
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+
+        // String resources for app configuration
+        resValue "string", "app_name", "HoneyVision"
+        resValue "string", "app_version", "1.0.0"
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled true
+            shrinkResources true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+
+            // Signing configuration - configure via Android Studio or gradle.properties
+        }
+        debug {
+            minifyEnabled false
+            debuggable true
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_11
+        targetCompatibility JavaVersion.VERSION_11
+    }
+
+    kotlinOptions {
+        jvmTarget = '11'
+    }
+
+    packagingOptions {
+        // Exclude duplicate files if any
+        exclude 'META-INF/proguard/androidx-*.pro'
+    }
+
+    lint {
+        checkReleaseBuilds false
+        abortOnError false
+    }
+}
+
+repositories {
+    google()
+    mavenCentral()
+}
+
+dependencies {
+    // Core Android
+    implementation 'androidx.appcompat:appcompat:1.6.1'
+    implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
+    implementation 'androidx.multidex:multidex:2.0.1'
+
+    // Firebase
+    implementation platform('com.google.firebase:firebase-bom:32.3.1')
+    implementation 'com.google.firebase:firebase-messaging'
+
+    // Google Play Services
+    implementation 'com.google.android.gms:play-services-location:21.0.1'
+    implementation 'com.google.android.gms:play-services-maps:18.2.0'
+
+    // WebSocket support
+    implementation 'org.java-websocket:Java-WebSocket:1.5.3'
+
+    // Kotlin
+    implementation 'org.jetbrains.kotlin:kotlin-stdlib:1.9.10'
+
+    // Testing
+    testImplementation 'junit:junit:4.13.2'
+    androidTestImplementation 'androidx.test.ext:junit:1.1.5'
+    androidTestImplementation 'androidx.test.espresso:espresso-core:3.5.1'
+}

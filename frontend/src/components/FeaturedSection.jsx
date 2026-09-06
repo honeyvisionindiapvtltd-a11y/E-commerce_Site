@@ -53,7 +53,9 @@ export default function FeaturedSection() {
     name,
     logo: brandLogos[name] || "https://res.cloudinary.com/vhrkwyzs/image/upload/v1786172600/HP_LOGO_xkbqb1.png",
   }));
+  const productRailRef = useRef(null);
   const scrollBrands = (direction) => brandRailRef.current?.scrollBy({ left: direction * 260, behavior: "smooth" });
+  const scrollProducts = (direction) => productRailRef.current?.scrollBy({ left: direction * 260, behavior: "smooth" });
   const startBrandDrag = (event) => {
     if (!brandRailRef.current) return;
     dragState.current = { active: true, startX: event.clientX, startScroll: brandRailRef.current.scrollLeft };
@@ -68,7 +70,50 @@ export default function FeaturedSection() {
     dragState.current.active = false;
     setDraggingBrands(false);
   };
-  const productsToShow = products.slice(0, 4).map(normalizeProduct);
+  const isCameraOnlyProduct = (product) => {
+    const haystack = `${product?.name || ""} ${product?.category || ""} ${product?.subCategory || ""}`.toLowerCase();
+
+    const hasCameraSignal = /(cctv|camera|surveillance|bullet|dome|ptz|ip camera|wifi camera|wireless camera|security camera|fisheye|anpr|thermal camera|outdoor camera|indoor camera|analog camera|network camera|smart camera|video door)/.test(haystack);
+    const hasNonCameraSignal = /(printer|thermal printer|laptop|desktop|monitor|keyboard|mouse|router|switch|nvr|dvr|ups|smps|battery|adapter|mount|bracket|stand|holder|connector|cable|server|storage|drive|module|accessory|junction box|power supply|power adapter|display|housing|trim)/.test(haystack);
+
+    return hasCameraSignal && !hasNonCameraSignal;
+  };
+
+  const normalizedProducts = (Array.isArray(products) ? products : []).map(normalizeProduct).filter(Boolean);
+
+  const selectMixedBrandProducts = (items, limit = 18) => {
+    if (!items.length) return [];
+
+    const grouped = new Map();
+    items.forEach((item) => {
+      const brand = (item.brand || "CCTV").toString().trim() || "CCTV";
+      if (!grouped.has(brand)) grouped.set(brand, []);
+      grouped.get(brand).push(item);
+    });
+
+    const brandOrder = [...grouped.keys()];
+    const selected = [];
+    const usedIds = new Set();
+    const maxRounds = Math.max(1, Math.ceil(limit / Math.max(brandOrder.length, 1)));
+
+    for (let round = 0; round < maxRounds && selected.length < limit; round += 1) {
+      for (const brand of brandOrder) {
+        const bucket = grouped.get(brand) || [];
+        const nextItem = bucket.find((item) => !usedIds.has(String(item.id)));
+        if (nextItem && selected.length < limit) {
+          selected.push(nextItem);
+          usedIds.add(String(nextItem.id));
+        }
+      }
+    }
+
+    if (selected.length >= limit) return selected.slice(0, limit);
+
+    const fallback = items.filter((item) => !usedIds.has(String(item.id)));
+    return [...selected, ...fallback].slice(0, limit);
+  };
+
+  const finalProductsToShow = selectMixedBrandProducts(normalizedProducts, 18);
 
   return (
     <section className="py-20 bg-gray-50">
@@ -82,17 +127,17 @@ export default function FeaturedSection() {
           <div>
 
             <p className="text-yellow-500 uppercase font-semibold">
-              Trusted Brands
+              Trusted CCTV Brands
             </p>
 
             <h2 className="text-4xl font-bold mt-2">
-              Shop by Top Brands
+              Shop by Top Security Brands
             </h2>
 
           </div>
 
-          <Link to="/products" className="flex items-center gap-2 font-semibold text-slate-900 hover:text-amber-600">
-            View All
+          <Link to="/brands" className="flex items-center gap-2 font-semibold text-slate-900 hover:text-amber-600">
+            View All Brands
             <ChevronRight size={18} />
           </Link>
 
@@ -179,85 +224,93 @@ export default function FeaturedSection() {
 
         {/* Featured Products */}
 
-        <div className="grid lg:grid-cols-4 md:grid-cols-2 gap-8 mt-16">
+        <div className="relative mt-16">
+          <button
+            type="button"
+            onClick={() => scrollProducts(-1)}
+            aria-label="Scroll featured products left"
+            className="absolute left-2 top-1/2 z-10 grid h-10 w-10 -translate-y-1/2 place-items-center rounded-full bg-white text-slate-700 shadow-md transition hover:bg-amber-400 hover:text-slate-950"
+          >
+            <ChevronRight size={18} className="rotate-180" />
+          </button>
+          <button
+            type="button"
+            onClick={() => scrollProducts(1)}
+            aria-label="Scroll featured products right"
+            className="absolute right-2 top-1/2 z-10 grid h-10 w-10 -translate-y-1/2 place-items-center rounded-full bg-white text-slate-700 shadow-md transition hover:bg-amber-400 hover:text-slate-950"
+          >
+            <ChevronRight size={18} />
+          </button>
 
-          {productsToShow.map((item) => {
-            const isWishlisted = wishlist.includes(item.id);
+          <div ref={productRailRef} className="overflow-x-auto pb-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden px-10">
+            <div className="flex min-w-max gap-5">
 
-            return (
-              <div
-                key={item.id}
-                className="bg-white rounded-3xl overflow-hidden shadow hover:shadow-2xl transition"
-              >
+            {finalProductsToShow.map((item) => {
+              const isWishlisted = wishlist.includes(item.id);
+              const discount = Math.max(5, Math.round(((item.mrp - item.price) / Math.max(item.mrp, 1)) * 100));
 
-                <div className="relative bg-gray-100 p-8">
+              return (
+                <div
+                  key={item.id}
+                  className="group relative w-[230px] shrink-0 overflow-hidden rounded-[26px] border border-slate-200 bg-white shadow-[0_8px_24px_rgba(15,23,42,0.06)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_12px_28px_rgba(15,23,42,0.12)]"
+                >
+                  <div className="absolute left-3 top-3 z-10 rounded bg-red-500 px-2 py-1 text-[10px] font-bold text-white">
+                    {discount}% OFF
+                  </div>
 
                   <button
                     type="button"
                     onClick={() => toggleWishlist(item.id)}
-                    className={`absolute top-4 right-4 rounded-full p-2 shadow ${isWishlisted ? "bg-red-50 text-red-500" : "bg-white text-slate-500"}`}
+                    className={`absolute right-3 top-3 z-10 rounded-full p-2 shadow-sm transition ${isWishlisted ? "bg-red-50 text-red-500" : "bg-white/90 text-slate-500 hover:text-red-500"}`}
                     aria-label={`Toggle wishlist for ${item.name}`}
                   >
-                    <Heart size={18} fill={isWishlisted ? "currentColor" : "none"} />
+                    <Heart size={16} fill={isWishlisted ? "currentColor" : "none"} />
                   </button>
 
-                  <Link to={`/products/${item.id}`}>
-                    <img
-                      src={item.image}
-                      className="h-56 mx-auto object-contain"
-                      alt={item.name}
-                    />
-                  </Link>
-
-                </div>
-
-                <div className="p-6">
-
-                  <div className="flex text-yellow-500 items-center gap-1">
-                    <Star fill="currentColor" size={16} />
-                    {item.rating}
+                  <div className="bg-slate-100 p-4 pt-10">
+                    <Link to={`/products/${item.id}`} className="block">
+                      <img
+                        src={item.image}
+                        className="mx-auto h-36 object-contain transition duration-500 group-hover:scale-105"
+                        alt={item.name}
+                      />
+                    </Link>
                   </div>
 
-                  <Link to={`/products/${item.id}`} className="block font-bold text-lg mt-3 text-slate-900 hover:text-amber-600">
-                    {item.name}
-                  </Link>
+                  <div className="p-4">
+                    <div className="flex items-center gap-1 text-yellow-500">
+                      <Star fill="currentColor" size={13} />
+                      <span className="text-xs font-medium text-slate-700">{item.rating}</span>
+                    </div>
 
-                  <div className="flex gap-3 mt-4 items-center">
+                    <Link to={`/products/${item.id}`} className="mt-3 block text-sm font-semibold leading-snug text-slate-800 transition hover:text-amber-600">
+                      {item.name}
+                    </Link>
 
-                    <span className="text-2xl font-bold text-[#0A1931]">
-                      {money(item.price)}
-                    </span>
-
-                    <span className="line-through text-gray-400">
-                      {money(item.mrp)}
-                    </span>
-
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-3 mt-6">
+                    <div className="mt-3 flex items-center gap-2">
+                      <span className="text-xl font-bold text-[#0A1931]">
+                        {money(item.price)}
+                      </span>
+                      <span className="text-xs text-slate-400 line-through">
+                        {money(item.mrp)}
+                      </span>
+                    </div>
 
                     <button
                       type="button"
                       onClick={() => addToCart(item.id)}
-                      className="bg-[#0A1931] text-white py-3 rounded-xl flex justify-center gap-2 items-center"
+                      className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-[#071426] px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800"
                     >
-                      <ShoppingCart size={18} />
-                      Cart
+                      <ShoppingCart size={15} />
+                      Add to cart
                     </button>
-
-                    <Link to={`/products/${item.id}`} className="border py-3 rounded-xl flex justify-center gap-2 items-center text-slate-900 hover:border-amber-300 hover:text-amber-600">
-                      <Eye size={18} />
-                      View
-                    </Link>
-
                   </div>
-
                 </div>
+              );
+            })}
 
-              </div>
-            );
-          })}
-
+            </div>
+          </div>
         </div>
 
       </div>

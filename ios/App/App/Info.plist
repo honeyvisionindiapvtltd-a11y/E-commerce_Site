@@ -1,0 +1,141 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!-- App Information -->
+    <key>CFBundleDevelopmentRegion</key>
+    <string>en</string>
+    <key>CFBundleExecutable</key>
+    <string>$(EXECUTABLE_NAME)</string>
+    <key>CFBundleIdentifier</key>
+    <string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+    <key>CFBundleInfoDictionaryVersion</key>
+    <string>6.0</string>
+    <key>CFBundleName</key>
+    <string>$(PRODUCT_NAME)</string>
+    <key>CFBundlePackageType</key>
+    <string>APPL</string>
+    <key>CFBundleShortVersionString</key>
+    <string>1.0.0</string>
+    <key>CFBundleVersion</key>
+    <string>1</string>
+
+    <!-- Localization -->
+    <key>CFBundleLocalizationNameKey</key>
+    <string>en</string>
+
+    <!-- App Launch Settings -->
+    <key>UILaunchStoryboardName</key>
+    <string>LaunchScreen</string>
+    <key>UIMainStoryboardFile</key>
+    <string></string>
+
+    <!-- Device orientation -->
+    <key>UISupportedInterfaceOrientations</key>
+    <array>
+        <string>UIInterfaceOrientationPortrait</string>
+        <string>UIInterfaceOrientationPortraitUpsideDown</string>
+    </array>
+
+    <!-- iPad orientation -->
+    <key>UISupportedInterfaceOrientations~ipad</key>
+    <array>
+        <string>UIInterfaceOrientationPortrait</string>
+        <string>UIInterfaceOrientationPortraitUpsideDown</string>
+        <string>UIInterfaceOrientationLandscapeLeft</string>
+        <string>UIInterfaceOrientationLandscapeRight</string>
+    </array>
+
+    <!-- App requires status bar -->
+    <key>UIViewControllerBasedStatusBarAppearance</key>
+    <false/>
+    <key>UIStatusBarStyle</key>
+    <string>UIStatusBarStyleDefault</string>
+
+    <!-- Camera permission -->
+    <key>NSCameraUsageDescription</key>
+    <string>HoneyVision needs access to your camera to capture product images and support documentation.</string>
+
+    <!-- Photo library permission -->
+    <key>NSPhotoLibraryUsageDescription</key>
+    <string>HoneyVision needs access to your photo library to upload product images.</string>
+
+    <!-- Photo library add only permission -->
+    <key>NSPhotoLibraryAddUsageDescription</key>
+    <string>HoneyVision needs to save images to your photo library.</string>
+
+    <!-- Location permission -->
+    <key>NSLocationWhenInUseUsageDescription</key>
+    <string>HoneyVision needs your location for delivery tracking and finding nearby services.</string>
+    <key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+    <string>HoneyVision needs your location for delivery tracking.</string>
+
+    <!-- Microphone permission (if needed for chat) -->
+    <key>NSMicrophoneUsageDescription</key>
+    <string>HoneyVision needs microphone access for video support calls.</string>
+
+    <!-- Network connection -->
+    <key>NSBonjourServices</key>
+    <array/>
+
+    <!-- App Transport Security -->
+    <key>NSAppTransportSecurity</key>
+    <dict>
+        <!-- Allow local network for development -->
+        <key>NSLocalNetworkUsageDescription</key>
+        <string>App needs access to local network</string>
+        <key>NSAllowsLocalNetworking</key>
+        <true/>
+
+        <!-- Domain-specific configurations -->
+        <key>NSExceptionDomains</key>
+        <dict>
+            <!-- Allow localhost for development -->
+            <key>localhost</key>
+            <dict>
+                <key>NSIncludesSubdomains</key>
+                <true/>
+                <key>NSExceptionAllowsInsecureHTTPLoads</key>
+                <true/>
+                <key>NSExceptionMinimumTLSVersion</key>
+                <string>TLSv1.2</string>
+            </dict>
+
+            <!-- Production domain (HTTPS only) -->
+            <key>honeyvision.in</key>
+            <dict>
+                <key>NSIncludesSubdomains</key>
+                <true/>
+                <key>NSExceptionAllowsInsecureHTTPLoads</key>
+                <false/>
+            </dict>
+        </dict>
+    </key>
+
+    <!-- Require HTTPS for production -->
+    <key>NSRequiresForwardSecrecy</key>
+    <true/>
+
+    <!-- Firestore/Firebase Configuration -->
+    <key>API_KEY</key>
+    <string>YOUR_FIREBASE_API_KEY</string>
+    <key>GCM_SENDER_ID</key>
+    <string>YOUR_FIREBASE_GCM_SENDER_ID</string>
+
+    <!-- Display name (localized) -->
+    <key>CFBundleDisplayName</key>
+    <string>HoneyVision</string>
+
+    <!-- App requires internet connection -->
+    <key>NSRequiresIPhoneOSSDK</key>
+    <true/>
+
+    <!-- App supports dark mode -->
+    <key>UIUserInterfaceStyle</key>
+    <string>Light</string>
+
+    <!-- Minimum iOS version -->
+    <key>MinimumOSVersion</key>
+    <string>14.0</string>
+</dict>
+</plist>

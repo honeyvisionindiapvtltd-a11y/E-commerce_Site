@@ -87,6 +87,41 @@ const toFormValues = (product = null) => ({
   category: product?.categoryId || product?.category?._id || product?.category || "",
   subCategory: product?.subCategoryId || product?.subCategory?._id || product?.subCategory || "",
   brand: product?.brand || "Honey Vision",
+  series: product?.series || "",
+  productFamily: product?.productFamily || "",
+  model: product?.model || "",
+  modelVersion: product?.modelVersion || "",
+  hardwareVersion: product?.hardwareVersion || "",
+  firmwareVersion: product?.firmwareVersion || "",
+  cameraType: product?.cameraType || "",
+  technology: product?.technology || "",
+  connectivity: product?.connectivity || "",
+  resolution: product?.resolution || "",
+  megapixels: product?.megapixels ?? "",
+  lens: product?.lens || "",
+  lensType: product?.lensType || "",
+  nightVision: Boolean(product?.nightVision),
+  nightVisionType: product?.nightVisionType || "",
+  nightVisionRange: product?.nightVisionRange || "",
+  aiEnabled: Boolean(product?.aiEnabled),
+  aiFeatures: Array.isArray(product?.aiFeatures) ? product.aiFeatures.join(", ") : "",
+  microphone: Boolean(product?.microphone),
+  speaker: Boolean(product?.speaker),
+  twoWayAudio: Boolean(product?.twoWayAudio),
+  storageType: product?.storageType || "",
+  maxStorage: product?.maxStorage || "",
+  indoorOutdoor: product?.indoorOutdoor || "",
+  weatherproof: Boolean(product?.weatherproof),
+  ipRating: product?.ipRating || "",
+  ikRating: product?.ikRating || "",
+  powerType: product?.powerType || "",
+  poe: Boolean(product?.poe),
+  poeStandard: product?.poeStandard || "",
+  wifi: Boolean(product?.wifi),
+  fourG: Boolean(product?.fourG),
+  onvif: Boolean(product?.onvif),
+  rtsp: Boolean(product?.rtsp),
+  applications: Array.isArray(product?.applications) ? product.applications.join(", ") : "",
   productType: product?.productType || "physical",
   shortDescription: product?.shortDescription || "",
   description: product?.description || "",
@@ -123,6 +158,41 @@ const blankForm = {
   category: "",
   subCategory: "",
   brand: "Honey Vision",
+  series: "",
+  productFamily: "",
+  model: "",
+  modelVersion: "",
+  hardwareVersion: "",
+  firmwareVersion: "",
+  cameraType: "",
+  technology: "",
+  connectivity: "",
+  resolution: "",
+  megapixels: "",
+  lens: "",
+  lensType: "",
+  nightVision: false,
+  nightVisionType: "",
+  nightVisionRange: "",
+  aiEnabled: false,
+  aiFeatures: "",
+  microphone: false,
+  speaker: false,
+  twoWayAudio: false,
+  storageType: "",
+  maxStorage: "",
+  indoorOutdoor: "",
+  weatherproof: false,
+  ipRating: "",
+  ikRating: "",
+  powerType: "",
+  poe: false,
+  poeStandard: "",
+  wifi: false,
+  fourG: false,
+  onvif: false,
+  rtsp: false,
+  applications: "",
   productType: "physical",
   shortDescription: "",
   description: "",
@@ -171,6 +241,7 @@ export default function Products() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [form, setForm] = useState(blankForm);
+  const [imageUrlInput, setImageUrlInput] = useState("");
   const [totalProducts, setTotalProducts] = useState(0);
 
   const loadProducts = async () => {
@@ -233,6 +304,8 @@ export default function Products() {
     () => categoryOptions.find((category) => categoryMatch(category, form.category)) || null,
     [categoryOptions, form.category]
   );
+
+  const isCctvProduct = selectedCategory?.slug === "cctv-cameras";
 
   const subCategories = useMemo(
     () => (selectedCategory?.subcategories || []).map((subcategory) => ({ ...subcategory, id: subcategory._id || subcategory.id })),
@@ -314,6 +387,33 @@ export default function Products() {
   }, [rows, search, filter, sort]);
 
   const totalPages = Math.max(1, Math.ceil(filteredRows.length / PAGE_SIZE));
+  const visiblePageNumbers = useMemo(() => {
+    if (totalPages <= 7) {
+      return Array.from({ length: totalPages }, (_, index) => index + 1);
+    }
+
+    const pages = new Set([1, totalPages, page]);
+    for (let offset = 1; offset <= 2; offset += 1) {
+      pages.add(page - offset);
+      pages.add(page + offset);
+    }
+
+    const sorted = [...pages]
+      .filter((value) => value >= 1 && value <= totalPages)
+      .sort((a, b) => a - b);
+
+    const result = [];
+    for (let index = 0; index < sorted.length; index += 1) {
+      const value = sorted[index];
+      const previous = sorted[index - 1];
+      if (previous !== undefined && value - previous > 1) {
+        result.push("ellipsis");
+      }
+      result.push(value);
+    }
+
+    return result;
+  }, [page, totalPages]);
   const currentPageRows = filteredRows.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   const openNewForm = () => {
@@ -381,6 +481,8 @@ export default function Products() {
     const parsedSpecifications = parseJsonValue(form.specifications, {}, "specifications");
     const parsedVariants = parseJsonValue(form.variants, [], "variants");
     const imageList = sanitizeImageUrls(form.imageUrls);
+    const primaryImage = imageList[0] || product?.thumbnail || product?.image || "";
+    const galleryImages = imageList.length > 1 ? imageList.slice(1) : (Array.isArray(product?.images) ? product.images.filter((image) => image !== primaryImage) : []);
 
     const payload = {
       name: form.name.trim(),
@@ -402,8 +504,8 @@ export default function Products() {
       warranty: form.warranty.trim(),
       videoUrl: form.videoUrl.trim(),
       tags: form.tags.split(",").map((tag) => tag.trim()).filter(Boolean),
-      thumbnail: imageList[0] || (product?.thumbnail || ""),
-      images: imageList.length ? imageList : product?.images || [],
+      thumbnail: primaryImage,
+      images: galleryImages,
       specifications: parsedSpecifications,
       variants: parsedVariants,
       relatedProducts: form.relatedProducts
@@ -423,8 +525,55 @@ export default function Products() {
       isActive: form.status === "Active",
     };
 
+    if (isCctvProduct) {
+      Object.assign(payload, {
+        series: form.series.trim(), productFamily: form.productFamily.trim(), model: form.model.trim(),
+        modelVersion: form.modelVersion.trim(), hardwareVersion: form.hardwareVersion.trim(), firmwareVersion: form.firmwareVersion.trim(),
+        cameraType: form.cameraType.trim(), technology: form.technology.trim(), connectivity: form.connectivity.trim(),
+        resolution: form.resolution.trim(), megapixels: form.megapixels === "" ? null : toNumber(form.megapixels, 0),
+        lens: form.lens.trim(), lensType: form.lensType.trim(), nightVision: Boolean(form.nightVision),
+        nightVisionType: form.nightVisionType.trim(), nightVisionRange: form.nightVisionRange.trim(), aiEnabled: Boolean(form.aiEnabled),
+        aiFeatures: ensureArray(form.aiFeatures), microphone: Boolean(form.microphone), speaker: Boolean(form.speaker),
+        twoWayAudio: Boolean(form.twoWayAudio), storageType: form.storageType.trim(), maxStorage: form.maxStorage.trim(),
+        indoorOutdoor: form.indoorOutdoor.trim(), weatherproof: Boolean(form.weatherproof), ipRating: form.ipRating.trim(),
+        ikRating: form.ikRating.trim(), powerType: form.powerType.trim(), poe: Boolean(form.poe), poeStandard: form.poeStandard.trim(),
+        wifi: Boolean(form.wifi), fourG: Boolean(form.fourG), onvif: Boolean(form.onvif), rtsp: Boolean(form.rtsp),
+        applications: ensureArray(form.applications),
+      });
+    }
+
     if (!payload.slug) payload.slug = makeSlug(form.name);
     return payload;
+  };
+
+  const handleAddImageUrl = () => {
+    const nextUrl = imageUrlInput.trim();
+    if (!nextUrl) return;
+
+    try {
+      new URL(nextUrl);
+    } catch {
+      setError("Please enter a valid image URL.");
+      return;
+    }
+
+    setForm((current) => ({
+      ...current,
+      imageUrls: sanitizeImageUrls([...current.imageUrls, nextUrl]),
+    }));
+    setImageUrlInput("");
+    setError("");
+  };
+
+  const handleSetPrimaryImage = (index) => {
+    if (index === 0) return;
+
+    setForm((current) => {
+      const reordered = [...current.imageUrls];
+      const [selected] = reordered.splice(index, 1);
+      reordered.unshift(selected);
+      return { ...current, imageUrls: reordered };
+    });
   };
 
   const handleSave = async (event) => {
@@ -458,7 +607,6 @@ export default function Products() {
       setOpen(false);
       setEdit(null);
       setForm(blankForm);
-      setPage(1);
       await loadProducts();
     } catch (saveError) {
       setError(saveError.message || "Failed to save product.");
@@ -482,7 +630,6 @@ export default function Products() {
       await adminDelete("products", product.id);
       setSuccess("Product deleted successfully");
       await loadProducts();
-      setPage(1);
     } catch (deleteError) {
       setError(deleteError.message || "Failed to delete product.");
     } finally {
@@ -637,9 +784,34 @@ export default function Products() {
           <Table columns={columns} rows={currentPageRows} empty="No products found." />
 
           {filteredRows.length > PAGE_SIZE && (
-            <div className="mt-4 flex items-center justify-between gap-2 text-xs text-slate-600">
+            <div className="mt-4 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-600">
               <button type="button" onClick={() => setPage((current) => Math.max(1, current - 1))} disabled={page === 1} className="rounded-lg border border-slate-200 px-3 py-2 disabled:cursor-not-allowed disabled:opacity-50">Previous</button>
-              <span>Page {page} of {totalPages}</span>
+
+              <div className="flex flex-wrap items-center justify-center gap-1.5">
+                {visiblePageNumbers.map((pageNumber, index) => {
+                  if (pageNumber === "ellipsis") {
+                    return (
+                      <span key={`ellipsis-${index}`} className="px-1 text-slate-400">…</span>
+                    );
+                  }
+
+                  return (
+                    <button
+                      key={pageNumber}
+                      type="button"
+                      onClick={() => setPage(pageNumber)}
+                      className={`min-w-9 rounded-lg border px-2.5 py-2 transition ${
+                        pageNumber === page
+                          ? "border-[#071426] bg-[#071426] text-white"
+                          : "border-slate-200 bg-white text-slate-600 hover:bg-slate-100"
+                      }`}
+                    >
+                      {pageNumber}
+                    </button>
+                  );
+                })}
+              </div>
+
               <button type="button" onClick={() => setPage((current) => Math.min(totalPages, current + 1))} disabled={page >= totalPages} className="rounded-lg border border-slate-200 px-3 py-2 disabled:cursor-not-allowed disabled:opacity-50">Next</button>
             </div>
           )}
@@ -696,6 +868,48 @@ export default function Products() {
             </Field>
           </div>
 
+          {isCctvProduct && (
+            <div className="space-y-4 rounded-xl border border-amber-200 bg-amber-50/50 p-4">
+              <div>
+                <div className="text-xs font-semibold uppercase tracking-wide text-amber-700">CCTV Specifications</div>
+                <p className="mt-1 text-[11px] text-slate-500">Optional product attributes for camera catalog filtering. Leave unknown values blank.</p>
+              </div>
+              <div className="grid gap-4 md:grid-cols-3">
+                {[
+                  ["series", "Series"], ["productFamily", "Product Family"], ["model", "Model Number"],
+                  ["modelVersion", "Model Version"], ["hardwareVersion", "Hardware Version"], ["firmwareVersion", "Firmware Version"],
+                  ["cameraType", "Camera Type"], ["technology", "Technology"], ["connectivity", "Connectivity"],
+                  ["resolution", "Resolution"], ["megapixels", "Megapixels"], ["lens", "Lens"], ["lensType", "Lens Type"],
+                  ["nightVisionType", "Night Vision Type"], ["nightVisionRange", "Night Vision Range"], ["ipRating", "IP Rating"],
+                  ["ikRating", "IK Rating"], ["storageType", "Storage Type"], ["maxStorage", "Maximum Storage"],
+                  ["indoorOutdoor", "Indoor / Outdoor"], ["powerType", "Power Type"], ["poeStandard", "PoE Standard"],
+                ].map(([key, label]) => (
+                  <Field key={key} label={label}>
+                    <input type={key === "megapixels" ? "number" : "text"} min={key === "megapixels" ? "0" : undefined} value={form[key]} onChange={(event) => setForm({ ...form, [key]: event.target.value })} className={inputClass} />
+                  </Field>
+                ))}
+                <Field label="AI Features">
+                  <input value={form.aiFeatures} onChange={(event) => setForm({ ...form, aiFeatures: event.target.value })} className={inputClass} placeholder="Human Detection, Vehicle Detection" />
+                </Field>
+                <Field label="Applications">
+                  <input value={form.applications} onChange={(event) => setForm({ ...form, applications: event.target.value })} className={inputClass} placeholder="Home, Office, Retail" />
+                </Field>
+              </div>
+              <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+                {[
+                  ["nightVision", "Night Vision"], ["aiEnabled", "AI Enabled"], ["microphone", "Microphone"],
+                  ["speaker", "Speaker"], ["twoWayAudio", "Two-Way Audio"], ["weatherproof", "Weatherproof"],
+                  ["poe", "PoE"], ["wifi", "Wi-Fi"], ["fourG", "4G / SIM"], ["onvif", "ONVIF"], ["rtsp", "RTSP"],
+                ].map(([key, label]) => (
+                  <label key={key} className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700">
+                    <input type="checkbox" checked={Boolean(form[key])} onChange={(event) => setForm({ ...form, [key]: event.target.checked })} />
+                    {label}
+                  </label>
+                ))}
+              </div>
+            </div>
+          )}
+
           <div className="grid gap-4 md:grid-cols-2">
             <Field label="Short Description">
               <textarea value={form.shortDescription} onChange={(event) => setForm({ ...form, shortDescription: event.target.value })} rows={3} className={inputClass} />
@@ -741,21 +955,48 @@ export default function Products() {
           </div>
 
           <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-            <div className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-500">Images</div>
-            <div className="space-y-3">
-              <textarea
-                value={form.imageUrls.join("\n")}
-                onChange={(event) => setForm({ ...form, imageUrls: sanitizeImageUrls(event.target.value) })}
-                rows={4}
-                className={inputClass}
-                placeholder="Add one image URL per line"
-              />
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Product Gallery</div>
+              <span className="text-[10px] text-slate-500">{form.imageUrls.length} image(s)</span>
+            </div>
 
-              {form.imageUrls.length > 0 && (
+            <div className="space-y-3">
+              <div className="flex gap-2">
+                <input
+                  value={imageUrlInput}
+                  onChange={(event) => setImageUrlInput(event.target.value)}
+                  className={`${inputClass} flex-1`}
+                  placeholder="Paste an image URL and add it to the gallery"
+                />
+                <button
+                  type="button"
+                  onClick={handleAddImageUrl}
+                  className="rounded-lg bg-[#071426] px-3 py-2 text-[11px] font-semibold text-white hover:bg-amber-400 hover:text-slate-950"
+                >
+                  Add Image
+                </button>
+              </div>
+
+              {form.imageUrls.length > 0 ? (
                 <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
                   {form.imageUrls.map((image, index) => (
                     <div key={`${image}-${index}`} className="relative overflow-hidden rounded-lg border border-slate-200 bg-white">
                       <img src={image} alt={`Product image ${index + 1}`} className="h-20 w-full object-cover" />
+
+                      {index === 0 ? (
+                        <span className="absolute left-1 top-1 rounded-full bg-amber-400 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-slate-900">
+                          Primary
+                        </span>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => handleSetPrimaryImage(index)}
+                          className="absolute left-1 top-1 rounded-full bg-white/90 px-1.5 py-0.5 text-[9px] font-semibold text-slate-700"
+                        >
+                          Set main
+                        </button>
+                      )}
+
                       <button
                         type="button"
                         onClick={() => setForm({ ...form, imageUrls: form.imageUrls.filter((_, itemIndex) => itemIndex !== index) })}
@@ -766,6 +1007,10 @@ export default function Products() {
                       </button>
                     </div>
                   ))}
+                </div>
+              ) : (
+                <div className="rounded-lg border border-dashed border-slate-300 bg-white px-3 py-4 text-center text-[11px] text-slate-500">
+                  No gallery images added yet.
                 </div>
               )}
             </div>
