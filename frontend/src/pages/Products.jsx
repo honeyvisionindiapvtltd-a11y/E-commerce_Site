@@ -177,7 +177,7 @@ export default function Products() {
 
       try {
         const response = await fetch(
-          `${API_BASE}/categories/tree`
+          `${API_BASE}/categories/tree?light=true`
         );
 
         if (!response.ok) {

@@ -1,11 +1,9 @@
 import { useState } from 'react';
-import { useCommerce } from '../context/index.js';
 import ProductCard from './ProductCard';
 import QuickView from './QuickView';
 import { money } from '../lib/products';
 
 export default function ProductGrid({ products = [], gridView = true }) {
-  const { addToCart } = useCommerce();
   const [quickProduct, setQuickProduct] = useState(null);
 
   const onQuickView = (product) => setQuickProduct(product);
@@ -14,7 +12,7 @@ export default function ProductGrid({ products = [], gridView = true }) {
   return (
     <div>
       {gridView ? (
-        <div className="grid grid-cols-2 gap-0 sm:gap-5 md:grid-cols-3 xl:grid-cols-3">
+        <div className="grid grid-cols-2 gap-3 sm:gap-5 md:grid-cols-3 xl:grid-cols-3">
           {products.map((p) => (
             <ProductCard key={p._id || p.id || p.slug || p.name} product={p} onQuickView={onQuickView} />
           ))}
@@ -36,7 +34,6 @@ export default function ProductGrid({ products = [], gridView = true }) {
                     {p.mrp && Number(p.mrp) > Number(p.price) && <div className="text-sm text-slate-400 line-through">{money(p.mrp)}</div>}
                     <div className="mt-2 flex flex-col gap-2">
                       <button onClick={() => onQuickView(p)} className="rounded-2xl bg-amber-500 px-4 py-2 text-sm font-semibold text-slate-950">Quick view</button>
-                      <button type="button" onClick={() => addToCart(p.id)} className="rounded-2xl border border-slate-200 px-4 py-2 text-sm">Add to cart</button>
                     </div>
                   </div>
                 </div>

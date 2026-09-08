@@ -7,7 +7,7 @@ const formatPrice = (value) => `₹${value.toLocaleString()}`;
 
 export default function Wishlist() {
   const navigate = useNavigate();
-  const { products, wishlist, addToCart, toggleWishlist, moveWishlistToCart, clearWishlist } = useCommerce();
+  const { products, wishlist, toggleWishlist, moveWishlistToCart, clearWishlist } = useCommerce();
 
   const wishlistItems = useMemo(
     () => products.filter((product) => wishlist.includes(product.id)),
@@ -25,10 +25,6 @@ export default function Wishlist() {
     if (!wishlist.length) return;
     moveWishlistToCart(wishlist);
     navigate("/cart");
-  };
-
-  const handleAddToCart = (productId) => {
-    addToCart(productId, 1, false);
   };
 
   const handleRemove = (productId) => {
@@ -135,14 +131,6 @@ export default function Wishlist() {
                       )}
                     </div>
                     <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-                      <button
-                        type="button"
-                        onClick={() => handleAddToCart(product.id)}
-                        className="flex-1 rounded-2xl bg-[#071426] px-6 py-4 text-white font-semibold hover:bg-yellow-500 hover:text-black transition"
-                      >
-                        <ShoppingCart size={18} className="inline-block mr-2" />
-                        Add to Cart
-                      </button>
                       <Link
                         to={`/products/${product.id}`}
                         className="flex-1 rounded-2xl border border-slate-200 px-6 py-4 text-center text-slate-700 hover:bg-slate-100 transition"
@@ -187,13 +175,6 @@ export default function Wishlist() {
                     >
                       View Product
                     </Link>
-                    <button
-                      type="button"
-                      onClick={() => handleAddToCart(product.id)}
-                      className="rounded-2xl bg-yellow-500 text-black px-4 py-3 font-semibold hover:bg-yellow-400 transition"
-                    >
-                      Add to Cart
-                    </button>
                   </div>
                 </div>
               </div>

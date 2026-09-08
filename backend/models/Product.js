@@ -389,4 +389,14 @@ productSchema.pre("save", function () {
   }
 });
 
+productSchema.index({ isActive: 1, createdAt: -1 });
+productSchema.index({ isActive: 1, category: 1, createdAt: -1 });
+productSchema.index({ isActive: 1, subCategory: 1, createdAt: -1 });
+productSchema.index({ isActive: 1, brand: 1, createdAt: -1 });
+productSchema.index({ isActive: 1, price: 1, createdAt: -1 });
+productSchema.index({ isActive: 1, stock: 1, createdAt: -1 });
+productSchema.index({ isActive: 1, featured: 1, createdAt: -1 });
+productSchema.index({ isActive: 1, bestSeller: 1, createdAt: -1 });
+productSchema.index({ isActive: 1, newArrival: 1, createdAt: -1 });
+
 export default mongoose.model('Product', productSchema);

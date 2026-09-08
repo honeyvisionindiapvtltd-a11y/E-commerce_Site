@@ -9,7 +9,6 @@ import {
   Star,
   Minus,
   Plus,
-  ShoppingCart,
   Truck,
   ShieldCheck,
   RotateCcw,
@@ -26,7 +25,6 @@ import {
 
 const API_BASE = import.meta.env.VITE_API_URL || "/api";
 const SUPPORT_EMAIL = "support@honeyvision.in";
-const SUPPORT_PHONE = "919876543210";
 
 const FALLBACK_IMAGE =
   "https://res.cloudinary.com/vhrkwyzs/image/upload/v1786017607/AI_PTZ_Camera_jdwn7h.webp";
@@ -45,7 +43,7 @@ function getDiscountPercent(price, mrp) {
   return Math.round(((originalPrice - currentPrice) / originalPrice) * 100);
 }
 
-function ProductImage({ src, alt, className = "" }) {
+function ProductImage({ src, alt, className = "", style }) {
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {
@@ -57,6 +55,7 @@ function ProductImage({ src, alt, className = "" }) {
       src={!failed && src ? src : FALLBACK_IMAGE}
       alt={alt}
       className={className}
+      style={style}
       loading="lazy"
       onError={() => setFailed(true)}
     />
@@ -282,11 +281,6 @@ export default function ProductDetails() {
     }. Please contact me.`
   );
 
-  const handleAddToCart = () => {
-    if (!product || stock <= 0) return;
-    addToCart(product.id, quantity, false);
-  };
-
   const handleBuyNow = () => {
     if (!product || stock <= 0) return;
     addToCart(product.id, quantity, false);
@@ -476,6 +470,7 @@ export default function ProductDetails() {
                         src={image}
                         alt=""
                         className="h-full w-full object-contain"
+                        style={{ filter: stock <= 0 ? "grayscale(1)" : "none" }}
                       />
                     </button>
                   ))}
@@ -485,6 +480,11 @@ export default function ProductDetails() {
               {/* Main image panel */}
               <div className="min-w-0 flex-1">
                 <div className="relative flex min-h-[330px] items-center justify-center overflow-hidden rounded-[20px] border border-slate-200 bg-[radial-gradient(circle_at_center,#ffffff_0%,#f7f9fc_75%)] sm:min-h-[395px] lg:min-h-[420px]">
+                  {stock <= 0 && (
+                    <span className="absolute bottom-4 left-4 z-10 rounded-full bg-red-600 px-3 py-1.5 text-[10px] font-extrabold uppercase tracking-wide text-white shadow-md sm:bottom-5 sm:left-5 sm:text-xs">
+                      Out of stock
+                    </span>
+                  )}
                   <div className="absolute left-3 top-3 z-10 rounded-full border border-slate-200 bg-white/95 px-3 py-1 text-[10px] font-extrabold text-slate-600 shadow-sm">
                     {imageIndex + 1} / {images.length}
                   </div>
@@ -530,6 +530,7 @@ export default function ProductDetails() {
                     src={images[imageIndex]}
                     alt={product.name}
                     className="max-h-[360px] w-[87%] object-contain p-3 transition duration-500 hover:scale-[1.02] sm:max-h-[390px]"
+                    style={{ filter: stock <= 0 ? "grayscale(1)" : "none" }}
                   />
 
                   <button
@@ -826,16 +827,6 @@ export default function ProductDetails() {
               <div className="mt-3 grid gap-2 sm:grid-cols-2">
                 <button
                   type="button"
-                  onClick={handleAddToCart}
-                  disabled={stock <= 0}
-                  className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-[#f2b900] px-3 text-xs font-extrabold text-[#071426] shadow-[0_7px_18px_rgba(242,185,0,.18)] transition hover:bg-[#ffc928] disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  <ShoppingCart size={16} />
-                  Add to Cart
-                </button>
-
-                <button
-                  type="button"
                   onClick={handleBuyNow}
                   disabled={stock <= 0}
                   className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-[#071426] px-3 text-xs font-extrabold text-white transition hover:bg-[#0b315a] disabled:cursor-not-allowed disabled:opacity-50"
@@ -895,14 +886,6 @@ export default function ProductDetails() {
                   Email Us
                 </a>
 
-                <a
-                  href={`https://wa.me/${SUPPORT_PHONE}?text=${requestMessage}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="rounded-lg bg-emerald-500 px-3 py-2 text-[10px] font-extrabold text-white transition hover:bg-emerald-400"
-                >
-                  WhatsApp Us
-                </a>
               </div>
             </div>
 
@@ -1271,7 +1254,7 @@ export default function ProductDetails() {
                       </span>
                     </div>
 
-                    <div className="mt-2 grid grid-cols-2 gap-2">
+                    <div className="mt-2">
                       <button
                         type="button"
                         onClick={() =>
@@ -1282,16 +1265,6 @@ export default function ProductDetails() {
                         View
                       </button>
 
-                      <button
-                        type="button"
-                        onClick={() =>
-                          addToCart(item.id, 1, false)
-                        }
-                        disabled={safeNumber(item.stock) <= 0}
-                        className="rounded-lg bg-[#071426] py-1.5 text-[10px] font-bold text-white hover:bg-[#0b315a] disabled:opacity-50"
-                      >
-                        Add to Cart
-                      </button>
                     </div>
                   </div>
                 </div>

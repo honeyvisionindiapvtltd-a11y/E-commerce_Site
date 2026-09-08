@@ -1,5 +1,10 @@
 import Product from "../models/Product.js";
 import Category from "../models/Category.js";
+import {
+  buildListPagination,
+  buildProductListProjection,
+  getSearchRegex,
+} from "../utils/productListQuery.js";
 
 // ============================================================
 // GET ALL PRODUCTS
@@ -63,10 +68,7 @@ const getProducts = async (req, res) => {
     const searchValue = search || q;
 
     if (searchValue && searchValue.trim()) {
-      const regex = {
-        $regex: searchValue.trim(),
-        $options: "i",
-      };
+      const regex = getSearchRegex(searchValue.trim());
 
       filter.$and = [
         {
@@ -82,8 +84,6 @@ const getProducts = async (req, res) => {
             { resolution: regex },
             { aiFeatures: regex },
             { applications: regex },
-            { "specifications.Resolution": regex },
-            { "specifications.Model": regex },
             { tags: regex },
             { shortDescription: regex },
             { description: regex },
@@ -207,10 +207,7 @@ const getProducts = async (req, res) => {
     // ========================================================
 
     if (brand && brand.trim()) {
-      filter.brand = {
-        $regex: brand.trim(),
-        $options: "i",
-      };
+      filter.brand = getSearchRegex(brand.trim());
     }
 
     const setCctvFilter = (field, value) => {
@@ -356,46 +353,30 @@ const getProducts = async (req, res) => {
     // PAGINATION
     // ========================================================
 
-    const pageNumber = Math.max(
-      1,
-      Number(page) || 1
-    );
-
-    const limitNumber = Math.min(
-      100,
-      Math.max(
-        1,
-        Number(limit) || 24
-      )
-    );
-
-    const skip =
-      (pageNumber - 1) * limitNumber;
+    const pageNumber = Math.max(1, Number(page) || 1);
+    const limitNumber = Math.min(100, Math.max(1, Number(limit) || 24));
+    const skip = (pageNumber - 1) * limitNumber;
 
     // ========================================================
     // COUNT PRODUCTS
     // ========================================================
 
-    const totalProducts =
-      await Product.countDocuments(filter);
+    const totalProducts = await Product.countDocuments(filter);
+    const totalPages = Math.max(1, Math.ceil(totalProducts / limitNumber) || 1);
+    const pagination = buildListPagination({
+      page: pageNumber,
+      limit: limitNumber,
+      total: totalProducts,
+    });
 
     // ========================================================
     // GET PRODUCTS
     // ========================================================
 
     const products = await Product.find(filter)
-      .populate(
-        "category",
-        "name slug parentCategory"
-      )
-      .populate(
-        "subCategory",
-        "name slug parentCategory"
-      )
-      .populate(
-        "relatedProducts",
-        "name slug price thumbnail rating"
-      )
+      .select(buildProductListProjection())
+      .populate("category", "name slug")
+      .populate("subCategory", "name slug")
       .sort(sortOption)
       .skip(skip)
       .limit(limitNumber)
@@ -410,10 +391,8 @@ const getProducts = async (req, res) => {
       count: products.length,
       totalProducts,
       currentPage: pageNumber,
-      totalPages:
-        Math.ceil(
-          totalProducts / limitNumber
-        ) || 1,
+      totalPages,
+      pagination,
       products,
     });
   } catch (error) {

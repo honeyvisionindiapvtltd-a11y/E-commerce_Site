@@ -1,19 +1,26 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ChevronDown,
+  CircleHelp,
   GitCompareArrows,
   Headphones,
   Heart,
+  House,
+  Info,
   LayoutDashboard,
+  Mail,
   MapPin,
   Menu,
   Moon,
+  Newspaper,
+  Package,
   Search,
   ShoppingCart,
   Sparkles,
   Sun,
   Truck,
   User,
+  Wrench,
   X,
 } from "lucide-react";
 import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
@@ -34,6 +41,17 @@ const navLinks = [
   ["About", "/about"],
   ["Contact Us", "/contact"],
 ];
+
+const mobileNavIcons = {
+  Services: Wrench,
+  "AI Tools": Sparkles,
+  Blogs: Newspaper,
+  Compare: GitCompareArrows,
+  Delivery: Truck,
+  "Request Demo": CircleHelp,
+  About: Info,
+  "Contact Us": Mail,
+};
 
 export default function Navbar({ isDarkTheme = false, onToggleTheme }) {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -145,6 +163,7 @@ export default function Navbar({ isDarkTheme = false, onToggleTheme }) {
     const params = new URLSearchParams();
     if (categorySlug) params.set('category', categorySlug);
     if (subCategorySlug) params.set('subCategory', subCategorySlug);
+    setMenuOpen(false);
     setShowCategories(false);
     setShowSuggestions(false);
     navigate(params.toString() ? `/products?${params.toString()}` : '/products');
@@ -197,12 +216,62 @@ export default function Navbar({ isDarkTheme = false, onToggleTheme }) {
       </div>
 
       {/* Logo, search and icons */}
-      <div className="flex w-full items-center gap-4 px-3 py-3 sm:px-6">
-        <Link to="/" className="flex shrink-0 items-center gap-2">
+      <div className="flex w-full items-center gap-2 px-2 py-2 sm:gap-4 sm:px-6 sm:py-3">
+        <button
+          type="button"
+          onClick={() => setMenuOpen((value) => !value)}
+          className="order-3 shrink-0 rounded-lg p-1.5 hover:text-yellow-400 lg:hidden"
+          aria-label="Open navigation menu"
+        >
+          {menuOpen ? <X size={20} /> : <Menu size={20} />}
+        </button>
+
+        {/* Keep the mobile search directly beside the menu control. */}
+        <div ref={searchRef} className="relative order-2 min-w-0 flex-1 lg:hidden">
+          <form onSubmit={submitSearch} className="flex h-9 items-center overflow-hidden rounded-lg border border-yellow-400 bg-white shadow-[0_4px_12px_rgba(251,191,36,0.10)]">
+            <Search size={14} className="ml-2 mr-1.5 shrink-0 text-slate-400" />
+            <input
+              type="search"
+              placeholder="Search products..."
+              value={query}
+              onFocus={() => setShowSuggestions(true)}
+              onChange={(event) => {
+                setQuery(event.target.value);
+                setShowSuggestions(true);
+              }}
+              className="min-w-0 flex-1 border-0 bg-transparent px-0 py-1 text-xs text-slate-800 placeholder:text-slate-400 focus:outline-none"
+            />
+            <button type="submit" className="grid h-full w-8 shrink-0 place-items-center bg-yellow-400 text-slate-950" aria-label="Search">
+              <Search size={16} />
+            </button>
+          </form>
+
+          {showSuggestions && query.trim() && suggestions.length > 0 && (
+            <div className="absolute left-0 right-0 top-[calc(100%+8px)] z-50 rounded-xl border border-slate-200 bg-white p-2 shadow-xl">
+              {suggestions.map((item) => (
+                <Link
+                  key={item.to}
+                  to={item.to}
+                  onMouseDown={(event) => event.preventDefault()}
+                  onClick={() => {
+                    setShowSuggestions(false);
+                    setShowCategories(false);
+                  }}
+                  className="block rounded-lg px-3 py-2 text-left hover:bg-slate-100"
+                >
+                  <p className="truncate text-xs font-medium text-slate-800">{item.label}</p>
+                  <p className="truncate text-[10px] text-slate-500">{item.meta}</p>
+                </Link>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <Link to="/" className="order-1 flex shrink-0 items-center gap-2 lg:order-none">
           <img
             src={logo}
             alt="Honey Vision"
-            className="h-12 w-auto object-contain sm:h-14"
+            className="h-9 w-auto object-contain sm:h-14"
           />
 
           <div className="hidden sm:block">
@@ -225,6 +294,8 @@ export default function Navbar({ isDarkTheme = false, onToggleTheme }) {
                 setShowSuggestions(false);
               }}
               className="flex min-w-[110px] items-center justify-between border-r border-slate-200 bg-slate-100 px-2.5 text-[11px] font-semibold text-slate-700 transition hover:bg-slate-200"
+              aria-expanded={showCategories}
+              aria-haspopup="true"
             >
               <span className="truncate">All Categories</span>
               <ChevronDown size={17} className={`ml-2 shrink-0 transition-transform ${showCategories ? "rotate-180" : "rotate-0"}`} />
@@ -255,7 +326,7 @@ export default function Navbar({ isDarkTheme = false, onToggleTheme }) {
           </form>
 
           {showCategories && (
-            <div className="absolute left-0 top-[calc(100%+10px)] z-60 w-205 rounded-2xl border border-slate-200 bg-white p-3 shadow-2xl">
+            <div className="absolute left-0 top-[calc(100%+10px)] z-60 max-h-[calc(100vh-8rem)] w-[min(820px,calc(100vw-1.5rem))] overflow-y-auto overscroll-contain rounded-2xl border border-slate-200 bg-white p-3 shadow-2xl [scrollbar-width:thin]">
               <div className="mb-2 flex items-center justify-between px-2">
                 <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Browse Categories</p>
                 <button type="button" onClick={() => setShowCategories(false)} className="text-[11px] text-slate-500 hover:text-slate-700">Close</button>
@@ -346,25 +417,17 @@ export default function Navbar({ isDarkTheme = false, onToggleTheme }) {
         <button
           type="button"
           onClick={onToggleTheme}
-          className="ml-auto rounded-lg p-1.5 text-yellow-400 transition hover:bg-white/10 hover:text-yellow-300 lg:ml-0"
+          className="absolute right-2 top-2 z-10 rounded-lg p-1.5 text-yellow-400 transition hover:bg-white/10 hover:text-yellow-300 lg:static lg:ml-0"
           aria-label={isDarkTheme ? "Switch to light theme" : "Switch to dark theme"}
           title={isDarkTheme ? "Switch to light theme" : "Switch to dark theme"}
         >
           {isDarkTheme ? <Sun size={18} /> : <Moon size={18} />}
         </button>
 
-        <button
-          type="button"
-          onClick={() => setMenuOpen((value) => !value)}
-          className="p-2 hover:text-yellow-400 lg:hidden"
-          aria-label="Open navigation menu"
-        >
-          {menuOpen ? <X /> : <Menu />}
-        </button>
       </div>
 
       {/* Mobile search */}
-      <div ref={searchRef} className="relative mx-3 mb-3 sm:mx-6 lg:hidden">
+      <div className="hidden">
         <form onSubmit={submitSearch} className="flex h-10 items-center overflow-hidden rounded-lg border border-yellow-400 bg-white shadow-[0_6px_18px_rgba(251,191,36,0.10)]">
           <Search size={16} className="ml-2.5 mr-2 text-slate-400" />
           <input
@@ -446,7 +509,7 @@ export default function Navbar({ isDarkTheme = false, onToggleTheme }) {
                 <ChevronDown size={16} />
               </NavLink>
 
-              <div className="pointer-events-auto absolute left-0 top-full z-[60] hidden w-225 gap-4 rounded-lg bg-white p-2 text-slate-800 shadow-xl group-hover:block">
+              <div className="pointer-events-auto absolute left-0 top-full z-[60] hidden max-h-[calc(100vh-8rem)] w-225 overflow-y-auto overscroll-contain rounded-lg bg-white p-2 text-slate-800 shadow-xl [scrollbar-width:thin] group-hover:block">
                 <MegaMenu onSelect={handleCategorySelect} />
               </div>
             </li>
@@ -469,14 +532,26 @@ export default function Navbar({ isDarkTheme = false, onToggleTheme }) {
 
           {/* Mobile navigation */}
           {menuOpen && (
-            <div className="space-y-4 border-t border-white/10 py-5 lg:hidden">
+            <div className="max-h-[calc(100dvh-7rem)] overflow-y-auto overscroll-contain border-t border-white/10 py-4 [scrollbar-width:thin] lg:hidden">
+              <div className="mb-4 flex items-center justify-between px-2">
+                <div>
+                  <p className="text-sm font-semibold text-white">Explore Honey Vision</p>
+                  <p className="mt-0.5 text-[11px] text-slate-400">Everything you need, one tap away</p>
+                </div>
+                <span className="rounded-full border border-yellow-400/30 bg-yellow-400/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-yellow-300">
+                  Menu
+                </span>
+              </div>
+
+              <div className="space-y-1">
               <NavLink
                 to="/"
                 end
                 className={({ isActive }) =>
-                  isActive ? "block text-yellow-400" : "block hover:text-yellow-400"
+                  `flex min-h-11 items-center gap-3 rounded-xl px-3 text-sm font-medium transition ${isActive ? "bg-yellow-400 text-slate-950 shadow-[0_6px_18px_rgba(250,204,21,0.18)]" : "text-slate-200 hover:bg-white/10 hover:text-white"}`
                 }
               >
+                <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-white/10"><House size={17} /></span>
                 Home
               </NavLink>
 
@@ -484,55 +559,50 @@ export default function Navbar({ isDarkTheme = false, onToggleTheme }) {
                 <button
                   type="button"
                   onClick={() => setShowCategories((value) => !value)}
-                  className="flex w-full items-center justify-between hover:text-yellow-400"
+                  className={`flex min-h-11 w-full items-center justify-between rounded-xl px-3 text-left text-sm font-medium transition ${showCategories ? "bg-white/10 text-yellow-300" : "text-slate-200 hover:bg-white/10 hover:text-white"}`}
                   aria-expanded={showCategories}
                 >
-                  Products
-                  <ChevronDown size={16} className={`transition-transform ${showCategories ? "rotate-180" : "rotate-0"}`} />
+                  <span className="flex items-center gap-3"><span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-white/10"><Package size={17} /></span>Products</span>
+                  <ChevronDown size={17} className={`transition-transform ${showCategories ? "rotate-180" : "rotate-0"}`} />
                 </button>
                 {showCategories && (
-                  <div className="mt-3 pointer-events-auto rounded-lg bg-white p-2 text-slate-800 shadow-xl">
-                    <MegaMenu />
+                  <div className="pointer-events-auto mt-2 max-h-[55dvh] overflow-y-auto overscroll-contain rounded-xl border border-slate-200/80 bg-white p-2 text-slate-800 shadow-xl [scrollbar-width:thin]">
+                    <MegaMenu onSelect={handleCategorySelect} />
                   </div>
                 )}
               </div>
 
-              <NavLink
-                to="/blogs"
-                className={({ isActive }) =>
-                  isActive ? "block text-yellow-400" : "block hover:text-yellow-400"
-                }
-              >
-                Blogs
-              </NavLink>
-
               {navLinks
-                .filter(([label]) => label !== "Blogs")
                 .map(([label, path]) => (
                   <NavLink
                     key={label}
                     to={path}
                     className={({ isActive }) =>
-                      isActive ? "block text-yellow-400" : "block hover:text-yellow-400"
+                      `flex min-h-11 items-center gap-3 rounded-xl px-3 text-sm font-medium transition ${isActive ? "bg-yellow-400 text-slate-950 shadow-[0_6px_18px_rgba(250,204,21,0.18)]" : "text-slate-200 hover:bg-white/10 hover:text-white"}`
                     }
                   >
+                    <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-white/10">{(() => { const Icon = mobileNavIcons[label]; return Icon ? <Icon size={17} /> : null; })()}</span>
                     {label}
                   </NavLink>
                 ))}
+              </div>
 
-              <div className="flex gap-5 border-t border-white/10 pt-4">
-                <Link to="/wishlist" className="hover:text-yellow-400">
-                  Wishlist
+              <div className="mt-4 grid grid-cols-3 gap-2 border-t border-white/10 pt-4">
+                <Link to="/wishlist" className="flex min-h-16 flex-col items-center justify-center gap-1 rounded-xl bg-white/5 text-[11px] text-slate-300 transition hover:bg-white/10 hover:text-yellow-300">
+                  <Heart size={17} />
+                  <span>Wishlist</span>
                 </Link>
 
-                <Link to="/cart" className="hover:text-yellow-400">
-                  Cart
+                <Link to="/cart" className="flex min-h-16 flex-col items-center justify-center gap-1 rounded-xl bg-white/5 text-[11px] text-slate-300 transition hover:bg-white/10 hover:text-yellow-300">
+                  <ShoppingCart size={17} />
+                  <span>Cart</span>
                 </Link>
 
                 <Link
                   to={isLoggedIn && user?.role === 'admin' ? '/admin/dashboard' : isLoggedIn ? '/profile' : '/login'}
-                  className="hover:text-yellow-400"
+                  className="flex min-h-16 flex-col items-center justify-center gap-1 rounded-xl bg-white/5 text-[11px] text-slate-300 transition hover:bg-white/10 hover:text-yellow-300"
                 >
+                  {isLoggedIn && user?.role === 'admin' ? <LayoutDashboard size={17} /> : <User size={17} />}
                   {isLoggedIn && user?.role === 'admin' ? 'Admin' : isLoggedIn ? 'Profile' : 'Login'}
                 </Link>
               </div>

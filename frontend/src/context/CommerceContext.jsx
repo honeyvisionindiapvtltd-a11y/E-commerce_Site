@@ -173,7 +173,7 @@ export function CommerceProvider({ children }) {
 
     const loadProducts = async () => {
       try {
-        const response = await fetch(`${API_BASE}/products?limit=200`);
+        const response = await fetch(`${API_BASE}/products?page=1&limit=24`);
         if (!response.ok) throw new Error("Failed to fetch products");
 
         const data = await response.json();

@@ -6,7 +6,6 @@ import {
   Plus,
   Search,
   Scale,
-  ShoppingCart,
   Star,
   Trash2,
   X,
@@ -46,7 +45,7 @@ const buildComparePool = (products = []) =>
     .filter(Boolean);
 
 export default function CompareProducts() {
-  const { addToCart, toggleWishlist, wishlist, products } = useCommerce();
+  const { toggleWishlist, wishlist, products } = useCommerce();
   const comparePool = useMemo(() => buildComparePool(products), [products]);
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -280,14 +279,6 @@ export default function CompareProducts() {
                     </div>
 
                     <div className="mt-5 flex gap-2">
-                      <button
-                        type="button"
-                        onClick={() => addToCart(product.id)}
-                        className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800"
-                      >
-                        <ShoppingCart size={16} />
-                        Add to cart
-                      </button>
                       <button
                         type="button"
                         onClick={() => removeProduct(product.id)}
