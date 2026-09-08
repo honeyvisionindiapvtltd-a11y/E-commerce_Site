@@ -30,6 +30,7 @@ import OrderTracking from './pages/OrderTracking.jsx'
 import Addresses from './pages/Addresses.jsx'
 import Payment from './pages/Payment.jsx'
 import PaymentSuccess from './pages/PaymentSuccess.jsx'
+import PaymentFailure from './pages/PaymentFailure.jsx'
 import Notifications from './pages/Notifications.jsx'
 import AccountSettings from './pages/AccountSettings.jsx'
 import DealerLocator from './pages/DealerLocator.jsx'
@@ -138,6 +139,7 @@ function App() {
           <Route path="/addresses" element={<RoleRoute roles={["customer"]}><Addresses /></RoleRoute>} />
           <Route path="/payment" element={<RoleRoute roles={["customer"]}><Payment /></RoleRoute>} />
           <Route path="/payment/success" element={<RoleRoute roles={["customer"]}><PaymentSuccess /></RoleRoute>} />
+          <Route path="/payment/failure" element={<RoleRoute roles={["customer"]}><PaymentFailure /></RoleRoute>} />
           <Route path="/payment-methods" element={<RoleRoute roles={["customer"]}><Payment /></RoleRoute>} />
           <Route path="/notifications" element={<RoleRoute roles={["customer"]}><Notifications /></RoleRoute>} />
           <Route path="/account-settings" element={<RoleRoute roles={["customer"]}><AccountSettings /></RoleRoute>} />

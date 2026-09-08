@@ -1,5 +1,7 @@
 import mongoose from 'mongoose';
 
+const normalizePaymentMethod = (method) => String(method ?? '').trim().toLowerCase();
+
 const paymentSchema = new mongoose.Schema(
   {
     paymentId: { type: String, required: true, unique: true, index: true },
@@ -16,7 +18,8 @@ const paymentSchema = new mongoose.Schema(
     paymentMethod: {
       type: String,
       required: true,
-      enum: ['card', 'razorpay', 'stripe', 'wallet', 'cod'],
+      enum: ['card', 'razorpay', 'phonepe', 'googlepay', 'paytm', 'stripe', 'wallet', 'cod'],
+      set: normalizePaymentMethod,
     },
     paymentProvider: { type: String, enum: ['stripe', 'razorpay', 'internal', 'manual'] },
     paymentIntent: { type: String },

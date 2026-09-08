@@ -19,6 +19,8 @@ import { sendDeliveryOtpEmail } from "../services/deliveryOtpService.js";
 import { sendOTP } from "../services/twoFactorService.js";
 import { checkDeliveryServiceability } from "../services/deliveryServiceabilityService.js";
 import { canCustomerCancelOrder, getOrderActions } from "../services/orderLifecycleService.js";
+import { confirmedOrderFilter } from "../utils/orderQueries.js";
+import { notifyAdmins, notifyCustomer } from "../services/notificationService.js";
 
 const escapeRegExp = (value = "") => String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 const canExposeDevelopmentOtp = () => process.env.NODE_ENV === "development"
@@ -174,6 +176,26 @@ export const createOrder = async (req, res) => {
       console.log('After save - user._id:', user._id);
     }
 
+    if (req.body?.orderId) {
+      const existingOrder = await Order.findOne({ orderNumber: String(req.body.orderId), user: user._id });
+      if (existingOrder) {
+        if (existingOrder.orderLifecycleStatus === "CONFIRMED" || existingOrder.paymentStatus === "PAID") {
+          return res.status(409).json({ success: false, message: "Order has already been confirmed." });
+        }
+        existingOrder.paymentMethod = normalizedPaymentMethod;
+        existingOrder.paymentStatus = "PENDING";
+        existingOrder.orderLifecycleStatus = "PAYMENT_PENDING";
+        if (isCodOrder) {
+          existingOrder.orderLifecycleStatus = "CONFIRMED";
+        }
+        await existingOrder.save();
+        const existingPopulatedOrder = await Order.findById(existingOrder._id)
+          .populate("items.product", "name slug thumbnail price")
+          .populate("user", "name email phone");
+        return res.status(200).json({ success: true, message: "Existing payment order reused", order: existingPopulatedOrder });
+      }
+    }
+
     let subtotal = 0;
     const orderItems = [];
 
@@ -225,6 +247,7 @@ export const createOrder = async (req, res) => {
     const tax = 0;
     const totalAmount = subtotal + shippingFee - discount + tax;
 
+    const isCodOrder = normalizedPaymentMethod === "COD";
     const order = await Order.create({
       orderNumber: generateOrderNumber(),
       user: user._id,
@@ -235,6 +258,7 @@ export const createOrder = async (req, res) => {
       totalAmount,
       paymentMethod: normalizedPaymentMethod,
       paymentStatus: "PENDING",
+      orderLifecycleStatus: isCodOrder ? "CONFIRMED" : "PAYMENT_PENDING",
       shippingAddress: {
         ...normalizedAddress,
         fullName: normalizedAddress.name,
@@ -266,6 +290,22 @@ export const createOrder = async (req, res) => {
         },
       ],
     });
+    console.info(`[ORDER_CREATED] order=${order.orderNumber} lifecycle=${order.orderLifecycleStatus} paymentMethod=${order.paymentMethod}`);
+    const notification = isCodOrder
+      ? {
+          type: "ORDER_PLACED",
+          title: "COD order placed successfully",
+          message: `Your COD order ${order.orderNumber} has been placed successfully.`,
+          eventKey: `order:${order.orderNumber}:cod-placed`,
+        }
+      : {
+          type: "PAYMENT_PENDING",
+          title: "Payment pending",
+          message: `Complete payment for order ${order.orderNumber} to confirm it.`,
+          eventKey: `order:${order.orderNumber}:payment-pending`,
+        };
+    void notifyCustomer({ ...notification, recipient: order.user, orderId: order._id, orderNumber: order.orderNumber });
+    void notifyAdmins({ ...notification, orderId: order._id, orderNumber: order.orderNumber });
 
     // Reserve stock with a conditional update so concurrent checkouts cannot oversell.
     for (const item of orderItems) {
@@ -367,7 +407,7 @@ export const getMyOrders = async (req, res) => {
       });
     }
 
-    const orders = await Order.find({ user: req.user._id })
+    const orders = await Order.find(confirmedOrderFilter({ user: req.user._id }))
       .populate("items.product", "name slug thumbnail price installationAvailable")
       .sort({ createdAt: -1 });
 
@@ -520,6 +560,10 @@ export const getOrderByNumber = async (req, res) => {
       });
     }
 
+    if (req.user?.role !== "admin" && order.orderLifecycleStatus !== "CONFIRMED" && order.paymentStatus !== "PAID") {
+      return res.status(404).json({ success: false, message: "Order not found" });
+    }
+
     // Customer can only access own order
     if (req.user && String(order.user._id) !== String(req.user._id)) {
       if (req.user.role !== "admin") {
@@ -618,6 +662,10 @@ export const getOrderTracking = async (req, res) => {
         ],
         createdAt: new Date(),
       };
+    }
+
+    if (req.user?.role !== "admin" && order.orderLifecycleStatus !== "CONFIRMED" && order.paymentStatus !== "PAID") {
+      return res.status(404).json({ success: false, message: "Order not found" });
     }
 
     // Customer can only view own order tracking
@@ -962,6 +1010,10 @@ export const assignDeliveryAgent = async (req, res) => {
         success: false,
         message: "Order not found",
       });
+    }
+
+    if (order.orderLifecycleStatus !== "CONFIRMED" && order.paymentStatus !== "PAID" && order.paymentMethod !== "COD") {
+      return res.status(409).json({ success: false, message: "Payment must be confirmed before delivery assignment." });
     }
 
     if (

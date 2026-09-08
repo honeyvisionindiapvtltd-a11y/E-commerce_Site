@@ -13,6 +13,7 @@ import User from '../models/User.js';
 import DeliveryZone from '../models/DeliveryZone.js';
 import Category from '../models/Category.js';
 import Installation from '../models/Installation.js';
+import { confirmedOrderFilter } from '../utils/orderQueries.js';
 
 const router = express.Router();
 
@@ -147,7 +148,7 @@ router.get('/dashboard', async (req, res) => {
     startDate.setHours(0, 0, 0, 0);
     const previousStartDate = new Date(startDate);
     previousStartDate.setDate(previousStartDate.getDate() - periodDays);
-    const validOrderFilter = { paymentStatus: { $ne: 'FAILED' }, status: { $nin: ['CANCELLED', 'RETURNED'] } };
+    const validOrderFilter = confirmedOrderFilter();
     const paidOrderFilter = { paymentStatus: 'PAID', status: { $nin: ['CANCELLED', 'RETURNED'] } };
     const pendingStatuses = ['ORDER_PLACED', 'PAYMENT_CONFIRMED', 'PROCESSING', 'PACKED', 'SHIPPED', 'OUT_FOR_DELIVERY'];
     const statusCounts = Object.fromEntries(ORDER_STATUS_VALUES.map((status) => [status, 0]));
@@ -181,26 +182,26 @@ router.get('/dashboard', async (req, res) => {
       inventoryStats,
       installationStats,
     ] = await Promise.all([
-      Order.countDocuments(),
+      Order.countDocuments(validOrderFilter),
       User.countDocuments({ role: 'customer' }),
       Product.countDocuments({ isActive: { $ne: false } }),
       Category.countDocuments({ isActive: { $ne: false } }),
-      Order.countDocuments({ status: { $in: pendingStatuses } }),
-      Order.countDocuments({ status: 'DELIVERED' }),
-      Order.countDocuments({ status: 'CANCELLED' }),
-      Order.aggregate([{ $match: { ...validOrderFilter, createdAt: { $gte: startDate, $lte: endDate } } }, { $group: { _id: null, value: { $sum: '$totalAmount' } } }]),
-      Order.aggregate([{ $match: validOrderFilter }, { $group: { _id: null, value: { $sum: '$totalAmount' } } }]),
+      Order.countDocuments({ ...validOrderFilter, status: { $in: pendingStatuses } }),
+      Order.countDocuments({ ...validOrderFilter, status: 'DELIVERED' }),
+      Order.countDocuments({ status: 'CANCELLED', orderLifecycleStatus: { $ne: 'PAYMENT_PENDING' } }),
+      Order.aggregate([{ $match: { ...paidOrderFilter, createdAt: { $gte: startDate, $lte: endDate } } }, { $group: { _id: null, value: { $sum: '$totalAmount' } } }]),
       Order.aggregate([{ $match: paidOrderFilter }, { $group: { _id: null, value: { $sum: '$totalAmount' } } }]),
-      Order.aggregate([{ $match: { ...validOrderFilter, createdAt: { $gte: previousStartDate, $lt: startDate } } }, { $group: { _id: null, value: { $sum: '$totalAmount' } } }]),
-      Order.countDocuments({ createdAt: { $gte: startDate, $lte: endDate } }),
-      Order.countDocuments({ createdAt: { $gte: previousStartDate, $lt: startDate } }),
-      Order.aggregate([{ $group: { _id: '$status', count: { $sum: 1 } } }]),
+      Order.aggregate([{ $match: paidOrderFilter }, { $group: { _id: null, value: { $sum: '$totalAmount' } } }]),
+      Order.aggregate([{ $match: { ...paidOrderFilter, createdAt: { $gte: previousStartDate, $lt: startDate } } }, { $group: { _id: null, value: { $sum: '$totalAmount' } } }]),
+      Order.countDocuments({ ...validOrderFilter, createdAt: { $gte: startDate, $lte: endDate } }),
+      Order.countDocuments({ ...validOrderFilter, createdAt: { $gte: previousStartDate, $lt: startDate } }),
+      Order.aggregate([{ $match: validOrderFilter }, { $group: { _id: '$status', count: { $sum: 1 } } }]),
       Order.aggregate([
-        { $match: { ...validOrderFilter, createdAt: { $gte: startDate, $lte: endDate } } },
+        { $match: { ...paidOrderFilter, createdAt: { $gte: startDate, $lte: endDate } } },
         { $group: { _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt', timezone: '+05:30' } }, revenue: { $sum: '$totalAmount' }, orders: { $sum: 1 } } },
         { $sort: { _id: 1 } },
       ]),
-      Order.find().populate('user', 'name email').sort({ createdAt: -1 }).limit(5).select('orderNumber user items totalAmount status createdAt').lean(),
+      Order.find(validOrderFilter).populate('user', 'name email').sort({ createdAt: -1 }).limit(5).select('orderNumber user items totalAmount status paymentStatus createdAt').lean(),
       Product.countDocuments({ isActive: { $ne: false }, $expr: { $lte: ['$stock', '$lowStockThreshold'] } }),
       Product.find({ isActive: { $ne: false }, $expr: { $lte: ['$stock', '$lowStockThreshold'] } }).sort({ stock: 1 }).limit(5).select('name images thumbnail stock lowStockThreshold').lean(),
       Order.aggregate([
@@ -257,7 +258,7 @@ router.get('/orders', async (req, res) => {
   try {
     const { status, paymentStatus, startDate, endDate, limit = 50, skip = 0 } = req.query;
 
-    const filter = {};
+    const filter = status || paymentStatus ? {} : confirmedOrderFilter();
     if (status) {
       if (!ORDER_STATUS_VALUES.includes(status)) {
         return res.status(400).json({ success: false, error: 'Invalid order status' });

@@ -31,7 +31,9 @@ export const validateEnvironment = () => {
   if (razorpayEnabled) {
     if (!process.env.RAZORPAY_KEY_ID) missing.push('RAZORPAY_KEY_ID');
     if (!process.env.RAZORPAY_KEY_SECRET) missing.push('RAZORPAY_KEY_SECRET');
-    if (!process.env.RAZORPAY_WEBHOOK_SECRET) missing.push('RAZORPAY_WEBHOOK_SECRET');
+    if (isTruthy(process.env.RAZORPAY_WEBHOOKS_ENABLED) && !process.env.RAZORPAY_WEBHOOK_SECRET) {
+      missing.push('RAZORPAY_WEBHOOK_SECRET');
+    }
   }
 
   const stripeEnabled = isTruthy(process.env.STRIPE_ENABLED);

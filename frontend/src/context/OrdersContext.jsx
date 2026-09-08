@@ -70,8 +70,9 @@ export function OrdersProvider({ children }) {
   }, [authToken, user?.id, user?.role, isCustomer, requestJson]);
 
   const placeOrder = useCallback(
-    async ({ address, paymentMethod, installationSlot, secureShipping = false }) => {
-      const items = cart
+    async ({ address, paymentMethod, installationSlot, secureShipping = false, items: itemsOverride, orderId }) => {
+      const sourceItems = Array.isArray(itemsOverride) ? itemsOverride : cart;
+      const items = sourceItems
         .map((item) => ({ ...item, product: products.find((product) => sameProductId(product, item)) }))
         .filter((item) => item.product);
 
@@ -79,6 +80,7 @@ export function OrdersProvider({ children }) {
 
       const orderPayload = {
         userId: user?.id || null,
+        orderId,
         items,
         shippingAddress: {
           ...address,
@@ -104,8 +106,11 @@ export function OrdersProvider({ children }) {
       });
 
       const createdOrder = data.order || data;
-      setOrders((current) => [createdOrder, ...current]);
-      clearCart();
+      const isCodOrder = String(paymentMethod || "").trim().toUpperCase() === "COD";
+      if (isCodOrder) {
+        setOrders((current) => [createdOrder, ...current]);
+        clearCart();
+      }
 
       return createdOrder;
     },

@@ -7,8 +7,8 @@ import Toolbar from "../components/Toolbar";
 import Table from "../components/Table";
 
 const normalizeOrderToPayment = (order, index = 0) => {
-  const method = order.paymentMethod || "cod";
-  const gateway = method === "cod" ? "COD" : method === "upi" ? "PhonePe" : "Razorpay";
+  const method = String(order.paymentMethod || "cod").toLowerCase();
+  const gateway = method === "cod" ? "COD" : String(order.paymentProvider || "razorpay").toUpperCase();
 
   return {
     id: `pay-${order.id || index}`,
@@ -16,8 +16,8 @@ const normalizeOrderToPayment = (order, index = 0) => {
     customer: order.customer || order.shippingAddress?.name || "Customer",
     gateway,
     method: method === "cod" ? "Cash" : method.toUpperCase(),
-    amount: Number(order.total || order.amount || 0),
-    status: order.paymentStatus === "Paid" || order.status === "Delivered" ? "Success" : "Pending",
+    amount: Number(order.totalAmount || order.total || order.amount || 0),
+    status: ["PAID", "COMPLETED", "SUCCESS"].includes(String(order.paymentStatus || "").toUpperCase()) || order.status === "Delivered" ? "Success" : "Pending",
     date: order.createdAt ? new Date(order.createdAt).toISOString().split("T")[0] : new Date().toISOString().split("T")[0],
   };
 };

@@ -8,9 +8,7 @@ import {
   CreditCard,
   Check,
   Smartphone,
-  Building2,
   Wallet,
-  Percent,
   ShieldCheck,
   PackageCheck,
   Truck,
@@ -31,8 +29,7 @@ import {
 
 import { computeTotals } from "../lib/orderTotals";
 import { productIdOf } from "../lib/products";
-
-const API_BASE = import.meta.env.VITE_API_URL || "/api";
+import PaymentExperience from "../components/PaymentExperience.jsx";
 
 /* ============================================================
    PAYMENT PAGE
@@ -45,7 +42,9 @@ const Payment = () => {
     profile,
     addresses,
     user,
+    requestJson,
     placeOrder,
+    clearCart,
     couponApplied,
   } = useCommerce();
 
@@ -78,23 +77,14 @@ const Payment = () => {
      PAYMENT METHOD
   ============================================================ */
 
-  const validPaymentMethods = [
-    "cod",
-    "upi",
-    "card",
-    "razorpay",
-    "netbanking",
-    "wallet",
-    "emi",
-    "later",
-  ];
+  const validPaymentMethods = ["cod", "razorpay", "phonepe", "googlepay", "paytm"];
 
   const selectedPaymentMethod = validPaymentMethods.includes(
     checkoutState.paymentMethod
   )
     ? checkoutState.paymentMethod
     : checkoutState.paymentMethod === "online"
-      ? "card"
+      ? "razorpay"
       : "razorpay";
 
   const [orderId, setOrderId] = useState(
@@ -116,7 +106,8 @@ const Payment = () => {
   const [copied, setCopied] = useState(false);
 
   const [preservedItems, setPreservedItems] = useState(null);
-  const [paymentError, setPaymentError] = useState("");
+  const [paymentError, setPaymentError] = useState(null);
+  const [paymentErrorType, setPaymentErrorType] = useState(null);
 
   const razorpayMinimumAmount = 100;
 
@@ -220,7 +211,7 @@ const Payment = () => {
 
   const subtotal = subtotalCalc;
   const total = totalCalc;
-  const isRazorpayBlocked = ["razorpay", "card", "netbanking", "wallet", "emi", "later", "upi"].includes(paymentMethod) && total < razorpayMinimumAmount;
+  const isRazorpayBlocked = ["razorpay", "phonepe", "googlepay", "paytm", "card", "netbanking"].includes(paymentMethod) && total < razorpayMinimumAmount;
 
   const itemCount = checkoutItems.reduce(
     (count, item) => count + item.quantity,
@@ -307,37 +298,10 @@ const Payment = () => {
   ============================================================ */
 
   const paymentMethods = [
-    {
-      id: "upi",
-      title: "UPI",
-      subtitle: "Google Pay, PhonePe, Paytm & more",
-      icon: Smartphone,
-      recommended: true,
-    },
-    {
-      id: "card",
-      title: "Debit / Credit Card",
-      subtitle: "Visa, Mastercard, RuPay & more",
-      icon: CreditCard,
-    },
-    {
-      id: "netbanking",
-      title: "Net Banking",
-      subtitle: "Pay using your preferred bank",
-      icon: Building2,
-    },
-    {
-      id: "wallet",
-      title: "Wallets",
-      subtitle: "Pay using popular wallets",
-      icon: Wallet,
-    },
-    {
-      id: "emi",
-      title: "EMI / Buy Now Pay Later",
-      subtitle: "Convert your purchase into easy EMIs",
-      icon: Percent,
-    },
+    { id: "razorpay", title: "Razorpay / UPI", subtitle: "UPI, cards, wallets and net banking", icon: CreditCard, recommended: true },
+    { id: "phonepe", title: "PhonePe", subtitle: "Open Razorpay Checkout and choose PhonePe UPI", icon: Smartphone },
+    { id: "googlepay", title: "Google Pay", subtitle: "Open Razorpay Checkout and choose Google Pay UPI", icon: Smartphone },
+    { id: "paytm", title: "Paytm", subtitle: "Open Razorpay Checkout and choose Paytm UPI", icon: Smartphone },
     {
       id: "cod",
       title: "Cash on Delivery",
@@ -397,22 +361,13 @@ const Payment = () => {
 
   const handlePayment = async () => {
     setPaymentError("");
+    setPaymentErrorType(null);
 
     if (!termsAccepted) {
       setPaymentError(
         "Please accept the Terms & Conditions and Privacy Policy."
       );
-      return;
-    }
-
-    if (
-      paymentMethod === "upi" &&
-      !upiId &&
-      !selectedUpiApp
-    ) {
-      setPaymentError(
-        "Please enter your UPI ID or select a UPI app."
-      );
+      setPaymentErrorType("validation");
       return;
     }
 
@@ -420,6 +375,12 @@ const Payment = () => {
       alert(
         "Your cart is empty. Add items to continue."
       );
+      return;
+    }
+
+    if (["phonepe", "googlepay", "paytm"].includes(paymentMethod)) {
+      setPaymentErrorType("unavailable");
+      setPaymentError(`${paymentMethod === "phonepe" ? "PhonePe" : paymentMethod === "googlepay" ? "Google Pay" : "Paytm"} is currently unavailable. Please select Razorpay or Cash on Delivery.`);
       return;
     }
 
@@ -439,6 +400,8 @@ const Payment = () => {
         paymentMethod,
         installationSlot: selectedSlot,
         secureShipping,
+        items: checkoutItems,
+        orderId,
       });
 
       const currentOrderId =
@@ -484,12 +447,11 @@ const Payment = () => {
       if (
         [
           "razorpay",
+          "phonepe",
+          "googlepay",
+          "paytm",
           "card",
           "netbanking",
-          "wallet",
-          "emi",
-          "later",
-          "upi",
         ].includes(paymentMethod)
       ) {
         const razorpayAmount = Math.round(total * 100);
@@ -498,33 +460,20 @@ const Payment = () => {
           setPaymentError(
             "Razorpay minimum order amount is ₹100. Please add more items or choose another payment method."
           );
+          setPaymentErrorType("validation");
           setIsSubmitting(false);
           return;
         }
 
-        const resp = await fetch(
-          `${API_BASE}/payments/razorpay/create-order`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              amount: razorpayAmount,
-              currency: "INR",
-              orderId: currentOrderId,
-            }),
-          }
-        );
-
-        const payload = await resp.json();
-
-        if (!resp.ok) {
-          throw new Error(
-            payload.error ||
-              "Failed to create Razorpay order"
-          );
-        }
+        const payload = await requestJson("/payments/razorpay/create-order", {
+          method: "POST",
+          body: JSON.stringify({
+            amount: razorpayAmount,
+            currency: "INR",
+            orderId: currentOrderId,
+            paymentMethod,
+          }),
+        });
 
         const {
           order: razorOrder,
@@ -575,42 +524,20 @@ const Payment = () => {
 
           handler: async function (response) {
             try {
-              const verifyResp = await fetch(
-                `${API_BASE}/payments/razorpay/verify`,
-                {
-                  method: "POST",
-                  headers: {
-                    "Content-Type":
-                      "application/json",
-                  },
-                  body: JSON.stringify({
-                    razorpay_order_id:
-                      response.razorpay_order_id,
+              const verifyData = await requestJson("/payments/razorpay/verify", {
+                method: "POST",
+                body: JSON.stringify({
+                  razorpay_order_id: response.razorpay_order_id,
+                  razorpay_payment_id: response.razorpay_payment_id,
+                  razorpay_signature: response.razorpay_signature,
+                  orderId: currentOrderId,
+                }),
+              });
 
-                    razorpay_payment_id:
-                      response.razorpay_payment_id,
+              if (!verifyData.success) throw new Error("Payment verification failed");
 
-                    razorpay_signature:
-                      response.razorpay_signature,
-
-                    orderId: currentOrderId,
-                  }),
-                }
-              );
-
-              const verifyData =
-                await verifyResp.json();
-
-              if (
-                !verifyResp.ok ||
-                !verifyData.success
-              ) {
-                throw new Error(
-                  verifyData.error ||
-                    "Payment verification failed"
-                );
-              }
-
+              clearCart();
+              setPaymentErrorType("success");
               setOrderId(currentOrderId);
 
               navigate(
@@ -631,6 +558,7 @@ const Payment = () => {
                 error.message ||
                   "Payment verification failed"
               );
+              setPaymentErrorType("failed");
             }
           },
 
@@ -656,7 +584,22 @@ const Payment = () => {
 
           modal: {
             ondismiss: function () {
+              void requestJson("/payments/razorpay/cancelled", {
+                method: "POST",
+                body: JSON.stringify({ orderId: currentOrderId }),
+              }).catch(() => {});
+              setPaymentError("Payment was cancelled. Your order has not been confirmed. You can retry payment.");
+              setPaymentErrorType("cancelled");
               setIsSubmitting(false);
+              navigate('/payment/failure', {
+                state: {
+                  orderId: currentOrderId,
+                  paymentMethod,
+                  amount: total,
+                  itemCount,
+                  reason: 'cancelled',
+                },
+              });
             },
           },
         };
@@ -666,11 +609,25 @@ const Payment = () => {
         rzp.on(
           "payment.failed",
           function (response) {
+            void requestJson("/payments/razorpay/failed", {
+              method: "POST",
+              body: JSON.stringify({ orderId: currentOrderId }),
+            }).catch(() => {});
             setPaymentError(
               response?.error?.description ||
                 "Payment failed. Please try again."
             );
+            setPaymentErrorType("failed");
 
+            navigate('/payment/failure', {
+              state: {
+                orderId: currentOrderId,
+                paymentMethod,
+                amount: total,
+                itemCount,
+                reason: 'failed',
+              },
+            });
             setIsSubmitting(false);
           }
         );
@@ -684,6 +641,7 @@ const Payment = () => {
         error.message ||
           "Unable to place order. Please try again."
       );
+      setPaymentErrorType("failed");
     } finally {
       setIsSubmitting(false);
     }
@@ -692,6 +650,44 @@ const Payment = () => {
   /* ============================================================
      UI
   ============================================================ */
+
+    const useModernPaymentExperience = checkoutState.paymentExperience !== "legacy";
+
+    if (useModernPaymentExperience) return (
+    <PaymentExperience
+      paymentMethod={paymentMethod}
+      setPaymentMethod={(method) => {
+        setPaymentMethod(method);
+        setPaymentError(null);
+      }}
+      selectedUpiApp={selectedUpiApp}
+      setSelectedUpiApp={setSelectedUpiApp}
+      paymentError={paymentError}
+      paymentErrorType={paymentErrorType}
+      isRazorpayBlocked={isRazorpayBlocked}
+      razorpayMinimumAmount={razorpayMinimumAmount}
+      handlePayment={handlePayment}
+      isSubmitting={isSubmitting}
+      termsAccepted={termsAccepted}
+      setTermsAccepted={setTermsAccepted}
+      billingName={billingName}
+      billingPhone={billingPhone}
+      billingAddressLine={billingAddressLine}
+      billingCity={billingCity}
+      billingState={billingState}
+      billingPin={billingPin}
+      billingCountry={billingCountry}
+      checkoutItems={checkoutItems}
+      itemCount={itemCount}
+      subtotal={subtotal}
+      discount={discount}
+      shipping={shipping}
+      installationFee={installationFee}
+      insurance={insurance}
+      total={total}
+      navigate={navigate}
+    />
+  );
 
   return (
     <div className="min-h-screen bg-[#f6f8fb] text-[#071426]">
@@ -1092,9 +1088,9 @@ const Payment = () => {
                   <CashOnDeliveryPayment />
                 )}
 
-                {/* RAZORPAY */}
-                {paymentMethod === "razorpay" && (
-                  <RazorpayPayment />
+                {/* RAZORPAY-BACKED METHODS */}
+                {["razorpay", "phonepe", "googlepay", "paytm"].includes(paymentMethod) && (
+                  <RazorpayPayment paymentMethod={paymentMethod} />
                 )}
               </div>
             </section>
@@ -2295,7 +2291,15 @@ const EMIPayment = ({ total }) => {
    RAZORPAY
 ============================================================ */
 
-const RazorpayPayment = () => {
+const RazorpayPayment = ({ paymentMethod }) => {
+  const methodLabel = paymentMethod === "razorpay"
+    ? "Razorpay / UPI"
+    : paymentMethod === "googlepay"
+      ? "Google Pay"
+      : paymentMethod === "phonepe"
+        ? "PhonePe"
+        : "Paytm";
+
   return (
     <div className="rounded-2xl border border-blue-100 bg-blue-50 p-5">
 
@@ -2311,13 +2315,11 @@ const RazorpayPayment = () => {
         <div>
 
           <h3 className="font-extrabold">
-            Razorpay Secure Checkout
+            {methodLabel} via Razorpay Checkout
           </h3>
 
           <p className="mt-1 text-sm leading-6 text-gray-600">
-            Continue securely using UPI, cards,
-            net banking, wallets and supported
-            payment methods through Razorpay.
+            Your selected app will be available in Razorpay's secure UPI checkout. No separate app credentials are required.
           </p>
 
         </div>
