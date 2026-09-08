@@ -5,7 +5,7 @@ import PDFDocument from 'pdfkit';
 import crypto from 'crypto';
 import Order from '../models/Order.js';
 import { updateOrderTracking } from '../services/orderTrackingService.js';
-import { notifyCustomer } from '../services/notificationService.js';
+import { notifyAdmins, notifyCustomer } from '../services/notificationService.js';
 import Payment from '../models/Payment.js';
 import { checkDeliveryServiceability } from '../services/deliveryServiceabilityService.js';
 
@@ -68,7 +68,12 @@ const requireOwnedOrder = async (orderId, userId) => {
 
 export const createCheckoutSession = async (req, res) => {
   try {
-    const { amount, currency = 'INR', orderId, items } = req.body || {};
+    const { amount, currency = 'INR', orderId, items, paymentMethod = 'razorpay' } = req.body || {};
+    const normalizedPaymentMethod = String(paymentMethod).trim().toLowerCase();
+    const supportedPaymentMethods = new Set(['razorpay', 'phonepe', 'googlepay', 'paytm', 'card', 'netbanking']);
+    if (!supportedPaymentMethods.has(normalizedPaymentMethod)) {
+      return res.status(400).json({ error: 'Unsupported Razorpay payment method' });
+    }
 
     if (!process.env.STRIPE_ENABLED || !process.env.STRIPE_SECRET_KEY) {
       return res.status(503).json({ error: 'Stripe is not enabled on this server' });
@@ -174,59 +179,93 @@ export const handleWebhook = async (req, res) => {
 
 export const createRazorpayOrder = async (req, res) => {
   try {
-    const { amount, currency = 'INR', orderId, items } = req.body || {};
+    const { orderId, paymentMethod = 'razorpay' } = req.body || {};
+    const normalizedPaymentMethod = String(paymentMethod || 'razorpay').trim().toLowerCase();
+    const supportedPaymentMethods = new Set(['razorpay', 'card', 'netbanking']);
+    if (!supportedPaymentMethods.has(normalizedPaymentMethod)) {
+      return res.status(400).json({ success: false, error: 'Unsupported Razorpay payment method' });
+    }
+
+    if (!req.user?._id) {
+      return res.status(401).json({ success: false, error: 'Authentication required' });
+    }
 
     if (!process.env.RAZORPAY_ENABLED || !process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET) {
-      return res.status(503).json({ error: 'Razorpay is not enabled on this server' });
+      return res.status(503).json({ success: false, error: 'Razorpay is not enabled on this server' });
     }
     if (!razorInstance) {
-      return res.status(500).json({ error: 'Razorpay client is not configured on server' });
+      return res.status(500).json({ success: false, error: 'Razorpay client is not configured on server' });
+    }
+    if (!orderId) return res.status(400).json({ success: false, error: 'Order ID is required' });
+
+    const localOrder = await requireOwnedOrder(orderId, req.user._id);
+    if (!localOrder) return res.status(404).json({ success: false, error: 'Order not found' });
+    if (localOrder.paymentStatus === 'PAID' || localOrder.orderLifecycleStatus === 'CONFIRMED') {
+      return res.status(409).json({ success: false, error: 'Order has already been paid' });
+    }
+    if (!['PAYMENT_PENDING', 'PAYMENT_FAILED', 'PAYMENT_CANCELLED'].includes(localOrder.orderLifecycleStatus)) {
+      return res.status(409).json({ success: false, error: 'Order is not available for online payment' });
     }
 
-    const numericAmount = Number(amount || 0);
-
-    if (!Number.isFinite(numericAmount) || numericAmount <= 0) {
-      return res.status(400).json({ error: 'Order amount must be greater than zero.' });
+    const serverAmount = Number(localOrder.totalAmount || 0);
+    if (!Number.isFinite(serverAmount) || serverAmount <= 0) {
+      return res.status(400).json({ success: false, error: 'Order amount must be greater than zero.' });
     }
 
-    if (numericAmount < 10000) {
-      return res.status(400).json({ error: 'Razorpay minimum order amount is ₹100. Please add more items or choose another payment method.' });
+    const amountInPaise = Math.round(serverAmount * 100);
+    if (amountInPaise < 100) {
+      return res.status(400).json({ success: false, error: 'Razorpay minimum order amount is ₹1. Please add more items or choose another payment method.' });
     }
 
-    if (orderId) {
-      const localOrder = await requireOwnedOrder(orderId, req.user._id);
-      if (!localOrder) return res.status(404).json({ error: 'Order not found' });
-      const serviceability = await checkDeliveryServiceability({
-        country: localOrder.shippingAddress?.country,
-        state: localOrder.shippingAddress?.state,
-        city: localOrder.shippingAddress?.city,
-        pincode: localOrder.shippingAddress?.postalCode,
-      });
-      if (!serviceability.valid || !serviceability.serviceable) {
-        return res.status(400).json({ error: 'Payment is unavailable for the selected delivery address' });
-      }
-      const expectedAmount = Math.round(Number(localOrder.totalAmount) * 100);
-      if (expectedAmount !== numericAmount) {
-        return res.status(400).json({ error: 'Payment amount does not match the order total' });
-      }
-      if (localOrder.paymentStatus === 'PAID') {
-        return res.status(409).json({ error: 'Order has already been paid' });
+    const serviceability = await checkDeliveryServiceability({
+      country: localOrder.shippingAddress?.country,
+      state: localOrder.shippingAddress?.state,
+      city: localOrder.shippingAddress?.city,
+      pincode: localOrder.shippingAddress?.postalCode || localOrder.shippingAddress?.pincode,
+    });
+    if (!serviceability.valid || !serviceability.serviceable) {
+      return res.status(400).json({ success: false, error: 'Payment is unavailable for the selected delivery address' });
+    }
+
+    localOrder.paymentStatus = 'PENDING';
+    localOrder.orderLifecycleStatus = 'PAYMENT_PENDING';
+    localOrder.paymentProvider = 'razorpay';
+    localOrder.paymentMethod = String(normalizedPaymentMethod).toUpperCase();
+
+    if (localOrder.paymentOrderId) {
+      try {
+        const existingRazorpayOrder = await razorInstance.orders.fetch(localOrder.paymentOrderId);
+        if (Number(existingRazorpayOrder.amount) === amountInPaise && String(existingRazorpayOrder.currency || '').toUpperCase() === 'INR') {
+          await localOrder.save();
+          return res.json({ success: true, order: existingRazorpayOrder, keyId: process.env.RAZORPAY_KEY_ID });
+        }
+      } catch (error) {
+        console.warn('Existing Razorpay order could not be reused', error.message);
       }
     }
 
     const options = {
-      amount: numericAmount,
-      currency: (currency || 'INR').toUpperCase(),
-      receipt: orderId || `rcpt_${Date.now()}`,
+      amount: amountInPaise,
+      currency: 'INR',
+      receipt: String(orderId),
       payment_capture: 1,
+      notes: {
+        orderId: String(orderId),
+        paymentMethod: normalizedPaymentMethod,
+      },
     };
 
     const order = await razorInstance.orders.create(options);
+    localOrder.paymentOrderId = order.id;
+    localOrder.paymentProvider = 'razorpay';
+    localOrder.paymentMethod = String(normalizedPaymentMethod).toUpperCase();
+    await localOrder.save();
+    console.info(`[PAYMENT_INITIATED] order=${localOrder.orderNumber} razorpayOrder=${order.id}`);
 
-    res.json({ order, keyId: process.env.RAZORPAY_KEY_ID });
+    res.json({ success: true, order, keyId: process.env.RAZORPAY_KEY_ID });
   } catch (error) {
     console.error('createRazorpayOrder error', error);
-    res.status(500).json({ error: error.message || 'Unable to create razorpay order' });
+    res.status(500).json({ success: false, error: error.message || 'Unable to create razorpay order' });
   }
 };
 
@@ -234,12 +273,28 @@ export const verifyRazorpayPayment = async (req, res) => {
   try {
     const { razorpay_order_id, razorpay_payment_id, razorpay_signature, orderId } = req.body || {};
 
+    if (!req.user?._id) {
+      return res.status(401).json({ success: false, error: 'Authentication required' });
+    }
     if (!process.env.RAZORPAY_ENABLED || !process.env.RAZORPAY_KEY_SECRET) {
       return res.status(503).json({ success: false, error: 'Razorpay is not enabled on this server' });
     }
-
     if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
       return res.status(400).json({ success: false, error: 'Missing payment verification fields' });
+    }
+
+    const order = await requireOwnedOrder(orderId, req.user._id);
+    if (!order) {
+      return res.status(404).json({ success: false, error: 'Order not found' });
+    }
+    if (!['RAZORPAY', 'CARD', 'NETBANKING'].includes(String(order.paymentMethod || '').trim().toUpperCase())) {
+      return res.status(400).json({ success: false, error: 'This payment provider is not configured for online checkout' });
+    }
+    if (order.paymentStatus === 'PAID' && order.paymentTransactionId === razorpay_payment_id) {
+      return res.json({ success: true, order, message: 'Payment already verified' });
+    }
+    if (order.paymentOrderId && String(order.paymentOrderId) !== String(razorpay_order_id)) {
+      return res.status(400).json({ success: false, error: 'Razorpay order does not match the local order' });
     }
 
     const isValidSignature = verifyRazorpaySignature(
@@ -248,66 +303,114 @@ export const verifyRazorpayPayment = async (req, res) => {
       razorpay_payment_id,
       razorpay_signature,
     );
-
     if (!isValidSignature) {
-      console.error('Razorpay signature mismatch', { razorpay_order_id, razorpay_payment_id, razorpay_signature });
+      console.error('Razorpay signature mismatch', { razorpay_order_id, razorpay_payment_id });
       return res.status(400).json({ success: false, error: 'Invalid signature' });
     }
 
-    if (orderId) {
+    const existingPayment = await Payment.findOne({ paymentId: razorpay_payment_id }).lean();
+    if (existingPayment && String(existingPayment.userId) === String(req.user._id) && String(existingPayment.orderId) === String(order.orderNumber)) {
+      return res.json({ success: true, order, message: 'Payment already verified' });
+    }
+
+    const expectedAmountInPaise = Math.round(Number(order.totalAmount || 0) * 100);
+    if (!Number.isFinite(expectedAmountInPaise) || expectedAmountInPaise <= 0) {
+      return res.status(400).json({ success: false, error: 'Order amount is invalid for payment verification' });
+    }
+
+    if (razorInstance) {
       try {
-        const order = await requireOwnedOrder(orderId, req.user._id);
-        if (!order) throw new Error('Order not found');
-        const existingPayment = await Payment.findOne({ paymentId: razorpay_payment_id }).lean();
-        if (existingPayment) {
-          if (String(existingPayment.userId) !== String(req.user._id)) throw new Error('Order not found');
-          return res.json({ success: true, order: { orderNumber: existingPayment.orderId } });
+        const razorpayPayment = await razorInstance.payments.fetch(razorpay_payment_id);
+        if (String(razorpayPayment.order_id) !== String(razorpay_order_id)) {
+          return res.status(400).json({ success: false, error: 'Razorpay payment does not match the local order' });
         }
-        if (order.paymentStatus === 'PAID' && order.paymentTransactionId === razorpay_payment_id) {
-          return res.json({ success: true, order });
+        if (Number(razorpayPayment.amount) !== expectedAmountInPaise) {
+          return res.status(400).json({ success: false, error: 'Payment amount does not match the order total' });
         }
-        order.paymentStatus = 'PAID';
-        order.paymentProvider = 'razorpay';
-        order.paymentTransactionId = razorpay_payment_id;
-        order.paymentOrderId = razorpay_order_id;
-        await order.save();
-        await Payment.findOneAndUpdate(
-          { paymentId: razorpay_payment_id },
-          {
-            paymentId: razorpay_payment_id,
-            orderId: order.orderNumber,
-            userId: String(order.user),
-            amount: order.totalAmount,
-            currency: 'INR',
-            status: 'completed',
-            paymentMethod: 'razorpay',
-            paymentProvider: 'razorpay',
-            razorpayOrderId: razorpay_order_id,
-            razorpayPaymentId: razorpay_payment_id,
-            razorpaySignature: razorpay_signature,
-            completedAt: new Date(),
-          },
-          { upsert: true, new: true, setDefaultsOnInsert: true },
-        );
-        const result = await updateOrderTracking({
-          orderId: order.orderNumber,
-          status: 'PAYMENT_CONFIRMED',
-          source: 'PAYMENT',
-        });
-        void notifyCustomer({ recipient: order.user, type: 'PAYMENT_SUCCESS', category: 'payment', title: 'Payment successful', message: `Payment for order ${order.orderNumber} was successful.`, orderId: order._id, orderNumber: order.orderNumber, actionUrl: `/orders/${encodeURIComponent(order.orderNumber)}/tracking`, eventKey: `payment:${order.orderNumber}:razorpay:${razorpay_payment_id}` });
-        return res.json({ success: true, order: result.order });
-      } catch (err) {
-        console.error('Failed to update order after razorpay verification', err);
-        return res.status(400).json({ success: false, error: err.message });
+        if (String(razorpayPayment.currency || '').toUpperCase() !== 'INR') {
+          return res.status(400).json({ success: false, error: 'Only INR payments are accepted' });
+        }
+        if (String(razorpayPayment.status || '').toLowerCase() !== 'captured') {
+          return res.status(400).json({ success: false, error: 'Payment has not been captured yet' });
+        }
+      } catch (error) {
+        console.error('Razorpay payment fetch failed during verification', error?.message || error);
+        return res.status(400).json({ success: false, error: 'Unable to verify payment details' });
       }
     }
 
-    res.json({ success: true });
+    const normalizedMethod = String(order.paymentMethod || 'RAZORPAY').trim().toUpperCase();
+    const allowedMethodValues = new Set(['COD', 'RAZORPAY', 'PHONEPE', 'GOOGLEPAY', 'PAYTM', 'CARD', 'NETBANKING', 'UPI']);
+    const paymentMethod = allowedMethodValues.has(normalizedMethod) ? normalizedMethod.toLowerCase() : 'razorpay';
+
+    order.paymentStatus = 'PAID';
+    order.orderLifecycleStatus = 'CONFIRMED';
+    order.paymentProvider = 'razorpay';
+    order.paymentMethod = normalizedMethod;
+    order.paymentTransactionId = razorpay_payment_id;
+    order.paymentOrderId = razorpay_order_id;
+    order.status = 'ORDER_PLACED';
+    await order.save();
+
+    console.info(`[PAYMENT_VERIFIED] order=${order.orderNumber} razorpayPayment=${razorpay_payment_id}`);
+
+    await Payment.findOneAndUpdate(
+      { paymentId: razorpay_payment_id },
+      {
+        paymentId: razorpay_payment_id,
+        orderId: order.orderNumber,
+        userId: String(order.user),
+        amount: Number(order.totalAmount || 0),
+        currency: 'INR',
+        status: 'completed',
+        paymentMethod,
+        paymentProvider: 'razorpay',
+        paymentIntent: razorpay_order_id,
+        transactionId: razorpay_payment_id,
+        razorpayOrderId: razorpay_order_id,
+        razorpayPaymentId: razorpay_payment_id,
+        razorpaySignature: razorpay_signature,
+        completedAt: new Date(),
+      },
+      { upsert: true, new: true, setDefaultsOnInsert: true },
+    );
+
+    const result = await updateOrderTracking({
+      orderId: order.orderNumber,
+      status: 'PAYMENT_CONFIRMED',
+      source: 'PAYMENT',
+    });
+    console.info(`[ORDER_CONFIRMED] order=${order.orderNumber} payment=${razorpay_payment_id}`);
+    void notifyCustomer({ recipient: order.user, type: 'PAYMENT_SUCCESS', category: 'payment', title: 'Payment successful', message: `Payment for order ${order.orderNumber} was successful.`, orderId: order._id, orderNumber: order.orderNumber, actionUrl: `/orders/${encodeURIComponent(order.orderNumber)}/tracking`, eventKey: `payment:${order.orderNumber}:razorpay:${razorpay_payment_id}` });
+    void notifyAdmins({ type: 'ORDER_CONFIRMED', category: 'order', title: 'Order confirmed', message: `Order ${order.orderNumber} has been confirmed after payment.`, orderId: order._id, orderNumber: order.orderNumber, eventKey: `order:${order.orderNumber}:confirmed:${razorpay_payment_id}` });
+
+    return res.json({ success: true, order: result.order });
   } catch (error) {
     console.error('verifyRazorpayPayment error', error);
     res.status(500).json({ success: false, error: error.message || 'Verification failed' });
   }
 };
+
+const updateUnsuccessfulRazorpayAttempt = async (req, res, lifecycleStatus, paymentStatus, message) => {
+  try {
+    const order = await requireOwnedOrder(req.body?.orderId, req.user._id);
+    if (!order) return res.status(404).json({ success: false, error: 'Order not found' });
+    if (order.paymentStatus === 'PAID' || order.orderLifecycleStatus === 'CONFIRMED') {
+      return res.status(409).json({ success: false, error: 'Order is already confirmed' });
+    }
+    order.paymentStatus = paymentStatus;
+    order.orderLifecycleStatus = lifecycleStatus;
+    await order.save();
+    console.info(`[PAYMENT_${paymentStatus}] order=${order.orderNumber}`);
+    return res.json({ success: true, order, message });
+  } catch (error) {
+    console.error('updateUnsuccessfulRazorpayAttempt error', error);
+    return res.status(500).json({ success: false, error: 'Unable to update payment attempt' });
+  }
+};
+
+export const markRazorpayPaymentFailed = (req, res) => updateUnsuccessfulRazorpayAttempt(req, res, 'PAYMENT_FAILED', 'FAILED', 'Payment failed. Your order has not been confirmed.');
+export const markRazorpayPaymentCancelled = (req, res) => updateUnsuccessfulRazorpayAttempt(req, res, 'PAYMENT_CANCELLED', 'CANCELLED', 'Payment was cancelled. You can try again.');
 
 export const getOrderDetails = async (req, res) => {
   try {
@@ -319,14 +422,7 @@ export const getOrderDetails = async (req, res) => {
 
     const ownedOrder = await requireOwnedOrder(orderId, req.user._id);
     if (!ownedOrder) return res.status(404).json({ error: 'Order not found' });
-    const orders = getDB().collection('orders');
-    const order = await orders.findOne({ id: String(orderId) });
-
-    if (!order) {
-      return res.status(404).json({ error: 'Order not found' });
-    }
-
-    res.json({ order });
+    res.json({ order: ownedOrder });
   } catch (error) {
     console.error('getOrderDetails error', error);
     res.status(500).json({ error: error.message || 'Unable to load order details' });

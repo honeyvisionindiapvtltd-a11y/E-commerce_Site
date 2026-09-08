@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
+import { useCommerce } from "../context/index.js";
 import {
   CheckCircle2,
   Download,
@@ -23,6 +24,12 @@ const paymentMethodLabel = (method) => {
       return "UPI Payment";
     case "razorpay":
       return "Razorpay";
+    case "phonepe":
+      return "PhonePe via Razorpay UPI";
+    case "googlepay":
+      return "Google Pay via Razorpay UPI";
+    case "paytm":
+      return "Paytm via Razorpay UPI";
     case "card":
       return "Card Payment";
     case "netbanking":
@@ -39,6 +46,7 @@ const paymentMethodLabel = (method) => {
 export default function PaymentSuccess() {
   const location = useLocation();
   const navigate = useNavigate();
+  const { requestJson } = useCommerce();
   const state = location.state || {};
   const query = new URLSearchParams(location.search);
   const orderId = state.orderId || query.get("orderId");
@@ -49,20 +57,18 @@ export default function PaymentSuccess() {
   const [downloading, setDownloading] = useState(false);
   const shippingAddress = order?.shippingAddress || {};
 
+  const isConfirmedPayment = order && (
+    String(order.paymentStatus || "").toUpperCase() === "PAID"
+    || String(order.paymentMethod || "").toUpperCase() === "COD"
+  );
+
   const itemCount = (order && Array.isArray(order.items))
     ? order.items.reduce((count, item) => count + Number(item.quantity || 1), 0)
     : 0;
 
   useEffect(() => {
     if (!order && orderId) {
-      fetch(`${API_BASE}/payments/order/${encodeURIComponent(orderId)}`)
-        .then(async (resp) => {
-          if (!resp.ok) {
-            const body = await resp.json().catch(() => ({}));
-            throw new Error(body.error || body.message || "Unable to verify order");
-          }
-          return resp.json();
-        })
+      requestJson(`/payments/order/${encodeURIComponent(orderId)}`)
         .then((data) => {
           setOrder(data.order || null);
         })
@@ -73,7 +79,7 @@ export default function PaymentSuccess() {
           setLoading(false);
         });
     }
-  }, [order, orderId]);
+  }, [order, orderId, requestJson]);
 
   const handleDownloadInvoice = async () => {
     if (!orderId) return;
@@ -151,14 +157,14 @@ export default function PaymentSuccess() {
     );
   }
 
-  if (error || !order) {
+  if (error || !order || !isConfirmedPayment) {
     return (
       <main className="min-h-screen bg-[#f8fafc] p-10 text-center">
         <div className="mx-auto max-w-xl rounded-3xl border border-red-200 bg-red-50 p-10 shadow-lg">
           <CheckCircle2 size={48} className="mx-auto text-red-600" />
           <h1 className="mt-6 text-3xl font-bold text-slate-900">Unable to verify order</h1>
           <p className="mt-4 text-gray-600">
-            {error || 'We could not load the order details. Please contact support or try again later.'}
+            {error || (!isConfirmedPayment ? 'This order is still awaiting payment verification. Return to checkout to retry payment.' : 'We could not load the order details. Please contact support or try again later.')}
           </p>
           <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:justify-center">
             <button

@@ -245,6 +245,10 @@ const orderSchema = new mongoose.Schema(
         "UPI",
         "CARD",
         "NETBANKING",
+        "RAZORPAY",
+        "PHONEPE",
+        "GOOGLEPAY",
+        "PAYTM",
       ],
       default: "COD",
     },
@@ -255,6 +259,7 @@ const orderSchema = new mongoose.Schema(
         "PENDING",
         "PAID",
         "FAILED",
+        "CANCELLED",
         "REFUNDED",
       ],
       default: "PENDING",
@@ -273,6 +278,13 @@ const orderSchema = new mongoose.Schema(
     paymentOrderId: {
       type: String,
       default: "",
+    },
+
+    orderLifecycleStatus: {
+      type: String,
+      enum: ["PAYMENT_PENDING", "CONFIRMED", "PAYMENT_FAILED", "PAYMENT_CANCELLED"],
+      default: "CONFIRMED",
+      index: true,
     },
 
     subtotal: {

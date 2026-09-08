@@ -22,6 +22,22 @@ export const createOrder = async (req, res) => {
       customerNote = "",
     } = req.body;
 
+    const normalizedPaymentMethod = String(paymentMethod || "cod").trim().toUpperCase();
+    const allowedPaymentMethods = new Set([
+      "COD",
+      "RAZORPAY",
+      "PHONEPE",
+      "GOOGLEPAY",
+      "PAYTM",
+      "ONLINE",
+      "UPI",
+      "CARD",
+      "NETBANKING",
+    ]);
+    if (!allowedPaymentMethods.has(normalizedPaymentMethod)) {
+      return res.status(400).json({ success: false, message: "Unsupported payment method" });
+    }
+
     if (!req.user?._id) {
       return res.status(401).json({
         success: false,
@@ -122,6 +138,7 @@ export const createOrder = async (req, res) => {
       discount +
       tax;
 
+    const isCodOrder = normalizedPaymentMethod === "COD";
     const order = await Order.create({
       orderNumber: generateOrderNumber(),
 
@@ -139,12 +156,9 @@ export const createOrder = async (req, res) => {
 
       totalAmount,
 
-      paymentMethod,
-
-      paymentStatus:
-        paymentMethod === "cod"
-          ? "pending"
-          : "pending",
+      paymentMethod: normalizedPaymentMethod,
+      paymentStatus: "PENDING",
+      orderLifecycleStatus: isCodOrder ? "CONFIRMED" : "PAYMENT_PENDING",
 
       shippingAddress: normalizedShippingAddress,
 

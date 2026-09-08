@@ -201,7 +201,10 @@ return (
                 <CreditCard className="text-amber-500" /> Payment method
               </h2>
               <PaymentOption label="Cash on delivery" description="Pay when the delivery arrives." checked={paymentMethod === "cod"} onChange={() => setPaymentMethod("cod")} />
-              <PaymentOption label="UPI / Card / Net Banking" description="Payment gateway handoff is ready for server integration." checked={paymentMethod === "online"} onChange={() => setPaymentMethod("online")} />
+              <PaymentOption label="Razorpay / UPI" description="Pay securely with UPI, cards, wallets or net banking." checked={paymentMethod === "razorpay"} onChange={() => setPaymentMethod("razorpay")} />
+              <PaymentOption label="PhonePe" description="Continue through Razorpay Checkout and choose PhonePe UPI." checked={paymentMethod === "phonepe"} onChange={() => setPaymentMethod("phonepe")} />
+              <PaymentOption label="Google Pay" description="Continue through Razorpay Checkout and choose Google Pay UPI." checked={paymentMethod === "googlepay"} onChange={() => setPaymentMethod("googlepay")} />
+              <PaymentOption label="Paytm" description="Continue through Razorpay Checkout and choose Paytm UPI." checked={paymentMethod === "paytm"} onChange={() => setPaymentMethod("paytm")} />
             </div>
           </section>
           <aside className="h-fit rounded-2xl bg-white p-6 shadow-sm lg:sticky lg:top-24">

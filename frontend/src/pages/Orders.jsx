@@ -244,7 +244,7 @@ export default function Orders() {
                         </div>
 
                         <div className="flex flex-wrap gap-3 text-sm text-slate-600">
-                          <span className="rounded-full bg-[#FFF7DB] px-3 py-1 font-semibold text-[#9A7100]">{String(order.paymentMethod || "").toUpperCase() === "COD" ? "Cash on Delivery" : "Online"}</span>
+                          <span className="rounded-full bg-[#FFF7DB] px-3 py-1 font-semibold text-[#9A7100]">{String(order.paymentMethod || "").toUpperCase() === "COD" ? "Cash on Delivery" : String(order.paymentMethod || "Razorpay").toUpperCase()}</span>
                           <span className="rounded-full bg-slate-100 px-3 py-1 font-medium">{new Date(order.createdAt || order.orderDate).toLocaleDateString("en-IN", { dateStyle: "medium" })}</span>
                           <ChevronRight className="text-gray-400" size={20} />
                         </div>
