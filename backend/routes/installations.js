@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { protect, requireAdmin, requireDeliveryAgent, requireCustomer } from '../middleware/authMiddleware.js';
+import { protect, requireAdmin, requireDeliveryAgent, requireStorefrontUser } from '../middleware/authMiddleware.js';
 import {
   adminListInstallations,
   adminGetInstallation,
@@ -78,15 +78,15 @@ router.put('/agent/installations/:bookingId/notes', protect, requireDeliveryAgen
 // ==========================================
 
 // Create a customer installation booking
-router.post('/installations', protect, requireCustomer, customerCreateInstallation);
-router.post('/installations/:bookingId/payment/create-order', protect, requireCustomer, createInstallationPaymentOrder);
-router.post('/installations/:bookingId/payment/verify', protect, requireCustomer, verifyInstallationPayment);
+router.post('/installations', protect, requireStorefrontUser, customerCreateInstallation);
+router.post('/installations/:bookingId/payment/create-order', protect, requireStorefrontUser, createInstallationPaymentOrder);
+router.post('/installations/:bookingId/payment/verify', protect, requireStorefrontUser, verifyInstallationPayment);
 
 // List customer's installations
-router.get('/customer/installations', protect, requireCustomer, customerListInstallations);
+router.get('/customer/installations', protect, requireStorefrontUser, customerListInstallations);
 
 // Get customer's installation details
-router.get('/customer/installations/:bookingId', protect, requireCustomer, customerGetInstallation);
+router.get('/customer/installations/:bookingId', protect, requireStorefrontUser, customerGetInstallation);
 
 // Alternative customer endpoint (alias for compatibility)
 router.get('/installations', protect, customerListInstallations);

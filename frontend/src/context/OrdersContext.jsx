@@ -13,7 +13,7 @@ function sameProductId(first, second) {
 
 export function OrdersProvider({ children }) {
   const { authToken, user, requestJson } = useAuth();
-  const isCustomer = user?.role === "customer";
+  const isCustomer = ["customer", "admin"].includes(user?.role);
   const { products } = useCatalog();
   const { couponApplied } = useDelivery();
   const { cart, clearCart } = useCart();

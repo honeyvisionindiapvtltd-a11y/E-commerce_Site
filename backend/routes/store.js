@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { getDB } from '../db.js';
 import { findDeliveryDocument } from '../services/deliveryService.js';
 import { normalizePincode, isValidPincode } from '../middleware/validation.js';
-import { protect, requireCustomer } from '../middleware/authMiddleware.js';
+import { protect, requireStorefrontUser } from '../middleware/authMiddleware.js';
 
 const router = Router();
 
@@ -35,14 +35,14 @@ router.get('/products', (_req, res) => {
   ]);
 });
 
-router.get('/orders', protect, requireCustomer, async (req, res) => {
+router.get('/orders', protect, requireStorefrontUser, async (req, res) => {
   const filter = { userId: String(req.user._id) };
 
   const orders = await getOrdersCollection().find(filter).sort({ createdAt: -1 }).toArray();
   res.json(orders);
 });
 
-router.post('/orders', protect, requireCustomer, async (req, res) => {
+router.post('/orders', protect, requireStorefrontUser, async (req, res) => {
   const { items = [], shippingAddress = null, address = null, paymentMethod = 'cod', installationSlot = null, secureShipping = false, couponApplied = false } = req.body;
   const userId = String(req.user._id);
   const orderAddress = shippingAddress || address || {};
@@ -117,14 +117,14 @@ router.post('/orders', protect, requireCustomer, async (req, res) => {
   res.status(201).json(order);
 });
 
-router.get('/installations', protect, requireCustomer, async (req, res) => {
+router.get('/installations', protect, requireStorefrontUser, async (req, res) => {
   const filter = { userId: String(req.user._id) };
 
   const installations = await getInstallationsCollection().find(filter).sort({ createdAt: -1 }).toArray();
   res.json(installations);
 });
 
-router.post('/installations', protect, requireCustomer, async (req, res) => {
+router.post('/installations', protect, requireStorefrontUser, async (req, res) => {
   const { userId: _ignoredUserId, customerId: _ignoredCustomerId, service, serviceId, orderId, orderNumber, customer = {}, preferredDate, preferredSlot, notes = '', installationPrice, additionalTotal, subtotal, gst, total, ...rest } = req.body || {};
 
   const authenticatedUserId = String(req.user._id);

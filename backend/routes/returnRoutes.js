@@ -1,10 +1,10 @@
 import express from "express";
-import { protect, requireAdmin, requireCustomer } from "../middleware/authMiddleware.js";
+import { protect, requireAdmin, requireStorefrontUser } from "../middleware/authMiddleware.js";
 import { getMyReturns, listReturns, requestReturn, updateReturn } from "../controllers/returnController.js";
 
 const router = express.Router();
 
-router.use(protect, requireCustomer);
+router.use(protect, requireStorefrontUser);
 router.get("/my", getMyReturns);
 router.post("/:orderNumber", requestReturn);
 router.get("/admin", protect, requireAdmin, listReturns);

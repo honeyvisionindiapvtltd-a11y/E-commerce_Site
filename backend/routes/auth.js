@@ -6,7 +6,7 @@ import nodemailer from 'nodemailer';
 import User from '../models/User.js';
 import { getJwtSecret } from '../config/env.js';
 import { notifyAdmins } from '../services/notificationService.js';
-import { requireCustomer } from '../middleware/authMiddleware.js';
+import { requireStorefrontUser } from '../middleware/authMiddleware.js';
 
 const router = Router();
 const jwtSecret = getJwtSecret();
@@ -576,7 +576,7 @@ router.put('/customers/:id/status', authMiddleware, requireAdmin, async (req, re
   });
 });
 
-router.put('/profile', authMiddleware, requireCustomer, async (req, res) => {
+router.put('/profile', authMiddleware, requireStorefrontUser, async (req, res) => {
   const user = req.user;
   const body = req.body || {};
 

@@ -47,7 +47,7 @@ function normalizeSavedAddress(address) {
 
 export function ProfileProvider({ children }) {
   const { authToken, user } = useAuth();
-  const isCustomer = user?.role === "customer";
+  const isCustomer = ["customer", "admin"].includes(user?.role);
   const [profile, setProfile] = useState(defaultProfile);
   const [addresses, setAddresses] = useState([]);
   const [paymentMethods, setPaymentMethods] = useState([]);

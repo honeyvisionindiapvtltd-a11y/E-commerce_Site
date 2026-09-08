@@ -69,7 +69,8 @@ function RoleRoute({ roles, children }) {
   const { isLoggedIn, user } = useCommerce();
   const location = useLocation();
   if (!isLoggedIn) return <Navigate to="/login" replace state={{ from: location }} />;
-  if (!roles.includes(user?.role)) return <Navigate to={user?.role === "admin" ? "/admin" : user?.role === "delivery_agent" ? "/delivery-agent" : "/"} replace />;
+  const canUseCustomerExperience = user?.role === "admin" && roles.includes("customer");
+  if (!roles.includes(user?.role) && !canUseCustomerExperience) return <Navigate to={user?.role === "admin" ? "/admin" : user?.role === "delivery_agent" ? "/delivery-agent" : "/"} replace />;
   return children;
 }
 

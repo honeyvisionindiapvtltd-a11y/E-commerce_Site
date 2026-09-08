@@ -13,6 +13,7 @@ import {
   ShieldCheck,
   RotateCcw,
   CreditCard,
+  ShoppingCart,
   ChevronRight,
   ChevronLeft,
   GitCompareArrows,
@@ -118,6 +119,7 @@ export default function ProductDetails() {
   const [quantity, setQuantity] = useState(1);
   const [activeTab, setActiveTab] = useState("overview");
   const [shareStatus, setShareStatus] = useState("");
+  const [cartStatus, setCartStatus] = useState("");
   const [recentlyViewed, setRecentlyViewed] = useState([]);
 
   useEffect(() => {
@@ -285,6 +287,13 @@ export default function ProductDetails() {
     if (!product || stock <= 0) return;
     addToCart(product.id, quantity, false);
     navigate("/checkout");
+  };
+
+  const handleAddToCart = () => {
+    if (!product || stock <= 0) return;
+    addToCart(product.id, quantity, false);
+    setCartStatus(`${quantity} item${quantity === 1 ? "" : "s"} added to cart`);
+    window.setTimeout(() => setCartStatus(""), 2200);
   };
 
   const handleQuantityChange = (nextQuantity) => {
@@ -827,6 +836,15 @@ export default function ProductDetails() {
               <div className="mt-3 grid gap-2 sm:grid-cols-2">
                 <button
                   type="button"
+                  onClick={handleAddToCart}
+                  disabled={stock <= 0}
+                  className="inline-flex h-11 items-center justify-center gap-2 rounded-lg border-2 border-[#f2b900] bg-[#fffaf0] px-3 text-xs font-extrabold text-[#071426] transition hover:bg-[#fff3c7] disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <ShoppingCart size={15} />
+                  Add to Cart
+                </button>
+                <button
+                  type="button"
                   onClick={handleBuyNow}
                   disabled={stock <= 0}
                   className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-[#071426] px-3 text-xs font-extrabold text-white transition hover:bg-[#0b315a] disabled:cursor-not-allowed disabled:opacity-50"
@@ -835,6 +853,12 @@ export default function ProductDetails() {
                   Buy Now
                 </button>
               </div>
+
+              {cartStatus && (
+                <p className="mt-2 text-center text-[10px] font-bold text-emerald-600">
+                  {cartStatus}
+                </p>
+              )}
             </div>
 
             {/* Benefits */}
