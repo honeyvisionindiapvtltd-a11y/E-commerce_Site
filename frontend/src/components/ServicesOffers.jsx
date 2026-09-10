@@ -99,22 +99,22 @@ export default function ServicesOffers() {
   }, [offers.length]);
 
   return (
-    <section className="bg-gray-50 py-8 sm:py-12 lg:py-16">
+    <section className="home-services-section bg-gray-50 py-8 sm:py-12 lg:py-16">
       <div className="mx-auto max-w-7xl px-3 sm:px-6">
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-6 lg:gap-6">
           {services.map((item, index) => (
             <div
               key={index}
-              className="group relative overflow-hidden rounded-xl bg-white p-3 shadow-[0_8px_18px_rgba(15,23,42,0.06)] transition duration-300 hover:-translate-y-1 hover:shadow-xl sm:p-4 lg:p-6"
+              className="home-service-card group relative overflow-hidden rounded-xl bg-white p-3 shadow-[0_8px_18px_rgba(15,23,42,0.06)] transition duration-300 hover:-translate-y-1 hover:shadow-xl sm:p-4 lg:p-6"
             >
               <div className="absolute inset-x-0 top-0 h-10 bg-gradient-to-r from-amber-100 via-yellow-50 to-sky-100 opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
               <div className="relative text-yellow-500 sm:text-[30px]">{item.icon}</div>
 
-              <h3 className="relative mt-2 text-[11px] font-bold leading-tight sm:text-sm lg:mt-4">
+              <h3 className="home-service-title relative mt-2 text-[11px] font-bold leading-tight sm:text-sm lg:mt-4">
                 {item.title}
               </h3>
 
-              <p className="relative mt-1 text-[10px] leading-snug text-gray-500 sm:text-xs lg:mt-2">
+              <p className="home-service-copy relative mt-1 text-[10px] leading-snug text-gray-500 sm:text-xs lg:mt-2">
                 {item.desc}
               </p>
             </div>

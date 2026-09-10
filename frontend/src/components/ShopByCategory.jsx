@@ -101,7 +101,7 @@ export default function ShopByCategory() {
                 <Link
                   key={category._id || category.slug || category.name}
                   to={route}
-                  className="group min-w-35 rounded-xl border border-slate-200 bg-white p-3 text-center transition hover:-translate-y-1 hover:border-amber-300 hover:shadow-md"
+                  className="home-category-card group min-w-35 rounded-xl border border-slate-200 bg-white p-3 text-center transition hover:-translate-y-1 hover:border-amber-300 hover:shadow-md"
                 >
                   <img
                     src={image}
@@ -111,7 +111,7 @@ export default function ShopByCategory() {
                       event.currentTarget.src = FALLBACK_CATEGORY_IMAGE;
                     }}
                   />
-                  <p className="mt-3 text-sm font-semibold text-slate-700">{category.name}</p>
+                  <p className="home-category-title mt-3 text-sm font-semibold text-slate-700">{category.name}</p>
                   <div className="mx-auto mt-2 h-0.5 w-7 bg-amber-300" />
                 </Link>
               );

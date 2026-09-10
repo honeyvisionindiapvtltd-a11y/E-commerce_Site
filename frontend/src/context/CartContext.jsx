@@ -8,15 +8,28 @@ function sameProductId(first, second) {
   return String(first?.id || first?.productId || first) === String(second?.id || second?.productId || second);
 }
 
+function normalizeCartItem(item) {
+  const productId = item?.productId || item?.id;
+  return productId
+    ? { ...item, id: productId, productId, quantity: Number(item.quantity || 0) }
+    : null;
+}
+
+function normalizeCartItems(items) {
+  return (Array.isArray(items) ? items : []).map(normalizeCartItem).filter(Boolean);
+}
+
 function readCartStore() {
   try {
     const raw = localStorage.getItem(CART_STORAGE_KEY);
     if (!raw) return [];
     const parsed = JSON.parse(raw);
-    if (Array.isArray(parsed)) return { guest: parsed, users: {} };
+    if (Array.isArray(parsed)) return { guest: normalizeCartItems(parsed), users: {} };
     return {
-      guest: Array.isArray(parsed.guest) ? parsed.guest : [],
-      users: parsed.users && typeof parsed.users === "object" ? parsed.users : {},
+      guest: normalizeCartItems(parsed.guest),
+      users: parsed.users && typeof parsed.users === "object"
+        ? Object.fromEntries(Object.entries(parsed.users).map(([userId, items]) => [userId, normalizeCartItems(items)]))
+        : {},
     };
   } catch {
     return { guest: [], users: {} };
@@ -34,8 +47,13 @@ function writeCartStore(store) {
 export function CartProvider({ children }) {
   const { user } = useAuth();
   const userId = user?.id || user?._id || null;
-  const [cart, setCart] = useState(() => readCartStore().guest);
-  const initializedUserIdRef = useRef(undefined);
+  const [cart, setCart] = useState(() => {
+    const storedCart = readCartStore();
+    return userId
+      ? storedCart.users[String(userId)] || []
+      : storedCart.guest;
+  });
+  const initializedUserIdRef = useRef(userId);
 
   useEffect(() => {
     if (initializedUserIdRef.current !== userId) return;
@@ -67,17 +85,17 @@ export function CartProvider({ children }) {
     writeCartStore(nextStorage);
   }, [userId]);
 
-  const addToCart = (productId, quantity = 1, installation = false) => {
+  const addToCart = (productId, quantity = 1, installation = false, product = null) => {
     setCart((current) => {
       const existing = current.find((item) => sameProductId(item, productId));
       if (existing) {
         return current.map((item) =>
           sameProductId(item, productId)
-            ? { ...item, quantity: item.quantity + quantity, installation: item.installation || installation }
+            ? { ...item, id: productId, productId, product: product || item.product, quantity: Number(item.quantity || 0) + quantity, installation: item.installation || installation }
             : item
         );
       }
-      return [...current, { id: productId, productId, quantity, installation }];
+      return [...current, { id: productId, productId, product, quantity, installation }];
     });
   };
 

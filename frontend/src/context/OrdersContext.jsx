@@ -70,10 +70,13 @@ export function OrdersProvider({ children }) {
   }, [authToken, user?.id, user?.role, isCustomer, requestJson]);
 
   const placeOrder = useCallback(
-    async ({ address, paymentMethod, installationSlot, secureShipping = false, items: itemsOverride, orderId }) => {
+    async ({ address, paymentMethod, installationSlot, secureShipping = false, items: itemsOverride, orderId, skipCartClear = false }) => {
       const sourceItems = Array.isArray(itemsOverride) ? itemsOverride : cart;
       const items = sourceItems
-        .map((item) => ({ ...item, product: products.find((product) => sameProductId(product, item)) }))
+        .map((item) => ({
+          ...item,
+          product: item.product || products.find((product) => sameProductId(product, item)),
+        }))
         .filter((item) => item.product);
 
       const totals = computeTotals(items, { coupon: couponApplied, secureShipping });
@@ -109,7 +112,7 @@ export function OrdersProvider({ children }) {
       const isCodOrder = String(paymentMethod || "").trim().toUpperCase() === "COD";
       if (isCodOrder) {
         setOrders((current) => [createdOrder, ...current]);
-        clearCart();
+        if (!skipCartClear) clearCart();
       }
 
       return createdOrder;

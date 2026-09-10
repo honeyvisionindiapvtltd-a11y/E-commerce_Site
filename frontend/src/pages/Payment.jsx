@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useCommerce } from "../context/index.js";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 
@@ -31,6 +31,8 @@ import { computeTotals } from "../lib/orderTotals";
 import { productIdOf } from "../lib/products";
 import PaymentExperience from "../components/PaymentExperience.jsx";
 
+const API_BASE = import.meta.env.VITE_API_URL || "/api";
+
 /* ============================================================
    PAYMENT PAGE
 ============================================================ */
@@ -45,6 +47,7 @@ const Payment = () => {
     requestJson,
     placeOrder,
     clearCart,
+    removeFromCart,
     couponApplied,
   } = useCommerce();
 
@@ -52,6 +55,7 @@ const Payment = () => {
   const navigate = useNavigate();
 
   const checkoutState = location.state || {};
+  const isDirectPurchase = Boolean(checkoutState.buyNowItem);
   const orderIdFromState = checkoutState.orderId;
 
   /* ============================================================
@@ -106,6 +110,8 @@ const Payment = () => {
   const [copied, setCopied] = useState(false);
 
   const [preservedItems, setPreservedItems] = useState(null);
+  const [fetchedCartProducts, setFetchedCartProducts] = useState({});
+  const [cartProductsLoading, setCartProductsLoading] = useState(false);
   const [paymentError, setPaymentError] = useState(null);
   const [paymentErrorType, setPaymentErrorType] = useState(null);
 
@@ -164,34 +170,94 @@ const Payment = () => {
      CART PRODUCTS
   ============================================================ */
 
+  const missingProductIds = cart
+    .filter((item) => {
+      const itemId = productIdOf(item);
+      return !item.product && !products.some((product) => String(productIdOf(product) ?? "") === String(itemId ?? "")) && !fetchedCartProducts[String(itemId)];
+    })
+    .map((item) => String(productIdOf(item)))
+    .filter(Boolean);
+
+  useEffect(() => {
+    if (!missingProductIds.length) return undefined;
+
+    let cancelled = false;
+    setCartProductsLoading(true);
+    Promise.all(
+      missingProductIds.map(async (productId) => {
+        try {
+          const response = await fetch(`${API_BASE}/products/${encodeURIComponent(productId)}`);
+          if (!response.ok) return null;
+          const data = await response.json();
+          return data?.product || data?.data || data;
+        } catch {
+          return null;
+        }
+      })
+    ).then((loadedProducts) => {
+      if (cancelled) return;
+      setFetchedCartProducts((current) => ({
+        ...current,
+        ...Object.fromEntries(
+          loadedProducts.filter(Boolean).map((product) => [String(productIdOf(product)), product])
+        ),
+        ...Object.fromEntries(missingProductIds.map((productId) => [productId, current[productId] || null])),
+      }));
+      setCartProductsLoading(false);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [missingProductIds.join(",")]);
+
   const currentCheckoutItems = cart
     .map((item) => {
       const product = products.find(
         (product) => String(productIdOf(product) ?? "") === String(productIdOf(item) ?? "")
       );
 
-      return product
+      const fetchedProduct = fetchedCartProducts[String(productIdOf(item))];
+      return item.product || product || fetchedProduct
         ? {
             ...item,
-            product,
+            product: item.product || product || fetchedProduct,
           }
         : null;
     })
     .filter(Boolean);
 
+  const directCheckoutItems = checkoutState.buyNowItem?.product
+    ? [{
+        ...checkoutState.buyNowItem,
+        product: checkoutState.buyNowItem.product,
+      }]
+    : null;
+
   const missingCartItems = cart
     .filter(
       (item) =>
+        !item.product &&
         !products.some(
           (product) => String(productIdOf(product) ?? "") === String(productIdOf(item) ?? "")
-        )
+        ) && !fetchedCartProducts[String(productIdOf(item))]
     )
     .map((item) => item.productId);
 
-  const hasMissingProducts = missingCartItems.length > 0;
+  const hasMissingProducts = !cartProductsLoading && missingCartItems.length > 0;
 
   const checkoutItems =
-    preservedItems || currentCheckoutItems;
+    preservedItems || directCheckoutItems || currentCheckoutItems;
+
+  useEffect(() => {
+    if (cartProductsLoading || !missingCartItems.length || directCheckoutItems) return;
+
+    missingCartItems.forEach((productId) => removeFromCart(productId));
+    navigate("/cart", {
+      replace: true,
+      state: { cartMessage: "Unavailable items were removed. Please add an available product to continue." },
+    });
+  }, [cartProductsLoading, missingCartItems.join(","), directCheckoutItems, removeFromCart, navigate]);
 
   /* ============================================================
      TOTALS
@@ -222,7 +288,18 @@ const Payment = () => {
      EMPTY CART
   ============================================================ */
 
-  if (!checkoutItems.length) {
+  if (cartProductsLoading && cart.length && !checkoutItems.length) {
+    return (
+      <main className="min-h-screen bg-[#f6f8fb] px-5 py-20 text-center">
+        <div className="mx-auto max-w-lg rounded-3xl border border-gray-200 bg-white p-10 shadow-sm">
+          <h1 className="text-2xl font-extrabold text-[#071426]">Loading your order...</h1>
+          <p className="mt-3 text-gray-500">We are matching your cart item with the product catalog.</p>
+        </div>
+      </main>
+    );
+  }
+
+  if (!checkoutItems.length && !hasMissingProducts) {
     return (
       <main className="min-h-screen bg-[#f6f8fb] px-5 py-20 text-center">
         <div className="mx-auto max-w-lg rounded-3xl border border-gray-200 bg-white p-10 shadow-sm">
@@ -402,6 +479,7 @@ const Payment = () => {
         secureShipping,
         items: checkoutItems,
         orderId,
+        skipCartClear: isDirectPurchase,
       });
 
       const currentOrderId =
@@ -536,7 +614,7 @@ const Payment = () => {
 
               if (!verifyData.success) throw new Error("Payment verification failed");
 
-              clearCart();
+              if (!isDirectPurchase) clearCart();
               setPaymentErrorType("success");
               setOrderId(currentOrderId);
 

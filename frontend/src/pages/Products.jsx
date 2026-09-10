@@ -44,6 +44,9 @@ export default function Products() {
   const [categories, setCategories] =
     useState([]);
 
+  const [categoryTotal, setCategoryTotal] =
+    useState(0);
+
   const [loading, setLoading] = useState(true);
 
   const [categoryLoading, setCategoryLoading] =
@@ -196,6 +199,7 @@ export default function Products() {
             ? data.categories
             : []
         );
+        setCategoryTotal(Number(data?.totalProductCount || 0));
       } catch (error) {
         console.error(
           "Failed to load categories:",
@@ -213,9 +217,11 @@ export default function Products() {
     };
 
     loadCategories();
+    window.addEventListener("focus", loadCategories);
 
     return () => {
       mounted = false;
+      window.removeEventListener("focus", loadCategories);
     };
   }, []);
 
@@ -401,9 +407,11 @@ export default function Products() {
     };
 
     loadProducts();
+    window.addEventListener("focus", loadProducts);
 
     return () => {
       mounted = false;
+      window.removeEventListener("focus", loadProducts);
     };
   }, [
     categorySlug,
@@ -934,6 +942,7 @@ export default function Products() {
                 categories={
                   categories
                 }
+                totalProductCount={categoryTotal}
                 selectedCategorySlug={
                   categorySlug
                 }
@@ -956,6 +965,7 @@ export default function Products() {
               categories={
                 categories
               }
+              totalProductCount={categoryTotal}
               selectedCategorySlug={
                 categorySlug
               }

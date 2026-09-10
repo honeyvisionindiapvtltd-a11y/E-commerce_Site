@@ -1,6 +1,6 @@
 import { ChevronLeft, CreditCard, MapPin, Truck, Wrench } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useCommerce } from "../context/index.js";
 import { money } from "../lib/products";
 import { computeTotals } from "../lib/orderTotals";
@@ -9,6 +9,7 @@ import { checkDeliveryServiceability } from "../services/deliveryServiceability"
 
 export default function Checkout() {
   const { cart, products, deliveryPin, selectedDeliveryAddress, setDeliveryPin, profile, addresses, user, isLoggedIn, couponApplied } = useCommerce();
+  const location = useLocation();
   const navigate = useNavigate();
   const [paymentMethod, setPaymentMethod] = useState("cod");
   const [slot, setSlot] = useState("Tomorrow, 10:00 AM - 1:00 PM");
@@ -43,9 +44,18 @@ export default function Checkout() {
       };
 
   const [address, setAddress] = useState(initialAddress);
-  const items = cart.map((item) => ({
+  const buyNowItem = location.state?.buyNowItem;
+  const directItem = buyNowItem?.product
+    ? {
+        ...buyNowItem,
+        product: buyNowItem.product,
+      }
+    : null;
+  const items = directItem
+    ? [directItem]
+    : cart.map((item) => ({
     ...item,
-    product: products.find((product) => String(productIdOf(product) ?? "") === String(productIdOf(item) ?? "")),
+    product: item.product || products.find((product) => String(productIdOf(product) ?? "") === String(productIdOf(item) ?? "")),
   })).filter((item) => item.product);
   const { subtotal, installationFee, shipping, discount, total } = computeTotals(items, { coupon: couponApplied, secureShipping: false });
   const valid = address.name && address.phone.length >= 10 && address.line1 && address.city && address.state && address.pin.length === 6;
@@ -134,6 +144,7 @@ export default function Checkout() {
           },
           slot,
           paymentMethod,
+          ...(directItem ? { buyNowItem: directItem } : {}),
         },
       });
     } catch (error) {

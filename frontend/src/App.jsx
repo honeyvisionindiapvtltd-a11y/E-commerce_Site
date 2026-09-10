@@ -82,6 +82,7 @@ function App() {
   const [isDarkTheme, setIsDarkTheme] = useState(() => localStorage.getItem('honey-vision-theme') === 'dark');
   const isAdminRoute = location.pathname.startsWith('/admin');
   const isDeliveryAgentRoute = location.pathname.startsWith('/delivery-agent');
+  const isCheckoutRoute = ['/checkout', '/payment', '/payment-methods'].includes(location.pathname);
 
   useEffect(() => {
     // Initialize native app services on mount
@@ -99,7 +100,7 @@ function App() {
 
   const appContent = (
     <div className="app-shell">
-      {!isAdminRoute && !isDeliveryAgentRoute && (
+      {!isAdminRoute && !isDeliveryAgentRoute && !isCheckoutRoute && (
         <Navbar isDarkTheme={isDarkTheme} onToggleTheme={() => setIsDarkTheme((value) => !value)} />
       )}
       <div className="page-content">
@@ -197,13 +198,13 @@ function App() {
           <Route path="*" element={<NotFound />} />
         </Routes>
       </div>
-      {!isAdminRoute && !isDeliveryAgentRoute && <Footer />}
+      {!isAdminRoute && !isDeliveryAgentRoute && !isCheckoutRoute && <Footer />}
       <NotificationContainer 
         notifications={notifications} 
         onRemove={removeNotification} 
       />
       {isLoggedIn && !isAdminRoute && <div className="fixed right-4 top-4 z-40"><NotificationCenter /></div>}
-      {!isAdminRoute && !isDeliveryAgentRoute && <ChatWidget />}
+      {!isAdminRoute && !isDeliveryAgentRoute && !isCheckoutRoute && <ChatWidget />}
     </div>
   );
 

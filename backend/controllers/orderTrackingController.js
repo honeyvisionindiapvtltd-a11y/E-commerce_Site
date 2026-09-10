@@ -2,6 +2,7 @@ import Order from "../models/Order.js";
 import Product from "../models/Product.js";
 import Shipment from "../models/Shipment.js";
 import User from "../models/User.js";
+import mongoose from "mongoose";
 import { generateOrderNumber, generateUniqueHoneyVisionTrackingNumber, generateTrackingNumber } from "../utils/tracking.js";
 import {
   ORDER_STATUSES,
@@ -42,6 +43,13 @@ const hasValidCoordinatePair = (latitude, longitude) => (
   && !(latitude === 0 && longitude === 0)
 );
 
+const findOrderProduct = async (productRef) => {
+  const normalizedRef = String(productRef || "").trim();
+  if (!normalizedRef) return null;
+  if (mongoose.isValidObjectId(normalizedRef)) return Product.findById(normalizedRef);
+  return Product.findOne({ $or: [{ slug: normalizedRef }, { sku: normalizedRef }] });
+};
+
 const buildOrderNumberQuery = (orderNumber) => {
   const raw = String(orderNumber ?? "").trim();
 
@@ -79,6 +87,7 @@ export const createOrder = async (req, res) => {
 
     const resolvedShippingAddress = shippingAddress || address;
     const normalizedPaymentMethod = String(paymentMethod || "COD").trim().toUpperCase();
+    const isCodOrder = normalizedPaymentMethod === "COD";
     const normalizedAddress = {
       name: resolvedShippingAddress?.name || resolvedShippingAddress?.fullName || "",
       phone: resolvedShippingAddress?.phone || "",
@@ -202,7 +211,7 @@ export const createOrder = async (req, res) => {
     for (const item of items) {
       const productRef = item?.product?._id || item?.product?.id || item?.productId || item?.product;
       console.log('Looking for product with ref:', productRef, 'Type:', typeof productRef);
-      const product = await Product.findById(productRef);
+      const product = await findOrderProduct(productRef);
       console.log('Product found:', product ? product.name : 'NOT FOUND');
 
       if (!product) {
@@ -247,7 +256,6 @@ export const createOrder = async (req, res) => {
     const tax = 0;
     const totalAmount = subtotal + shippingFee - discount + tax;
 
-    const isCodOrder = normalizedPaymentMethod === "COD";
     const order = await Order.create({
       orderNumber: generateOrderNumber(),
       user: user._id,

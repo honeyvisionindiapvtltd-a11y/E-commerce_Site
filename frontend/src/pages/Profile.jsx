@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { useCommerce } from "../context/index.js";
+import ReviewsSection from "../components/ReviewsSection";
 
 export default function Profile() {
   const navigate = useNavigate();
@@ -1579,6 +1580,16 @@ export default function Profile() {
                 </div>
               )}
             </div>
+
+            {/* =====================================================
+                REVIEWS & RATINGS
+            ===================================================== */}
+
+            <ReviewsSection 
+              orders={ownOrders} 
+              products={products} 
+              user={user}
+            />
 
             </div>
 

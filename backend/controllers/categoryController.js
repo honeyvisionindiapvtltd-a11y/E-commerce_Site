@@ -78,7 +78,7 @@ const getMainCategories = async (req, res) => {
     });
 
     const result = categories.map((category) =>
-      enrichCategoryWithCount(category, categoryCountMap, subCategoryCountMap, childIdsByParent.get(String(category._id)) || [])
+      enrichCategoryWithCount(category, categoryCountMap, subCategoryCountMap)
     );
 
     res.status(200).json({
@@ -123,7 +123,7 @@ const getCategoryById = async (req, res) => {
     const subcategoriesWithCounts = subcategories.map((subcategory) =>
       enrichCategoryWithCount(subcategory, categoryCountMap, subCategoryCountMap)
     );
-    const productCount = (categoryCountMap.get(String(category._id)) || 0) + subcategoryIds.reduce((total, item) => total + (subCategoryCountMap.get(String(item)) || 0), 0);
+    const productCount = categoryCountMap.get(String(category._id)) || 0;
 
     res.status(200).json({
       success: true,
@@ -173,7 +173,7 @@ const getCategoryBySlug = async (req, res) => {
     const subcategoriesWithCounts = subcategories.map((subcategory) =>
       enrichCategoryWithCount(subcategory, categoryCountMap, subCategoryCountMap)
     );
-    const productCount = (categoryCountMap.get(String(category._id)) || 0) + subcategoryIds.reduce((total, item) => total + (subCategoryCountMap.get(String(item)) || 0), 0);
+    const productCount = categoryCountMap.get(String(category._id)) || 0;
 
     res.status(200).json({
       success: true,
@@ -238,10 +238,14 @@ const getCategoryTree = async (req, res) => {
     const lightMode = String(req.query.light || req.query.summary || "false").toLowerCase() === "true";
 
     if (lightMode) {
-      const mainCategories = await Category.find({
-        parentCategory: null,
-        isActive: true,
-      }).select("_id name slug description image icon parentCategory isActive sortOrder").sort({ sortOrder: 1 }).lean();
+      const [mainCategories, { categoryCountMap, subCategoryCountMap }, totalProductCount] = await Promise.all([
+        Category.find({
+          parentCategory: null,
+          isActive: true,
+        }).select("_id name slug description image icon parentCategory isActive sortOrder").sort({ sortOrder: 1 }).lean(),
+        getCategoryProductCounts(),
+        Product.countDocuments({ isActive: { $ne: false } }),
+      ]);
 
       const result = await Promise.all(
         mainCategories.map(async (category) => {
@@ -250,10 +254,16 @@ const getCategoryTree = async (req, res) => {
             isActive: true,
           }).select("_id name slug description image icon parentCategory isActive sortOrder").sort({ sortOrder: 1 }).lean();
 
+          const subcategoriesWithCounts = subcategories.map((subcategory) =>
+            enrichCategoryWithCount(subcategory, subCategoryCountMap, new Map())
+          );
+          const productCount = categoryCountMap.get(String(category._id)) || 0;
+
           return {
             ...category,
-            subcategories,
-            children: subcategories,
+            productCount,
+            subcategories: subcategoriesWithCounts,
+            children: subcategoriesWithCounts,
           };
         })
       );
@@ -261,17 +271,19 @@ const getCategoryTree = async (req, res) => {
       return res.status(200).json({
         success: true,
         count: result.length,
+        totalProductCount,
         categories: result,
       });
     }
 
-    const [mainCategories, { categoryCountMap, subCategoryCountMap }, allCategories] = await Promise.all([
+    const [mainCategories, { categoryCountMap, subCategoryCountMap }, allCategories, totalProductCount] = await Promise.all([
       Category.find({
         parentCategory: null,
         isActive: true,
       }).select(categoryProjection).sort({ sortOrder: 1 }).lean(),
       getCategoryProductCounts(),
       Category.find({ isActive: true }).select("_id parentCategory name slug image icon isActive sortOrder").lean(),
+      Product.countDocuments({ isActive: { $ne: false } }),
     ]);
 
     const subcategoriesByParent = new Map();
@@ -287,9 +299,9 @@ const getCategoryTree = async (req, res) => {
       const childCategories = subcategoriesByParent.get(String(category._id)) || [];
       const childIds = childCategories.map((item) => item._id);
       const subcategoriesWithCounts = childCategories.map((subcategory) =>
-        enrichCategoryWithCount(subcategory, categoryCountMap, subCategoryCountMap)
+        enrichCategoryWithCount(subcategory, subCategoryCountMap, new Map())
       );
-      const productCount = (categoryCountMap.get(String(category._id)) || 0) + childIds.reduce((total, item) => total + (subCategoryCountMap.get(String(item)) || 0), 0);
+      const productCount = categoryCountMap.get(String(category._id)) || 0;
 
       return {
         ...category,
@@ -301,6 +313,7 @@ const getCategoryTree = async (req, res) => {
     res.status(200).json({
       success: true,
       count: result.length,
+      totalProductCount,
       categories: result,
     });
   } catch (error) {

@@ -35,17 +35,17 @@ const services = [
 
 export default function InstallationSection() {
   return (
-    <section className="bg-white py-6 sm:py-10 lg:py-14">
+    <section className="home-installation-section bg-white py-6 sm:py-10 lg:py-14">
       <div className="mx-auto max-w-6xl px-3 sm:px-6">
         <div className="grid items-start gap-6 lg:grid-cols-2 lg:gap-10">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-yellow-500 sm:text-sm sm:tracking-widest">
               Installation & AMC
             </p>
-            <h2 className="mt-2 max-w-xl text-2xl font-bold leading-tight text-[#0A1931] sm:mt-3 sm:text-3xl lg:text-4xl">
+            <h2 className="home-installation-title mt-2 max-w-xl text-2xl font-bold leading-tight text-[#0A1931] sm:mt-3 sm:text-3xl lg:text-4xl">
               Professional Installation Services
             </h2>
-            <p className="mt-3 max-w-xl text-xs leading-5 text-gray-600 sm:mt-4 sm:text-sm sm:leading-6">
+            <p className="home-installation-copy mt-3 max-w-xl text-xs leading-5 text-gray-600 sm:mt-4 sm:text-sm sm:leading-6">
               From CCTV cameras and drones to networking, servers and complete IT infrastructure,
               our certified engineers provide end-to-end installation and maintenance services.
             </p>
@@ -92,13 +92,13 @@ export default function InstallationSection() {
               {services.map((item, index) => (
                 <div
                   key={index}
-                  className="rounded-xl border border-slate-100 bg-gray-50 p-3 transition hover:shadow-lg sm:rounded-2xl sm:p-4"
+                  className="home-service-card rounded-xl border border-slate-100 bg-gray-50 p-3 transition hover:shadow-lg sm:rounded-2xl sm:p-4"
                 >
                   <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-yellow-100 text-yellow-600 sm:h-10 sm:w-10 sm:rounded-xl">
                     {item.icon}
                   </div>
-                  <h3 className="mt-2 text-sm font-bold sm:mt-3 sm:text-base">{item.title}</h3>
-                  <p className="mt-1.5 text-[11px] leading-4 text-gray-500 sm:mt-2 sm:text-xs sm:leading-5">{item.desc}</p>
+                  <h3 className="home-service-title mt-2 text-sm font-bold sm:mt-3 sm:text-base">{item.title}</h3>
+                  <p className="home-service-copy mt-1.5 text-[11px] leading-4 text-gray-500 sm:mt-2 sm:text-xs sm:leading-5">{item.desc}</p>
                   <Link
                     to="/services"
                     className="mt-2 inline-flex items-center gap-1 text-[11px] font-semibold text-[#0A1931] sm:mt-3 sm:gap-2 sm:text-xs"

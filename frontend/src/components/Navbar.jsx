@@ -73,8 +73,13 @@ export default function Navbar({ isDarkTheme = false, onToggleTheme }) {
   } = useCommerce();
   const [showLocationSelector, setShowLocationSelector] = useState(false);
   const cartCount = useMemo(
-    () => (Array.isArray(cart) ? cart : []).filter((item) => Number(item.quantity || 0) > 0).reduce((total, item) => total + Number(item.quantity || 0), 0),
-    [cart]
+    () => (Array.isArray(cart) ? cart : []).filter((item) => {
+      if (Number(item.quantity || 0) <= 0) return false;
+      if (item.product) return true;
+      const itemId = item.productId || item.id;
+      return products.some((product) => String(product.id) === String(itemId));
+    }).length,
+    [cart, products]
   );
 
   const popularSearches = useMemo(() => {

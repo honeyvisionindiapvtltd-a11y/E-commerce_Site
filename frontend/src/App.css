@@ -179,6 +179,54 @@
   width: 180px;
 }
 
+.product-marquee {
+  overflow: hidden;
+  mask-image: linear-gradient(90deg, transparent, black 4%, black 96%, transparent);
+}
+
+.product-marquee-track {
+  display: flex;
+  width: max-content;
+  gap: 0.75rem;
+  animation: productMarqueeSlide 55s linear infinite;
+}
+
+.home-brand-card {
+  transform: translateY(0) scale(1);
+  transition: transform 220ms ease, border-color 220ms ease, box-shadow 220ms ease, background-color 220ms ease;
+}
+
+.home-brand-card img {
+  transition: transform 220ms ease, filter 220ms ease;
+}
+
+.home-brand-card:hover,
+.home-brand-card:focus-visible {
+  transform: translateY(-3px);
+  border-color: #f4b400 !important;
+  box-shadow: 0 12px 24px rgba(7, 20, 38, 0.16), 0 0 0 2px rgba(244, 180, 0, 0.12) !important;
+  outline: none;
+}
+
+.home-brand-card:hover img,
+.home-brand-card:focus-visible img {
+  transform: scale(1.08);
+}
+
+.product-marquee:hover .product-marquee-track,
+.product-marquee:focus-within .product-marquee-track {
+  animation-play-state: paused;
+}
+
+@keyframes productMarqueeSlide {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    transform: translate3d(-50%, 0, 0);
+  }
+}
+
 @keyframes floatOrb {
   0% {
     transform: translate3d(0, 0, 0) scale(1);
@@ -281,9 +329,9 @@
 
 html.dark-theme {
   color-scheme: dark;
-  --theme-bg: #080f1d;
-  --theme-surface: #101a2b;
-  --theme-surface-raised: #162338;
+  --theme-bg: #071a33;
+  --theme-surface: #0c2343;
+  --theme-surface-raised: #123054;
   --theme-border: rgba(148, 163, 184, 0.2);
   --theme-text: #f8fafc;
   --theme-muted: #a9b6c9;
@@ -302,15 +350,248 @@ html.dark-theme body {
 html.dark-theme .app-shell,
 html.dark-theme .home-shell {
   background:
-    radial-gradient(circle at top left, rgba(37, 99, 235, 0.16), transparent 30%),
-    radial-gradient(circle at top right, rgba(14, 116, 144, 0.13), transparent 28%),
-    linear-gradient(180deg, #0b1424 0%, #080f1d 100%);
+    radial-gradient(ellipse 75% 34% at 12% 7%, rgba(37, 99, 235, 0.22), transparent 68%),
+    radial-gradient(ellipse 65% 32% at 88% 16%, rgba(14, 116, 144, 0.2), transparent 70%),
+    radial-gradient(ellipse 60% 28% at 52% 56%, rgba(30, 64, 175, 0.11), transparent 72%),
+    linear-gradient(115deg, transparent 0 31%, rgba(96, 165, 250, 0.035) 31.2% 31.5%, transparent 31.8% 68%, rgba(45, 212, 191, 0.03) 68.2% 68.5%, transparent 68.8%),
+    linear-gradient(180deg, #0b2342 0%, #071a33 100%);
 }
 
 html.dark-theme .home-shell::before {
   background-image:
     linear-gradient(rgba(148, 163, 184, 0.07) 1px, transparent 1px),
     linear-gradient(90deg, rgba(148, 163, 184, 0.07) 1px, transparent 1px);
+}
+
+html.dark-theme .home-shell::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0.7;
+  background:
+    linear-gradient(118deg, transparent 0 16%, rgba(125, 211, 252, 0.045) 16.1%, transparent 16.35% 52%, rgba(45, 212, 191, 0.035) 52.1%, transparent 52.35%),
+    linear-gradient(72deg, transparent 0 76%, rgba(96, 165, 250, 0.04) 76.1%, transparent 76.35%);
+  mix-blend-mode: screen;
+}
+
+html.dark-theme .home-shell .home-section-shell {
+  color: var(--theme-text);
+}
+
+html.dark-theme .home-shell .home-section-category,
+html.dark-theme .home-shell .home-section-featured,
+html.dark-theme .home-shell .home-section-installation,
+html.dark-theme .home-shell .home-section-catalog {
+  background: rgba(12, 35, 67, 0.66);
+  border-top: 1px solid rgba(148, 163, 184, 0.08);
+  border-bottom: 1px solid rgba(148, 163, 184, 0.08);
+}
+
+html.dark-theme .home-shell .home-section-benefits,
+html.dark-theme .home-shell .home-section-promos,
+html.dark-theme .home-shell .home-section-services {
+  background: rgba(7, 26, 51, 0.42);
+}
+
+html.dark-theme .home-shell .home-section-trending {
+  background: rgba(18, 48, 84, 0.76) !important;
+  border-top: 1px solid rgba(96, 165, 250, 0.08);
+  border-bottom: 1px solid rgba(96, 165, 250, 0.08);
+}
+
+html.dark-theme .home-shell .bg-white,
+html.dark-theme .home-shell .bg-white\/55,
+html.dark-theme .home-shell .bg-white\/68 {
+  background-color: var(--theme-surface) !important;
+}
+
+html.dark-theme .home-shell .bg-slate-50,
+html.dark-theme .home-shell .bg-gray-50,
+html.dark-theme .home-shell .bg-\[\#fffaf0\] {
+  background-color: var(--theme-surface-raised) !important;
+}
+
+html.dark-theme .home-shell .border-slate-200,
+html.dark-theme .home-shell .border-slate-300,
+html.dark-theme .home-shell .border-amber-100 {
+  border-color: var(--theme-border) !important;
+}
+
+html.dark-theme .home-shell .text-slate-900,
+html.dark-theme .home-shell .text-slate-800,
+html.dark-theme .home-shell .text-\[\#071426\],
+html.dark-theme .home-shell .text-\[\#0A1931\] {
+  color: var(--theme-text) !important;
+}
+
+html.dark-theme .home-shell .text-slate-700,
+html.dark-theme .home-shell .text-slate-600,
+html.dark-theme .home-shell .text-gray-600,
+html.dark-theme .home-shell .text-gray-500 {
+  color: var(--theme-muted) !important;
+}
+
+html.dark-theme .home-shell .product-marquee-track > a {
+  background-color: var(--theme-surface-raised) !important;
+}
+
+html.dark-theme .home-shell .home-product-image {
+  background-color: #ffffff !important;
+}
+
+html.dark-theme .home-featured-product {
+  background: linear-gradient(180deg, #123054 0%, #0c2343 100%) !important;
+  border-color: rgba(148, 163, 184, 0.24) !important;
+}
+
+html.dark-theme .home-featured-product:hover {
+  border-color: #f4b400 !important;
+  box-shadow: 0 16px 32px rgba(0, 0, 0, 0.32) !important;
+}
+
+html.dark-theme .home-featured-rating,
+html.dark-theme .home-featured-title,
+html.dark-theme .home-featured-price {
+  color: #f8fafc !important;
+}
+
+html.dark-theme .home-featured-title:hover {
+  color: #f4b400 !important;
+}
+
+html.dark-theme .home-featured-mrp {
+  color: #a9b6c9 !important;
+}
+
+html.dark-theme .home-brand-section {
+  background: linear-gradient(180deg, #0c2343 0%, #071a33 100%) !important;
+}
+
+html.dark-theme .home-brand-link {
+  color: #f8fafc !important;
+}
+
+html.dark-theme .home-brand-link:hover {
+  color: #f4b400 !important;
+}
+
+html.dark-theme .home-brand-card {
+  background: #ffffff !important;
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.2) !important;
+}
+
+html.dark-theme .home-brand-card:hover {
+  background: #ffffff !important;
+  border-color: rgba(245, 158, 11, 0.75);
+  box-shadow: 0 14px 30px rgba(0, 0, 0, 0.34) !important;
+}
+
+html.dark-theme .home-brand-arrow {
+  background: #123054 !important;
+  border: 1px solid rgba(148, 163, 184, 0.26);
+  color: #dbeafe !important;
+}
+
+html.dark-theme .home-brand-arrow:hover {
+  background: #f4b400 !important;
+  border-color: #f4b400 !important;
+  color: #071426 !important;
+}
+
+html.dark-theme .home-promo-card {
+  background: linear-gradient(135deg, #123054 0%, #0c2343 100%) !important;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+}
+
+html.dark-theme .home-promo-title,
+html.dark-theme .home-installation-title {
+  color: #f8fafc !important;
+}
+
+html.dark-theme .home-promo-copy,
+html.dark-theme .home-installation-copy,
+html.dark-theme .home-service-copy {
+  color: #a9b6c9 !important;
+}
+
+html.dark-theme .home-installation-section,
+html.dark-theme .home-services-section {
+  background: linear-gradient(180deg, #071a33 0%, #0c2343 100%) !important;
+}
+
+html.dark-theme .home-service-card {
+  background: #123054 !important;
+  border-color: rgba(148, 163, 184, 0.22) !important;
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.2) !important;
+}
+
+html.dark-theme .home-service-card:hover {
+  border-color: rgba(245, 158, 11, 0.65) !important;
+  box-shadow: 0 14px 28px rgba(0, 0, 0, 0.3) !important;
+}
+
+html.dark-theme .home-service-title {
+  color: #f8fafc !important;
+}
+
+html.dark-theme .home-promo-card-0 {
+  background: #fffbeb !important;
+  border-color: #fde68a !important;
+}
+
+html.dark-theme .home-promo-card-1 {
+  background: #eff6ff !important;
+  border-color: #bfdbfe !important;
+}
+
+html.dark-theme .home-promo-card-2 {
+  background: #f0fdf4 !important;
+  border-color: #bbf7d0 !important;
+}
+
+html.dark-theme .home-promo-card .home-promo-title {
+  color: #0f172a !important;
+}
+
+html.dark-theme .home-promo-card .home-promo-copy {
+  color: #475569 !important;
+}
+
+html.dark-theme .home-category-card {
+  background-color: #0c2343 !important;
+  border-color: rgba(148, 163, 184, 0.24) !important;
+}
+
+html.dark-theme .home-category-card:hover {
+  background-color: #1b2b43 !important;
+  border-color: #f4b400 !important;
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.28) !important;
+}
+
+html.dark-theme .home-category-card:hover .home-category-title {
+  color: #f8fafc !important;
+}
+
+html.dark-theme .home-benefit-card {
+  background: linear-gradient(135deg, #123054, #0c2343) !important;
+  border-color: rgba(148, 163, 184, 0.24) !important;
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.2);
+}
+
+html.dark-theme .home-benefit-card:hover {
+  border-color: rgba(96, 165, 250, 0.7) !important;
+  box-shadow: 0 12px 28px rgba(37, 99, 235, 0.22) !important;
+}
+
+html.dark-theme .home-benefit-title {
+  color: #f8fafc !important;
+}
+
+html.dark-theme .home-benefit-copy {
+  color: #a9b6c9 !important;
 }
 
 html.dark-theme .bg-white,
@@ -418,11 +699,11 @@ html.dark-theme .mobile-benefits-shell {
 }
 
 html.dark-theme .mobile-benefits-shell::before {
-  background: linear-gradient(90deg, rgba(8, 15, 29, 1), rgba(8, 15, 29, 0));
+  background: linear-gradient(90deg, rgba(7, 26, 51, 1), rgba(7, 26, 51, 0));
 }
 
 html.dark-theme .mobile-benefits-shell::after {
-  background: linear-gradient(270deg, rgba(8, 15, 29, 1), rgba(8, 15, 29, 0));
+  background: linear-gradient(270deg, rgba(7, 26, 51, 1), rgba(7, 26, 51, 0));
 }
 
 html.dark-theme button:not([class*="bg-yellow"]):not([class*="bg-amber"]):not([class*="bg-red"]),
@@ -434,4 +715,172 @@ html.dark-theme a[class*="border-slate"] {
 html.dark-theme ::selection {
   background: rgba(245, 158, 11, 0.35);
   color: #fff;
+}
+
+html.dark-theme .category-page {
+  background-color: var(--theme-bg) !important;
+  color: var(--theme-text);
+}
+
+html.dark-theme .category-page .text-\[\#061a38\] {
+  color: var(--theme-text) !important;
+}
+
+html.dark-theme .category-page .text-slate-900,
+html.dark-theme .category-page .text-slate-800,
+html.dark-theme .category-page .text-slate-700,
+html.dark-theme .category-page .text-slate-600 {
+  color: #e5edf8 !important;
+}
+
+html.dark-theme .category-page .text-slate-500,
+html.dark-theme .category-page .text-slate-400 {
+  color: #b8c7da !important;
+}
+
+html.dark-theme .category-page .text-slate-300 {
+  color: #cbd7e6 !important;
+}
+
+html.dark-theme .category-page .border-slate-100,
+html.dark-theme .category-page .border-slate-200,
+html.dark-theme .category-page .border-slate-300 {
+  border-color: rgba(148, 163, 184, 0.34) !important;
+}
+
+html.dark-theme .category-page .bg-slate-50 {
+  background-color: #123054 !important;
+}
+
+html.dark-theme .category-page .category-image {
+  background-color: #f1f5f9 !important;
+}
+
+html.dark-theme .category-page .hover\:bg-slate-50:hover {
+  background-color: #1b416d !important;
+}
+
+html.dark-theme .product-details-page {
+  background: linear-gradient(180deg, #071a33 0%, #0b2342 100%) !important;
+}
+
+html.dark-theme .product-details-page .border-slate-200,
+html.dark-theme .product-details-page .border-slate-300 {
+  border-color: rgba(148, 163, 184, 0.3) !important;
+}
+
+html.dark-theme .product-details-page .text-slate-800,
+html.dark-theme .product-details-page .text-slate-700,
+html.dark-theme .product-details-page .text-slate-600 {
+  color: #e5edf8 !important;
+}
+
+html.dark-theme .product-details-page .text-slate-500,
+html.dark-theme .product-details-page .text-slate-400 {
+  color: #b8c7da !important;
+}
+
+html.dark-theme .product-details-page .text-slate-300 {
+  color: #cbd7e6 !important;
+}
+
+html.dark-theme .product-details-page .bg-slate-50,
+html.dark-theme .product-details-page .bg-slate-100 {
+  background-color: #123054 !important;
+}
+
+html.dark-theme .product-details-page .hover\:bg-slate-50:hover {
+  background-color: #1b416d !important;
+}
+
+html.dark-theme .admin-shell .hover\:bg-white:hover,
+html.dark-theme .admin-shell .hover\:bg-slate-50:hover,
+html.dark-theme .admin-shell .hover\:bg-slate-100:hover {
+  background-color: #1b416d !important;
+  color: #f8fafc !important;
+}
+
+html.dark-theme .admin-shell .hover\:border-slate-300:hover {
+  border-color: #f4b400 !important;
+}
+
+html.dark-theme .admin-shell .hover\:text-slate-900:hover,
+html.dark-theme .admin-shell .hover\:text-slate-700:hover {
+  color: #f8fafc !important;
+}
+
+html.dark-theme .admin-shell .admin-modal-panel {
+  background-color: #0c2343 !important;
+  color: #f8fafc;
+}
+
+html.dark-theme .admin-shell .admin-modal-panel input,
+html.dark-theme .admin-shell .admin-modal-panel textarea,
+html.dark-theme .admin-shell .admin-modal-panel select {
+  background-color: #071a33 !important;
+  border-color: rgba(148, 163, 184, 0.32) !important;
+  color: #f8fafc !important;
+}
+
+html.dark-theme .admin-shell .admin-modal-panel input:focus,
+html.dark-theme .admin-shell .admin-modal-panel textarea:focus,
+html.dark-theme .admin-shell .admin-modal-panel select:focus {
+  border-color: #f4b400 !important;
+  box-shadow: 0 0 0 2px rgba(244, 180, 0, 0.18);
+}
+
+html.dark-theme .admin-shell .admin-modal-panel .admin-cctv-specs {
+  background-color: #123054 !important;
+  border-color: rgba(244, 180, 0, 0.72) !important;
+}
+
+html.dark-theme .admin-shell .admin-modal-panel .admin-cctv-specs .text-amber-700 {
+  color: #fbbf24 !important;
+}
+
+html.dark-theme .admin-shell .admin-modal-panel .admin-cctv-specs .text-slate-500,
+html.dark-theme .admin-shell .admin-modal-panel .admin-cctv-specs .text-slate-600,
+html.dark-theme .admin-shell .admin-modal-panel .admin-cctv-specs label > div {
+  color: #cbd7e6 !important;
+}
+
+/* Brand logos stay on white cards for reliable contrast in dark mode. */
+html.dark-theme .home-shell .home-brand-card,
+html.dark-theme .home-shell .home-brand-card:hover {
+  background-color: #ffffff !important;
+  background-image: none !important;
+  border-color: #e2e8f0 !important;
+}
+
+html.dark-theme .home-shell .home-brand-card:hover,
+html.dark-theme .home-shell .home-brand-card:focus-visible {
+  border-color: #f4b400 !important;
+  box-shadow: 0 18px 34px rgba(0, 0, 0, 0.42), 0 0 0 3px rgba(244, 180, 0, 0.18) !important;
+}
+
+/* Promotional banners keep their light-theme palette in dark mode. */
+html.dark-theme .home-shell .home-promo-card-0 {
+  background-color: #fffbeb !important;
+  background-image: none !important;
+  border-color: #f4c84a !important;
+}
+
+html.dark-theme .home-shell .home-promo-card-1 {
+  background-color: #eff6ff !important;
+  background-image: none !important;
+  border-color: #9fc5f5 !important;
+}
+
+html.dark-theme .home-shell .home-promo-card-2 {
+  background-color: #f0fdf4 !important;
+  background-image: none !important;
+  border-color: #8bd5a2 !important;
+}
+
+html.dark-theme .home-shell .home-promo-card .home-promo-title {
+  color: #0f172a !important;
+}
+
+html.dark-theme .home-shell .home-promo-card .home-promo-copy {
+  color: #475569 !important;
 }

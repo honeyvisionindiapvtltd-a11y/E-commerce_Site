@@ -115,7 +115,7 @@ export default function TrendingProducts() {
                 <img
                   src={product.image}
                   alt={product.name}
-                  className="mt-4 h-28 w-full object-contain transition group-hover:scale-105 sm:mt-5 sm:h-35"
+                  className="home-product-image mt-4 h-28 w-full rounded-lg bg-white object-contain transition group-hover:scale-105 sm:mt-5 sm:h-35"
                 />
 
                 <h3 className="mt-2 min-h-9 text-xs font-semibold leading-4 text-slate-800 sm:mt-4 sm:min-h-10 sm:text-sm sm:leading-normal">

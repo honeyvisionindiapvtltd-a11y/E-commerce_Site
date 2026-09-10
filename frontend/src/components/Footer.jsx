@@ -1,4 +1,4 @@
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import {
   Phone,
   Mail,
@@ -12,6 +12,37 @@ import {
   FaTwitter,
   FaYoutube,
 } from 'react-icons/fa'
+
+const categoryLinks = [
+  ["Laptops", "/products?category=computers-laptops"],
+  ["Desktop PCs", "/products?category=computers-laptops"],
+  ["CCTV Cameras", "/products?category=cctv-cameras"],
+  ["Drones", "/products?category=drones"],
+  ["Networking", "/products?category=networking-products"],
+  ["Storage", "/products?category=storage-hard-drives"],
+  ["Gaming", "/products?category=gaming"],
+  ["Printers", "/products?category=printers-scanners"],
+];
+
+const supportLinks = [
+  ["Contact Us", "/contact"],
+  ["Track Order", "/order-tracking"],
+  ["Installation Service", "/installation"],
+  ["AMC Plans", "/amc"],
+  ["Warranty", "/warranty"],
+  ["Returns", "/contact"],
+  ["FAQs", "/faqs"],
+];
+
+const companyLinks = [
+  ["About Us", "/about"],
+  ["Solutions", "/solutions"],
+  ["Technology", "/technology"],
+  ["Industries", "/industries"],
+  ["Blogs", "/blogs"],
+  ["Privacy Policy", "/privacy-policy"],
+  ["Terms & Conditions", "/terms"],
+];
 
 export default function Footer() {
   const navigate = useNavigate();
@@ -29,9 +60,9 @@ export default function Footer() {
 
       {/* Top Section */}
 
-      <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 sm:py-12">
+      <div className="mx-auto max-w-7xl px-4 py-5 sm:px-6 sm:py-8">
 
-        <div className="grid grid-cols-2 gap-x-5 gap-y-8 sm:gap-10 lg:grid-cols-5">
+        <div className="grid grid-cols-2 gap-x-5 gap-y-5 sm:gap-7 lg:grid-cols-5">
 
           {/* Company */}
 
@@ -40,10 +71,10 @@ export default function Footer() {
             <img
               src="https://res.cloudinary.com/vhrkwyzs/image/upload/v1788235324/logo1_fzsjda.png"
               alt="Honey Vision"
-              className="h-10 sm:h-12"
+              className="h-8 sm:h-10"
             />
 
-            <p className="mt-4 max-w-sm text-xs leading-5 text-slate-300 sm:text-sm sm:leading-6">
+            <p className="mt-3 max-w-sm text-[11px] leading-4 text-slate-300 sm:text-xs sm:leading-5">
               Honey Vision is your trusted destination
               for laptops, desktops, CCTV cameras,
               drones, networking equipment,
@@ -52,22 +83,22 @@ export default function Footer() {
               installation services.
             </p>
 
-            <div className="mt-5 space-y-2.5 text-xs sm:mt-6 sm:space-y-3 sm:text-sm">
+            <div className="mt-4 space-y-2 text-[11px] sm:mt-5 sm:space-y-2.5 sm:text-xs">
 
               <div className="flex gap-3">
                 <MapPin size={16} className="shrink-0 text-yellow-400"/>
                 Bengaluru, India
               </div>
 
-              <div className="flex gap-3">
+              <a href="tel:+919999999999" className="flex gap-3 hover:text-yellow-400">
                 <Phone size={16} className="shrink-0 text-yellow-400"/>
                 +91 XXXXX XXXXX
-              </div>
+              </a>
 
-              <div className="flex gap-3">
+              <a href="mailto:support@honeyvision.in" className="flex gap-3 hover:text-yellow-400">
                 <Mail size={16} className="shrink-0 text-yellow-400"/>
                 support@honeyvision.in
-              </div>
+              </a>
 
             </div>
 
@@ -77,20 +108,13 @@ export default function Footer() {
 
           <div>
 
-            <h3 className="mb-3 text-sm font-semibold text-white sm:mb-5 sm:text-lg">
+            <h3 className="mb-2 text-xs font-semibold text-white sm:mb-3 sm:text-sm">
               Categories
             </h3>
 
-            <ul className="space-y-2 text-xs sm:space-y-3 sm:text-sm">
+            <ul className="space-y-1.5 text-[11px] sm:space-y-2 sm:text-xs">
 
-              <li>Laptops</li>
-              <li>Desktop PCs</li>
-              <li>CCTV Cameras</li>
-              <li>Drones</li>
-              <li>Networking</li>
-              <li>Storage</li>
-              <li>Gaming</li>
-              <li>Printers</li>
+              {categoryLinks.map(([label, to]) => <li key={label}><Link to={to} className="hover:text-yellow-400">{label}</Link></li>)}
 
             </ul>
 
@@ -100,19 +124,13 @@ export default function Footer() {
 
           <div>
 
-            <h3 className="mb-3 text-sm font-semibold text-white sm:mb-5 sm:text-lg">
+            <h3 className="mb-2 text-xs font-semibold text-white sm:mb-3 sm:text-sm">
               Customer Support
             </h3>
 
-            <ul className="space-y-2 text-xs sm:space-y-3 sm:text-sm">
+            <ul className="space-y-1.5 text-[11px] sm:space-y-2 sm:text-xs">
 
-              <li>Contact Us</li>
-              <li>Track Order</li>
-              <li>Installation Service</li>
-              <li>AMC Plans</li>
-              <li>Warranty</li>
-              <li>Returns</li>
-              <li>FAQs</li>
+              {supportLinks.map(([label, to]) => <li key={label}><Link to={to} className="hover:text-yellow-400">{label}</Link></li>)}
 
             </ul>
 
@@ -122,19 +140,13 @@ export default function Footer() {
 
           <div>
 
-            <h3 className="mb-3 text-sm font-semibold text-white sm:mb-5 sm:text-lg">
+            <h3 className="mb-2 text-xs font-semibold text-white sm:mb-3 sm:text-sm">
               Company
             </h3>
 
-            <ul className="space-y-2 text-xs sm:space-y-3 sm:text-sm">
+            <ul className="space-y-1.5 text-[11px] sm:space-y-2 sm:text-xs">
 
-              <li>About Us</li>
-              <li>Solutions</li>
-              <li>Technology</li>
-              <li>Industries</li>
-              <li>Blogs</li>
-              <li>Privacy Policy</li>
-              <li>Terms & Conditions</li>
+              {companyLinks.map(([label, to]) => <li key={label}><Link to={to} className="hover:text-yellow-400">{label}</Link></li>)}
 
             </ul>
 
@@ -144,22 +156,22 @@ export default function Footer() {
 
           <div className="col-span-2 lg:col-span-1">
 
-            <h3 className="mb-3 text-sm font-semibold text-white sm:mb-5 sm:text-lg">
+            <h3 className="mb-2 text-xs font-semibold text-white sm:mb-3 sm:text-sm">
               Stay Updated
             </h3>
 
-            <p className="max-w-sm text-xs leading-5 sm:text-sm sm:leading-6">
+            <p className="max-w-sm text-[11px] leading-4 sm:text-xs sm:leading-5">
               Subscribe to receive the latest
               product launches, offers and
               technology updates.
             </p>
 
-            <div className="mt-4 flex sm:mt-5">
+            <div className="mt-3 flex sm:mt-4">
 
               <input
                 type="email"
                 placeholder="Enter email"
-                className="w-full min-w-0 rounded-l-lg px-3 py-2.5 text-sm text-black outline-none"
+                className="w-full min-w-0 rounded-l-lg px-3 py-2 text-xs text-black outline-none"
               />
 
               <button type="button" onClick={handleSubscribe} aria-label="Subscribe" className="rounded-r-lg bg-yellow-500 px-4 hover:bg-yellow-600">
@@ -170,7 +182,7 @@ export default function Footer() {
 
             </div>
 
-            <button type="button" onClick={handleBrochure} className="mt-4 w-full rounded-lg bg-yellow-500 py-2.5 text-sm font-semibold text-black hover:bg-yellow-600 sm:mt-5">
+              <button type="button" onClick={handleBrochure} className="mt-3 w-full rounded-lg bg-yellow-500 py-2 text-xs font-semibold text-black hover:bg-yellow-600 sm:mt-4">
               Download Brochure
             </button>
 
@@ -184,24 +196,24 @@ export default function Footer() {
 
       <div className="border-t border-gray-700">
 
-        <div className="mx-auto max-w-7xl px-4 py-5 sm:px-6 sm:py-7">
+        <div className="mx-auto max-w-7xl px-4 py-3 sm:px-6 sm:py-4">
 
-          <div className="grid grid-cols-2 gap-4 text-center sm:gap-6 lg:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3 text-center sm:gap-5 lg:grid-cols-4">
 
             <div>
-              <span className="text-lg">🚚</span> <h4 className="mt-1 text-xs font-semibold text-white sm:text-sm">Fast Delivery</h4>
+              <span className="text-base">🚚</span> <h4 className="mt-0.5 text-[11px] font-semibold text-white sm:text-xs">Fast Delivery</h4>
             </div>
 
             <div>
-              <span className="text-lg">🛠</span> <h4 className="mt-1 text-xs font-semibold text-white sm:text-sm">Professional Installation</h4>
+              <span className="text-base">🛠</span> <h4 className="mt-0.5 text-[11px] font-semibold text-white sm:text-xs">Professional Installation</h4>
             </div>
 
             <div>
-              <span className="text-lg">🛡</span> <h4 className="mt-1 text-xs font-semibold text-white sm:text-sm">100% Genuine Products</h4>
+              <span className="text-base">🛡</span> <h4 className="mt-0.5 text-[11px] font-semibold text-white sm:text-xs">100% Genuine Products</h4>
             </div>
 
             <div>
-              <span className="text-lg">📞</span> <h4 className="mt-1 text-xs font-semibold text-white sm:text-sm">24×7 Technical Support</h4>
+              <span className="text-base">📞</span> <h4 className="mt-0.5 text-[11px] font-semibold text-white sm:text-xs">24×7 Technical Support</h4>
             </div>
 
           </div>
@@ -214,7 +226,7 @@ export default function Footer() {
 
       <div className="border-t border-gray-700">
 
-        <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-3 px-4 py-4 text-center text-xs sm:px-6 sm:py-5 sm:text-sm lg:flex-row lg:text-left">
+        <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-2 px-4 py-3 text-center text-[11px] sm:px-6 sm:py-4 sm:text-xs lg:flex-row lg:text-left">
 
           <p>
             © 2026 Honey Vision Pvt. Ltd. All Rights Reserved.
@@ -222,11 +234,11 @@ export default function Footer() {
 
           <div className="mt-1 flex gap-4 lg:mt-0">
 
-            <FaFacebookF className="hover:text-yellow-400 cursor-pointer"/>
-            <FaInstagram className="hover:text-yellow-400 cursor-pointer"/>
-            <FaLinkedinIn className="hover:text-yellow-400 cursor-pointer"/>
-            <FaTwitter className="hover:text-yellow-400 cursor-pointer"/>
-            <FaYoutube className="hover:text-yellow-400 cursor-pointer"/>
+            <a href="https://www.facebook.com" target="_blank" rel="noreferrer" aria-label="Facebook" className="hover:text-yellow-400"><FaFacebookF /></a>
+            <a href="https://www.instagram.com" target="_blank" rel="noreferrer" aria-label="Instagram" className="hover:text-yellow-400"><FaInstagram /></a>
+            <a href="https://www.linkedin.com" target="_blank" rel="noreferrer" aria-label="LinkedIn" className="hover:text-yellow-400"><FaLinkedinIn /></a>
+            <a href="https://www.twitter.com" target="_blank" rel="noreferrer" aria-label="Twitter" className="hover:text-yellow-400"><FaTwitter /></a>
+            <a href="https://www.youtube.com" target="_blank" rel="noreferrer" aria-label="YouTube" className="hover:text-yellow-400"><FaYoutube /></a>
 
           </div>
 

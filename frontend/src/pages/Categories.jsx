@@ -26,7 +26,7 @@ const categoryDescription = (name) => {
 export default function Categories() {
   const [categoryTiles, setCategoryTiles] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [viewMode, setViewMode] = useState("grid");
+  const [viewMode, setViewMode] = useState("list");
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All Categories");
 
@@ -90,7 +90,7 @@ export default function Categories() {
   }, [categoryTiles, searchTerm, selectedCategory]);
 
   return (
-    <main className="min-h-screen bg-[#f7f9fc] text-slate-900">
+    <main className="category-page min-h-screen bg-[#f7f9fc] text-slate-900">
       {/* =========================================================
           HERO SECTION
       ========================================================== */}
@@ -516,7 +516,7 @@ export default function Categories() {
                       {/* Image */}
                       <Link
                         to={`/products?category=${slug}`}
-                        className={`relative block overflow-hidden bg-slate-100 ${
+                        className={`category-image relative block overflow-hidden bg-slate-100 ${
                           viewMode === "list"
                             ? "h-52 md:h-auto md:w-64 md:shrink-0"
                             : "h-48"
