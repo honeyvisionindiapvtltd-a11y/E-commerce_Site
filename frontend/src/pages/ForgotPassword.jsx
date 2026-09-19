@@ -3,7 +3,7 @@ import { ArrowLeft, CheckCircle2, Mail } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useCommerce } from "../context/index.js";
 
-const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
+const API_BASE = import.meta.env.VITE_API_URL || "https://api.honeyvision.in/api";
 const ForgotPasswordImage = "https://res.cloudinary.com/vhrkwyzs/image/upload/v1786189628/login_odyhdp.png";
 
 export default function ForgotPassword() {

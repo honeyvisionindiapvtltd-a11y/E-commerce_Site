@@ -490,7 +490,7 @@ export default function ProductDetails() {
                       key={`${image}-${index}`}
                       type="button"
                       onClick={() => selectImage(index)}
-                      className={`flex h-[70px] w-[70px] items-center justify-center overflow-hidden rounded-xl border bg-white p-1 transition ${
+                      className={`product-image-surface flex h-[70px] w-[70px] items-center justify-center overflow-hidden rounded-xl border bg-white p-1 transition ${
                         index === imageIndex
                           ? "border-[#f2b900] bg-[#fffaf0] ring-2 ring-[#f2b900]/20"
                           : "border-slate-200 hover:border-slate-300"
@@ -510,7 +510,7 @@ export default function ProductDetails() {
 
               {/* Main image panel */}
               <div className="min-w-0 flex-1">
-                <div className="relative flex min-h-[330px] items-center justify-center overflow-hidden rounded-[20px] border border-slate-200 bg-[radial-gradient(circle_at_center,#ffffff_0%,#f7f9fc_75%)] sm:min-h-[395px] lg:min-h-[420px]">
+                <div className="product-image-surface relative flex min-h-[330px] items-center justify-center overflow-hidden rounded-[20px] border border-slate-200 bg-[radial-gradient(circle_at_center,#ffffff_0%,#f7f9fc_75%)] sm:min-h-[395px] lg:min-h-[420px]">
                   {stock <= 0 && (
                     <span className="absolute bottom-4 left-4 z-10 rounded-full bg-red-600 px-3 py-1.5 text-[10px] font-extrabold uppercase tracking-wide text-white shadow-md sm:bottom-5 sm:left-5 sm:text-xs">
                       Out of stock
@@ -604,7 +604,7 @@ export default function ProductDetails() {
                       key={`mobile-${image}-${index}`}
                       type="button"
                       onClick={() => selectImage(index)}
-                      className={`h-14 w-14 shrink-0 overflow-hidden rounded-lg border bg-white p-1 ${
+                      className={`product-image-surface h-14 w-14 shrink-0 overflow-hidden rounded-lg border bg-white p-1 ${
                         index === imageIndex
                           ? "border-[#f2b900] ring-2 ring-[#f2b900]/20"
                           : "border-slate-200"
@@ -1190,9 +1190,12 @@ export default function ProductDetails() {
                 <Link
                   key={item.id}
                   to={`/products/${item.id}`}
-                  className="group min-w-[175px] flex-[0_0_175px] rounded-lg border border-slate-200 p-2 transition hover:-translate-y-1 hover:border-[#f2b900] hover:shadow-md sm:min-w-[200px] sm:flex-[0_0_200px]"
+                  className="recently-viewed-card group min-w-[175px] flex-[0_0_175px] rounded-lg border border-slate-200 p-2 transition duration-200 hover:-translate-y-1 hover:border-[#f2b900] hover:shadow-lg sm:min-w-[200px] sm:flex-[0_0_200px]"
                 >
-                  <div className="flex h-24 items-center justify-center rounded-md bg-slate-50">
+                  <div
+                    className="product-image-surface-white flex h-24 items-center justify-center rounded-md bg-slate-50"
+                    style={{ backgroundColor: "#ffffff" }}
+                  >
                     <ProductImage
                       src={item.image}
                       alt={item.name}
@@ -1267,10 +1270,13 @@ export default function ProductDetails() {
               {relatedProducts.map((item) => (
                 <div
                   key={item.id}
-                  className="group min-w-[175px] flex-[0_0_175px] overflow-hidden rounded-lg border border-slate-200 bg-white transition hover:-translate-y-1 hover:border-slate-300 hover:shadow-lg sm:min-w-[200px] sm:flex-[0_0_200px]"
+                  className="related-product-card group min-w-[175px] flex-[0_0_175px] overflow-hidden rounded-lg border border-slate-200 bg-white transition hover:-translate-y-1 hover:border-[#f2b900] hover:shadow-lg sm:min-w-[200px] sm:flex-[0_0_200px]"
                 >
                   <Link to={`/products/${item.id}`} className="block">
-                    <div className="relative flex h-24 items-center justify-center bg-slate-50">
+                    <div
+                      className="product-image-surface-white relative flex h-24 items-center justify-center bg-slate-50"
+                      style={{ backgroundColor: "#ffffff" }}
+                    >
                       <ProductImage
                         src={item.image}
                         alt={item.name}

@@ -10,7 +10,7 @@ export default function ProductCard({ product }) {
 
   return (
     <article
-      className="group relative flex h-full flex-col overflow-hidden rounded-2xl border border-amber-100 bg-[#fffaf0] p-2.5 shadow-[0_4px_16px_rgba(7,20,38,.06)] transition hover:shadow-lg sm:rounded-2xl sm:border-slate-200/80 sm:bg-white sm:p-3 sm:shadow-sm sm:hover:-translate-y-1"
+      className="product-card group relative flex h-full flex-col overflow-hidden rounded-2xl border border-amber-100 bg-[#fffaf0] p-2.5 shadow-[0_4px_16px_rgba(7,20,38,.06)] transition hover:shadow-lg sm:rounded-2xl sm:border-slate-200/80 sm:bg-white sm:p-3 sm:shadow-sm sm:hover:-translate-y-1"
       style={{ filter: isOutOfStock ? "grayscale(1)" : "none" }}
     >
       <button
@@ -21,7 +21,10 @@ export default function ProductCard({ product }) {
         <Heart size={16} fill={isWishlisted ? 'currentColor' : 'none'} className="sm:h-[18px] sm:w-[18px]" />
       </button>
 
-      <div className="home-product-image relative flex aspect-square items-center justify-center overflow-hidden rounded-xl !bg-white p-3 sm:aspect-auto sm:h-36 sm:p-0">
+      <div
+        className="product-image-surface-white home-product-image relative flex aspect-square items-center justify-center overflow-hidden rounded-xl !bg-white p-3 sm:aspect-auto sm:h-36 sm:p-0"
+        style={{ backgroundColor: "#ffffff" }}
+      >
         {isOutOfStock && (
           <span className="absolute bottom-2 left-2 z-10 rounded-full bg-red-600 px-2.5 py-1 text-[9px] font-extrabold uppercase tracking-wide text-white shadow-sm sm:bottom-3 sm:left-3 sm:text-[10px]">
             Out of stock

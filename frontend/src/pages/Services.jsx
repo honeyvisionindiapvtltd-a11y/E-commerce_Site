@@ -269,7 +269,7 @@ const Services = () => {
 
 
   return (
-    <div className="min-h-screen bg-white text-[#071426]">
+    <div className="services-page min-h-screen bg-white text-[#071426]">
 
 
       {/* =====================================================
@@ -1025,12 +1025,12 @@ const ServiceCard = ({
       className="group flex min-h-[265px] flex-col rounded-xl border border-gray-200 bg-white p-6 text-center transition duration-300 hover:-translate-y-1 hover:border-[#fbb900] hover:shadow-lg"
     >
 
-      <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-[#eef5fa] transition group-hover:bg-[#fff4d0]">
+      <div className="service-card-icon mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-[#eef5fa] transition group-hover:bg-[#fff4d0]">
 
         <Icon
           size={29}
           strokeWidth={1.6}
-          className="text-[#071426]"
+          className="service-card-icon-svg text-[#071426]"
         />
 
       </div>

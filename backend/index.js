@@ -59,26 +59,25 @@ const configuredFrontendOrigins = String(process.env.FRONTEND_URL || '')
 const allowedOrigins = new Set([...localFrontendOrigins, ...configuredFrontendOrigins]);
 const isAllowedDevelopmentOrigin = (origin) => /^https?:\/\/(localhost|127\.0\.0\.1|192\.168\.31\.5):\d+$/.test(origin);
 let databaseAvailable = false;
+let httpServer;
+
+const wait = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
 
 const connectDatabase = async () => {
-  let lastError;
-  for (let attempt = 1; attempt <= 3; attempt += 1) {
+  let attempt = 0;
+  while (!databaseAvailable) {
+    attempt += 1;
     try {
       await mongoose.connect(dbConfig.mongoUri, { serverSelectionTimeoutMS: 5000 });
       databaseAvailable = true;
       console.log('MongoDB connected');
       return;
     } catch (error) {
-      lastError = error;
-      console.error(`MongoDB connection attempt ${attempt}/3 failed:`, error.message);
-      if (attempt < 3) await new Promise((resolve) => setTimeout(resolve, attempt * 1000));
+      console.error(`MongoDB connection attempt ${attempt} failed:`, error.message);
+      if (process.env.NODE_ENV !== 'production') return;
+      await wait(Math.min(attempt * 5000, 30000));
     }
   }
-
-  if (process.env.NODE_ENV === 'production') {
-    throw lastError;
-  }
-  console.warn('Continuing in non-production mode without MongoDB. Database routes will return 503.');
 };
 
 app.use(cors({ origin: (origin, callback) => {
@@ -121,60 +120,53 @@ app.use('/api/delivery', deliveryRoutes);
 app.use('/api/delivery', deliveryServiceabilityRoutes);
 app.use('/api/returns', returnRoutes);
 
-// Start server with robust DB/connect logic
-const startServer = async () => {
-  try {
-    await connectDatabase();
-  } catch (err) {
-    console.error('Fatal: MongoDB connection failed during startup.', err.message);
-    process.exit(1);
-  }
+const startListening = () => {
+  httpServer = http.createServer(app);
+  initializeRealtime(httpServer);
+
+  httpServer.listen(PORT, '0.0.0.0', () => {
+    console.log(`HoneyVision API listening on port ${PORT}`);
+    console.log('Socket.io server initialized');
+  });
+};
+
+const initializeDatabaseServices = async () => {
+  await connectDatabase();
 
   try {
     await connectNativeMongoClient();
   } catch (err) {
-    console.warn('Warning: MongoClient connection failed or MONGODB_URI not set, continuing without native client.', err.message);
+    console.warn('Warning: MongoClient connection failed, continuing without native client.', err.message);
   }
 
   try {
-    // ensure indexes used by delivery service (no-op if not configured)
     await ensureDeliveryIndexes();
   } catch (err) {
-    console.warn('Warning: ensureDeliveryIndexes failed or not configured.', err.message);
+    console.warn('Warning: ensureDeliveryIndexes failed.', err.message);
   }
 
-  try {
-    if (process.env.ADMIN_EMAIL && process.env.ADMIN_PASSWORD) {
+  if (process.env.ADMIN_EMAIL && process.env.ADMIN_PASSWORD) {
+    try {
       await seedAdmin();
+    } catch (err) {
+      console.warn('Warning: seedAdmin failed.', err.message);
     }
-  } catch (err) {
-    console.warn('Warning: seedAdmin failed.', err.message);
   }
-
-  const startListening = (port) => {
-    const server = http.createServer(app);
-    initializeRealtime(server);
-
-    server.listen(port, '0.0.0.0', () => {
-      console.log(`HoneyVision API listening on http://localhost:${port}`);
-      console.log(`Network access: http://192.168.31.5:${port}`);
-      console.log('Socket.io server initialized');
-    });
-
-    server.on('error', (err) => {
-      if (err.code === 'EADDRINUSE') {
-        const nextPort = port + 1;
-        console.warn(`Port ${port} is busy. Retrying on port ${nextPort}...`);
-        startListening(nextPort);
-        return;
-      }
-
-      console.error('Failed to start server:', err);
-      process.exit(1);
-    });
-  };
-
-  startListening(PORT);
 };
 
-startServer();
+const shutdown = async (signal) => {
+  console.log(`${signal} received; shutting down gracefully`);
+  if (httpServer) {
+    await new Promise((resolve) => httpServer.close(resolve));
+  }
+  await mongoose.disconnect();
+  process.exit(0);
+};
+
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+process.on('SIGINT', () => shutdown('SIGINT'));
+
+startListening();
+initializeDatabaseServices().catch((error) => {
+  console.error('Database initialization failed:', error.message);
+});

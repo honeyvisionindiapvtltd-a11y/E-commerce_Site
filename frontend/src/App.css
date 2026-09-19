@@ -441,6 +441,10 @@ html.dark-theme .home-shell .home-product-image {
   background-color: #ffffff !important;
 }
 
+html.dark-theme .product-image-surface-white {
+  background-color: #ffffff !important;
+}
+
 html.dark-theme .home-featured-product {
   background: linear-gradient(180deg, #123054 0%, #0c2343 100%) !important;
   border-color: rgba(148, 163, 184, 0.24) !important;
@@ -789,8 +793,95 @@ html.dark-theme .product-details-page .bg-slate-100 {
   background-color: #123054 !important;
 }
 
+html.dark-theme .product-details-page .bg-white:not(.product-image-surface),
+html.dark-theme .product-details-page .bg-white\/95 {
+  background-color: #0c2343 !important;
+}
+
+html.dark-theme .product-details-page .bg-slate-50\/80,
+html.dark-theme .product-details-page .bg-slate-50\/70 {
+  background-color: rgba(18, 48, 84, 0.82) !important;
+}
+
+html.dark-theme .product-details-page .bg-emerald-50 {
+  background-color: rgba(6, 95, 70, 0.32) !important;
+  color: #a7f3d0 !important;
+}
+
+html.dark-theme .product-details-page .bg-red-50 {
+  background-color: rgba(127, 29, 29, 0.34) !important;
+  color: #fecaca !important;
+}
+
+html.dark-theme .product-details-page .bg-blue-50 {
+  background-color: rgba(30, 64, 175, 0.35) !important;
+  color: #bfdbfe !important;
+}
+
+html.dark-theme .product-details-page .bg-\[\#fffaf0\] {
+  background-color: #263b52 !important;
+}
+
+html.dark-theme .product-details-page .text-emerald-700 {
+  color: #6ee7b7 !important;
+}
+
+html.dark-theme .product-details-page .text-emerald-600 {
+  color: #6ee7b7 !important;
+}
+
+html.dark-theme .product-details-page .text-blue-600,
+html.dark-theme .product-details-page .text-blue-700 {
+  color: #93c5fd !important;
+}
+
+html.dark-theme .product-details-page .divide-slate-200 > :not([hidden]) ~ :not([hidden]),
+html.dark-theme .product-details-page .bg-slate-100 {
+  border-color: rgba(148, 163, 184, 0.28) !important;
+}
+
+html.dark-theme .product-details-page .placeholder-slate-400::placeholder {
+  color: #9aabc0 !important;
+}
+
 html.dark-theme .product-details-page .hover\:bg-slate-50:hover {
   background-color: #1b416d !important;
+}
+
+html.dark-theme .product-details-page .product-image-surface-white {
+  background-color: #ffffff !important;
+}
+
+html.dark-theme .product-card:hover,
+html.dark-theme .product-details-page .related-product-card:hover {
+  border-color: #f2b900 !important;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.28) !important;
+}
+
+html.dark-theme .product-details-page .recently-viewed-card {
+  background-color: #0c2343;
+  transition: background-color 180ms ease, border-color 180ms ease, box-shadow 180ms ease, transform 180ms ease;
+}
+
+html.dark-theme .product-details-page .recently-viewed-card:hover {
+  background-color: #123054 !important;
+  border-color: #f2b900 !important;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.28) !important;
+}
+
+html.dark-theme .services-page .service-card-icon {
+  background-color: #123054 !important;
+  border: 1px solid rgba(148, 163, 184, 0.28);
+}
+
+html.dark-theme .services-page .service-card-icon-svg {
+  color: #fbbf24 !important;
+  stroke: currentColor;
+}
+
+html.dark-theme .services-page .group:hover .service-card-icon {
+  background-color: #263b52 !important;
+  border-color: rgba(251, 191, 36, 0.65) !important;
 }
 
 html.dark-theme .admin-shell .hover\:bg-white:hover,
