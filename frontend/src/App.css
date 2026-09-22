@@ -1002,8 +1002,12 @@ html.dark-theme .admin-shell .hover\:text-slate-700:hover {
   }
 
   .products-page > section:last-of-type {
-    padding-top: 14px;
-    padding-bottom: 20px;
+    padding-top: 8px;
+    padding-bottom: 16px;
+  }
+
+  .products-page > section:last-of-type > .grid {
+    gap: 0;
   }
 
   .products-mobile-controls {
@@ -1028,7 +1032,7 @@ html.dark-theme .admin-shell .hover\:text-slate-700:hover {
 
   .products-mobile-quick-filters {
     gap: 7px;
-    margin-bottom: 10px;
+    margin-bottom: 6px;
     padding-bottom: 2px;
     scrollbar-width: none;
   }
@@ -1063,7 +1067,7 @@ html.dark-theme .admin-shell .hover\:text-slate-700:hover {
   }
 
   .products-page .products-mobile-promo {
-    margin-bottom: 10px;
+    margin-bottom: 7px;
   }
 
   .products-mobile-promo > div {
@@ -1113,8 +1117,8 @@ html.dark-theme .admin-shell .hover\:text-slate-700:hover {
   }
 
   .products-catalog-panel > div:first-child {
-    gap: 8px;
-    padding: 9px 10px;
+    gap: 6px;
+    padding: 7px 8px;
     overflow-x: auto;
     scrollbar-width: none;
   }
@@ -1135,15 +1139,28 @@ html.dark-theme .admin-shell .hover\:text-slate-700:hover {
 
   .products-catalog-panel > div:first-child select,
   .products-catalog-panel > div:first-child label {
-    height: 38px;
-    padding-top: 7px;
-    padding-bottom: 7px;
+    height: 35px;
+    padding-top: 5px;
+    padding-bottom: 5px;
     font-size: 11px;
   }
 
   .products-catalog-panel > div:first-child > div:last-child {
     min-width: max-content;
     font-size: 11px;
+  }
+
+  .products-catalog-panel > div:first-child > div:last-child > div {
+    gap: 5px;
+  }
+
+  .products-catalog-panel > div:first-child > div:last-child > div:last-child {
+    padding: 2px;
+  }
+
+  .products-catalog-panel > div:first-child > div:last-child button {
+    height: 34px;
+    width: 36px;
   }
 
   .products-grid-area {
