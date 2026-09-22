@@ -8,6 +8,34 @@
     linear-gradient(180deg, #f8fbff 0%, #eef4ff 100%);
 }
 
+.offline-network-banner {
+  position: fixed;
+  top: max(0.75rem, env(safe-area-inset-top));
+  left: 50%;
+  z-index: 100;
+  display: flex;
+  width: min(calc(100% - 2rem), 34rem);
+  transform: translateX(-50%);
+  flex-direction: column;
+  gap: 0.2rem;
+  padding: 0.85rem 1rem;
+  border: 1px solid rgba(185, 28, 28, 0.28);
+  border-radius: 0.75rem;
+  background: #fff7ed;
+  box-shadow: 0 12px 30px rgba(127, 29, 29, 0.18);
+  color: #7f1d1d;
+  text-align: center;
+}
+
+.offline-network-banner strong {
+  font-size: 0.95rem;
+}
+
+.offline-network-banner span {
+  font-size: 0.82rem;
+  line-height: 1.35;
+}
+
 .page-content {
   flex: 1;
   width: 100%;

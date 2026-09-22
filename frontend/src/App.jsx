@@ -5,6 +5,7 @@ import { APIProvider } from '@vis.gl/react-google-maps'
 import { NotificationContainer } from './components/Notifications/NotificationComponents.jsx'
 import useNotifications from './hooks/useNotifications.js'
 import { initializeNativeApp } from './services/nativeInit'
+import { networkStatus } from './services/networkStatus'
 import Navbar from './components/Navbar.jsx'
 import Footer from './components/Footer.jsx'
 import Home from './Home.jsx'
@@ -79,14 +80,26 @@ function App() {
   const location = useLocation();
   const { isLoggedIn, user } = useCommerce();
   const { notifications, removeNotification } = useNotifications();
+  const [isOffline, setIsOffline] = useState(() => !navigator.onLine);
   const [isDarkTheme, setIsDarkTheme] = useState(() => localStorage.getItem('honey-vision-theme') === 'dark');
   const isAdminRoute = location.pathname.startsWith('/admin');
   const isDeliveryAgentRoute = location.pathname.startsWith('/delivery-agent');
   const isCheckoutRoute = ['/checkout', '/payment', '/payment-methods'].includes(location.pathname);
 
   useEffect(() => {
-    // Initialize native app services on mount
+    const updateBrowserNetworkStatus = () => setIsOffline(!navigator.onLine);
+    const updateNativeNetworkStatus = (status) => setIsOffline(!status.connected);
+
+    window.addEventListener('online', updateBrowserNetworkStatus);
+    window.addEventListener('offline', updateBrowserNetworkStatus);
+    networkStatus.onStatusChange('app-offline-banner', updateNativeNetworkStatus);
     initializeNativeApp();
+
+    return () => {
+      window.removeEventListener('online', updateBrowserNetworkStatus);
+      window.removeEventListener('offline', updateBrowserNetworkStatus);
+      networkStatus.offStatusChange('app-offline-banner');
+    };
   }, []);
 
   useEffect(() => {
@@ -100,6 +113,12 @@ function App() {
 
   const appContent = (
     <div className="app-shell">
+      {isOffline && (
+        <div className="offline-network-banner" role="alert">
+          <strong>No internet connection</strong>
+          <span>Turn on your device network to continue using the app.</span>
+        </div>
+      )}
       {!isAdminRoute && !isDeliveryAgentRoute && !isCheckoutRoute && (
         <Navbar isDarkTheme={isDarkTheme} onToggleTheme={() => setIsDarkTheme((value) => !value)} />
       )}
