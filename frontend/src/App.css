@@ -981,6 +981,8 @@ html.dark-theme .admin-shell .hover\:text-slate-700:hover {
     display: flex;
     align-items: center;
     gap: 7px;
+    width: 100%;
+    justify-content: flex-end;
   }
 
   .products-page-header > div > div:last-child > div:last-child > div {
