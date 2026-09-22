@@ -3,6 +3,7 @@ import {
   ChevronDown,
   CircleHelp,
   GitCompareArrows,
+  Grid2X2,
   Headphones,
   Heart,
   House,
@@ -45,6 +46,7 @@ const navLinks = [
 const mobileNavIcons = {
   Services: Wrench,
   "AI Tools": Sparkles,
+  Categories: Grid2X2,
   Blogs: Newspaper,
   Compare: GitCompareArrows,
   Delivery: Truck,
@@ -561,15 +563,28 @@ export default function Navbar({ isDarkTheme = false, onToggleTheme }) {
               </NavLink>
 
               <div>
-                <button
-                  type="button"
-                  onClick={() => setShowCategories((value) => !value)}
-                  className={`flex min-h-11 w-full items-center justify-between rounded-xl px-3 text-left text-sm font-medium transition ${showCategories ? "bg-white/10 text-yellow-300" : "text-slate-200 hover:bg-white/10 hover:text-white"}`}
-                  aria-expanded={showCategories}
-                >
-                  <span className="flex items-center gap-3"><span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-white/10"><Package size={17} /></span>Products</span>
+                <div className={`flex min-h-11 w-full items-center rounded-xl text-sm font-medium transition ${showCategories ? "bg-white/10 text-yellow-300" : "text-slate-200"}`}>
+                  <NavLink
+                    to="/products"
+                    onClick={() => {
+                      setMenuOpen(false);
+                      setShowCategories(false);
+                    }}
+                    className="flex min-h-11 min-w-0 flex-1 items-center gap-3 rounded-xl px-3 text-left hover:bg-white/10 hover:text-white"
+                  >
+                    <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-white/10"><Package size={17} /></span>
+                    Products
+                  </NavLink>
+                  <button
+                    type="button"
+                    onClick={() => setShowCategories((value) => !value)}
+                    className="grid min-h-11 w-12 shrink-0 place-items-center rounded-r-xl hover:bg-white/10 hover:text-white"
+                    aria-label={showCategories ? "Collapse product categories" : "Expand product categories"}
+                    aria-expanded={showCategories}
+                  >
                   <ChevronDown size={17} className={`transition-transform ${showCategories ? "rotate-180" : "rotate-0"}`} />
-                </button>
+                  </button>
+                </div>
                 {showCategories && (
                   <div className="pointer-events-auto mt-2 max-h-[55dvh] overflow-y-auto overscroll-contain rounded-xl border border-slate-200/80 bg-white p-2 text-slate-800 shadow-xl [scrollbar-width:thin]">
                     <MegaMenu onSelect={handleCategorySelect} />

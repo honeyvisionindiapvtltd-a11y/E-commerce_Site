@@ -46,6 +46,8 @@ const localFrontendOrigins = [
   'capacitor://localhost',
   'http://localhost',
   'https://localhost',
+  'https://honeyvision.in',
+  'https://www.honeyvision.in',
   'http://localhost:5173',
   'http://localhost:5174',
   'http://127.0.0.1:5173',
@@ -90,6 +92,20 @@ app.post('/api/payments/webhook', express.raw({ type: 'application/json' }), han
 app.use('/api/webhooks', webhookRoutes);
 
 app.use(express.json());
+
+app.get('/', (req, res) => {
+  const frontendUrl = (process.env.FRONTEND_URL || '')
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean)[0];
+
+  if (frontendUrl) {
+    return res.redirect(frontendUrl);
+  }
+
+  return res.redirect('/api');
+});
+
 app.use('/api', healthRoutes);
 app.use((req, res, next) => {
   if (databaseAvailable || req.path === '/health') return next();

@@ -7,7 +7,7 @@ const WISHLIST_STORAGE_KEY = "hv-wishlist";
 function readWishlistStore() {
   try {
     const raw = localStorage.getItem(WISHLIST_STORAGE_KEY);
-    if (!raw) return [];
+    if (!raw) return { guest: [], users: {} };
     const parsed = JSON.parse(raw);
     if (Array.isArray(parsed)) return { guest: parsed, users: {} };
     return {

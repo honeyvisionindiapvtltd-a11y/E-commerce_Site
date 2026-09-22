@@ -58,7 +58,12 @@ export default function Login() {
         window.__honeyVisionGoogleInitialized = true;
       }
       googleButtonRef.current.innerHTML = "";
-      window.google.accounts.id.renderButton(googleButtonRef.current, { theme: "outline", size: "large", width: 400, text: "continue_with" });
+      window.google.accounts.id.renderButton(googleButtonRef.current, {
+        theme: "outline",
+        size: "large",
+        width: Math.min(400, googleButtonRef.current.clientWidth || 400),
+        text: "continue_with",
+      });
     };
     const script = document.querySelector('script[src="https://accounts.google.com/gsi/client"]');
     if (script) renderGoogleButton();
@@ -72,15 +77,15 @@ export default function Login() {
   }, [loginWithGoogle, navigate, returnPath]);
 
   return (
-    <section className="min-h-screen bg-gradient-to-br from-[#071426] via-[#0B315A] to-[#102D4E] flex items-center justify-center p-8">
+    <section className="min-h-screen overflow-x-hidden bg-gradient-to-br from-[#071426] via-[#0B315A] to-[#102D4E] flex items-center justify-center p-3 sm:p-6 lg:p-8">
 
-      <div className="w-full max-w-7xl bg-white rounded-[35px] overflow-hidden shadow-2xl">
+      <div className="w-full max-w-7xl bg-white rounded-2xl sm:rounded-[35px] overflow-hidden shadow-2xl">
 
-        <div className="grid lg:grid-cols-2 min-h-[700px]">
+        <div className="grid lg:grid-cols-2 lg:min-h-[700px]">
 
           {/* ================= LEFT SIDE ================= */}
 
-          <div className="relative bg-[#071426] overflow-hidden">
+          <div className="relative hidden bg-[#071426] overflow-hidden lg:block">
 
             {/* Background Glow */}
 
@@ -124,7 +129,7 @@ export default function Login() {
 
                     {/* ================= RIGHT SIDE ================= */}
 
-          <div className="flex items-center justify-center px-10 lg:px-16 py-12 bg-white">
+          <div className="flex items-center justify-center px-4 py-8 sm:px-8 sm:py-12 lg:px-16 bg-white">
 
             <div className="w-full max-w-md">
 
@@ -146,7 +151,7 @@ export default function Login() {
 
               {/* Heading */}
 
-              <h2 className="text-4xl font-bold text-center text-[#071426]">
+              <h2 className="text-3xl sm:text-4xl font-bold text-center text-[#071426]">
 
                 Sign In
 
@@ -238,7 +243,7 @@ export default function Login() {
 
               {/* Remember & Forgot */}
 
-              <div className="flex justify-between items-center mt-6">
+              <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mt-6">
 
                 <label className="flex items-center gap-2 text-gray-600 cursor-pointer">
 
@@ -278,7 +283,7 @@ export default function Login() {
 
                 <div className="flex-1 h-px bg-gray-300"></div>
 
-                <span className="text-gray-500 text-sm">
+                <span className="text-gray-500 text-xs sm:text-sm whitespace-nowrap">
 
                   OR CONTINUE WITH
 

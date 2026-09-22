@@ -42,6 +42,19 @@ app.use(cors({ origin: (origin, callback) => {
 }, credentials: true }));
 app.use(express.json());
 
+app.get('/', (req, res) => {
+  const frontendUrl = (process.env.FRONTEND_URL || '')
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean)[0];
+
+  if (frontendUrl) {
+    return res.redirect(frontendUrl);
+  }
+
+  return res.redirect('/health');
+});
+
 app.get('/health', (req, res) => {
   res.json({ status: 'OK', message: 'Backend is running' });
 });
