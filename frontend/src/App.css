@@ -928,6 +928,123 @@ html.dark-theme .admin-shell .hover\:text-slate-700:hover {
   color: #f8fafc !important;
 }
 
+@media (max-width: 768px) {
+  .product-card {
+    min-height: 270px;
+    max-height: 300px;
+    padding: 8px !important;
+  }
+
+  .product-card > .product-image-surface-white {
+    flex: 0 0 clamp(146px, 40vw, 176px);
+    height: clamp(146px, 40vw, 176px);
+    min-height: 0;
+    padding: 6px !important;
+  }
+
+  .product-card > .product-image-surface-white img {
+    max-height: 100%;
+    object-fit: contain;
+  }
+
+  .product-card > button {
+    top: 12px;
+    right: 12px;
+    padding: 5px;
+  }
+
+  .product-card > button svg {
+    width: 15px;
+    height: 15px;
+  }
+
+  .product-card > .product-image-surface-white > span {
+    bottom: 6px;
+    left: 6px;
+    padding: 3px 6px;
+    font-size: 8px;
+    line-height: 1.2;
+  }
+
+  .product-card > div:last-child {
+    min-height: 0;
+    overflow: hidden;
+    padding: 8px 0 0 !important;
+  }
+
+  .product-card > div:last-child > p:first-child {
+    overflow: hidden;
+    font-size: 8px;
+    line-height: 1.1;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .product-card > div:last-child > h3 {
+    display: -webkit-box;
+    min-height: 2rem;
+    margin-top: 3px;
+    overflow: hidden;
+    font-size: 12px;
+    line-height: 1rem;
+    -webkit-box-orient: vertical;
+    line-clamp: 2;
+    -webkit-line-clamp: 2;
+  }
+
+  .product-card > div:last-child > h3 + div {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-top: 4px;
+    font-size: 10px;
+    line-height: 1rem;
+  }
+
+  .product-card > div:last-child > h3 + div > span:first-child {
+    flex-direction: row-reverse;
+    gap: 2px;
+    padding: 2px 4px;
+    border-radius: 4px;
+    font-size: 10px;
+    line-height: 1rem;
+  }
+
+  .product-card > div:last-child > h3 + div > span:first-child svg {
+    width: 9px;
+    height: 9px;
+  }
+
+  .product-card > div:last-child > h3 + div + div {
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: baseline;
+    gap: 6px;
+    margin-top: 3px;
+    white-space: nowrap;
+  }
+
+  .product-card > div:last-child > h3 + div + div > span:first-child {
+    font-size: 15px;
+    line-height: 1.1;
+  }
+
+  .product-card > div:last-child > h3 + div + div > span:last-child {
+    font-size: 10px;
+    line-height: 1.1;
+  }
+
+  .product-card > div:last-child > p:last-child {
+    margin-top: 4px;
+    overflow: hidden;
+    padding-top: 0;
+    font-size: 9px;
+    line-height: 1rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
 html.dark-theme .admin-shell .admin-modal-panel {
   background-color: #0c2343 !important;
   color: #f8fafc;
