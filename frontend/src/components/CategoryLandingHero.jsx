@@ -18,7 +18,7 @@ export default function CategoryLandingHero({ title = 'Products', subtitle = '',
         </div>
         <div className="flex items-center justify-between bg-sky-50 px-4 py-2.5">
           <span className="text-sm font-bold text-slate-800">Latest products and offers</span>
-          <span className="text-2xl leading-none text-slate-500">›</span>
+          <Link to="/products" className="text-2xl leading-none text-slate-500" aria-label="View products">›</Link>
         </div>
       </div>
 
@@ -44,8 +44,8 @@ export default function CategoryLandingHero({ title = 'Products', subtitle = '',
         <div className="flex items-center justify-between">
           <div className="text-sm text-slate-600">Best deals on electronics, accessories & more</div>
           <div className="flex items-center gap-3">
-            <button className="rounded-2xl bg-amber-500 px-4 py-2 text-sm font-semibold text-slate-950">Today's Deals</button>
-            <Link to="/deals" className="text-sm text-slate-600 underline">See all</Link>
+            <Link to="/products" className="rounded-2xl bg-amber-500 px-4 py-2 text-sm font-semibold text-slate-950">Today's Deals</Link>
+            <Link to="/products" className="text-sm text-slate-600 underline">See all</Link>
           </div>
         </div>
       </div>

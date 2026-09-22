@@ -1095,7 +1095,8 @@ html.dark-theme .admin-shell .hover\:text-slate-700:hover {
     font-size: 11px;
   }
 
-  .products-mobile-promo .bg-sky-50 span:last-child {
+  .products-mobile-promo .bg-sky-50 span:last-child,
+  .products-mobile-promo .bg-sky-50 a:last-child {
     font-size: 22px;
   }
 
@@ -1124,10 +1125,6 @@ html.dark-theme .admin-shell .hover\:text-slate-700:hover {
   }
 
   .products-catalog-panel > div:first-child {
-    display: flex;
-    flex-direction: row;
-    align-items: center;
-    flex-wrap: nowrap;
     gap: 6px;
     padding: 7px 8px;
     overflow-x: auto;
@@ -1139,7 +1136,6 @@ html.dark-theme .admin-shell .hover\:text-slate-700:hover {
   }
 
   .products-catalog-panel > div:first-child > div:first-child {
-    flex: 0 0 auto;
     flex-wrap: nowrap;
     min-width: max-content;
     gap: 7px;
@@ -1151,7 +1147,6 @@ html.dark-theme .admin-shell .hover\:text-slate-700:hover {
 
   .products-catalog-panel > div:first-child select,
   .products-catalog-panel > div:first-child label {
-    flex: 0 0 auto;
     height: 35px;
     padding-top: 5px;
     padding-bottom: 5px;
@@ -1159,7 +1154,6 @@ html.dark-theme .admin-shell .hover\:text-slate-700:hover {
   }
 
   .products-catalog-panel > div:first-child > div:last-child {
-    flex: 0 0 auto;
     min-width: max-content;
     font-size: 11px;
   }
