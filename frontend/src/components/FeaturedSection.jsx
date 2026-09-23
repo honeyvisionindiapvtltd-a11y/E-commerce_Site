@@ -132,7 +132,7 @@ export default function FeaturedSection() {
   const finalProductsToShow = selectMixedBrandProducts(normalizedProducts, 18);
 
   return (
-    <section className="bg-gray-50 py-12 sm:py-16 lg:py-20">
+    <section className="home-brand-section bg-gray-50 py-12 sm:py-16 lg:py-20">
       <div className="mx-auto max-w-7xl px-4 sm:px-6">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
@@ -146,7 +146,7 @@ export default function FeaturedSection() {
           </div>
 
           <Link
-            className="inline-flex items-center gap-2 text-sm font-semibold text-slate-900 hover:text-amber-600"
+            className="home-brand-link inline-flex items-center gap-2 text-sm font-semibold text-slate-900 hover:text-amber-600"
             to="/brands"
           >
             View All Brands
@@ -159,7 +159,7 @@ export default function FeaturedSection() {
             type="button"
             onClick={() => scrollBrands(-1)}
             aria-label="Scroll brands left"
-            className="absolute left-2 top-1/2 z-10 grid h-8 w-8 -translate-y-1/2 place-items-center rounded-full bg-white text-slate-700 shadow-md transition hover:bg-amber-400 hover:text-slate-950 sm:h-9 sm:w-9"
+            className="home-brand-arrow absolute left-2 top-1/2 z-10 grid h-8 w-8 -translate-y-1/2 place-items-center rounded-full bg-white text-slate-700 shadow-md transition hover:bg-amber-400 hover:text-slate-950 sm:h-9 sm:w-9"
           >
             <ChevronRight size={16} className="rotate-180" />
           </button>
@@ -167,7 +167,7 @@ export default function FeaturedSection() {
             type="button"
             onClick={() => scrollBrands(1)}
             aria-label="Scroll brands right"
-            className="absolute right-2 top-1/2 z-10 grid h-8 w-8 -translate-y-1/2 place-items-center rounded-full bg-white text-slate-700 shadow-md transition hover:bg-amber-400 hover:text-slate-950 sm:h-9 sm:w-9"
+            className="home-brand-arrow absolute right-2 top-1/2 z-10 grid h-8 w-8 -translate-y-1/2 place-items-center rounded-full bg-white text-slate-700 shadow-md transition hover:bg-amber-400 hover:text-slate-950 sm:h-9 sm:w-9"
           >
             <ChevronRight size={16} />
           </button>
@@ -181,14 +181,14 @@ export default function FeaturedSection() {
             onPointerCancel={stopBrandDrag}
             onPointerLeave={stopBrandDrag}
           >
-            <div className="brand-marquee-track">
+            <div className="brand-marquee-track home-brand-track">
               {[...brands, ...brands].map((brand, index) => (
                 <Link
                   key={`${brand.name}-${index}`}
                   to={`/products?brand=${encodeURIComponent(brand.name)}`}
                   aria-label={`Shop ${brand.name} products`}
                   onPointerDown={(event) => event.stopPropagation()}
-                  className="brand-marquee-card flex items-center justify-center rounded-2xl bg-white p-3 shadow transition hover:shadow-xl sm:p-6"
+                  className="brand-marquee-card home-brand-card flex items-center justify-center rounded-2xl bg-white p-3 shadow transition hover:shadow-xl sm:p-6"
                 >
                   <img
                     src={brand.logo}
@@ -260,7 +260,7 @@ export default function FeaturedSection() {
                 return (
                   <div
                     key={item.id}
-                    className="group relative w-[180px] shrink-0 overflow-hidden rounded-[22px] border border-sky-100 bg-gradient-to-b from-white via-sky-50 to-slate-50 shadow-[0_10px_28px_rgba(15,23,42,0.08)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_16px_32px_rgba(14,116,144,0.12)] sm:w-[230px]"
+                    className="home-featured-product group relative w-[180px] shrink-0 overflow-hidden rounded-[22px] border border-sky-100 bg-gradient-to-b from-white via-sky-50 to-slate-50 shadow-[0_10px_28px_rgba(15,23,42,0.08)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_16px_32px_rgba(14,116,144,0.12)] sm:w-[230px]"
                   >
                     <div className="absolute left-3 top-3 z-10 rounded bg-emerald-100 px-2 py-1 text-[10px] font-bold text-emerald-700 ring-1 ring-emerald-200">
                       {discount}% OFF
@@ -275,7 +275,7 @@ export default function FeaturedSection() {
                       <Heart size={14} fill={isWishlisted ? "currentColor" : "none"} />
                     </button>
 
-                    <div className="bg-white p-3 pt-8 sm:p-4 sm:pt-10">
+                    <div className="home-product-image bg-white p-3 pt-8 sm:p-4 sm:pt-10">
                       <Link to={`/products/${item.id}`} className="block">
                         <img
                           src={item.image}
@@ -288,21 +288,21 @@ export default function FeaturedSection() {
                     <div className="p-3 sm:p-4">
                       <div className="flex items-center gap-1 text-yellow-500">
                         <Star fill="currentColor" size={12} />
-                        <span className="text-[11px] font-medium text-slate-700 sm:text-xs">{item.rating}</span>
+                        <span className="home-featured-rating text-[11px] font-medium text-slate-700 sm:text-xs">{item.rating}</span>
                       </div>
 
                       <Link
                         to={`/products/${item.id}`}
-                        className="mt-2 block text-xs font-semibold leading-snug text-slate-800 transition hover:text-amber-600 sm:mt-3 sm:text-sm"
+                        className="home-featured-title mt-2 block text-xs font-semibold leading-snug text-slate-800 transition hover:text-amber-600 sm:mt-3 sm:text-sm"
                       >
                         {item.name}
                       </Link>
 
                       <div className="mt-2 flex items-center gap-2 sm:mt-3">
-                        <span className="text-base font-bold text-[#0A1931] sm:text-xl">
+                        <span className="home-featured-price text-base font-bold text-[#0A1931] sm:text-xl">
                           {money(item.price)}
                         </span>
-                        <span className="text-[10px] text-slate-400 line-through sm:text-xs">
+                        <span className="home-featured-mrp text-[10px] text-slate-400 line-through sm:text-xs">
                           {money(item.mrp)}
                         </span>
                       </div>

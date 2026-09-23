@@ -10,7 +10,7 @@ export default function ProductCard({ product }) {
 
   return (
     <article
-      className="group relative flex h-full flex-col overflow-hidden rounded-2xl border border-amber-100 bg-[#fffaf0] p-2.5 shadow-[0_4px_16px_rgba(7,20,38,.06)] transition hover:shadow-lg sm:rounded-2xl sm:border-slate-200/80 sm:bg-white sm:p-4 sm:shadow-sm sm:hover:-translate-y-1"
+      className="product-card group relative flex h-full flex-col overflow-hidden rounded-2xl border border-amber-100 bg-[#fffaf0] p-2.5 shadow-[0_4px_16px_rgba(7,20,38,.06)] transition hover:shadow-lg sm:rounded-2xl sm:border-slate-200/80 sm:bg-white sm:p-3 sm:shadow-sm sm:hover:-translate-y-1"
       style={{ filter: isOutOfStock ? "grayscale(1)" : "none" }}
     >
       <button
@@ -21,7 +21,10 @@ export default function ProductCard({ product }) {
         <Heart size={16} fill={isWishlisted ? 'currentColor' : 'none'} className="sm:h-[18px] sm:w-[18px]" />
       </button>
 
-      <div className="relative flex aspect-square items-center justify-center overflow-hidden rounded-xl bg-white p-3 sm:aspect-auto sm:h-44 sm:p-0">
+      <div
+        className="product-image-surface-white home-product-image relative flex aspect-square items-center justify-center overflow-hidden rounded-xl !bg-white p-3 sm:aspect-auto sm:h-36 sm:p-0"
+        style={{ backgroundColor: "#ffffff" }}
+      >
         {isOutOfStock && (
           <span className="absolute bottom-2 left-2 z-10 rounded-full bg-red-600 px-2.5 py-1 text-[9px] font-extrabold uppercase tracking-wide text-white shadow-sm sm:bottom-3 sm:left-3 sm:text-[10px]">
             Out of stock
@@ -31,16 +34,16 @@ export default function ProductCard({ product }) {
           <img
             src={product.image}
             alt={product.name}
-            className="h-full w-full object-contain transition duration-300 group-hover:scale-105 sm:max-h-36"
+            className="h-full w-full object-contain transition duration-300 group-hover:scale-105 sm:max-h-32"
             style={{ filter: isOutOfStock ? "grayscale(1)" : "none" }}
             loading="lazy"
           />
         </Link>
       </div>
 
-      <div className="flex flex-1 flex-col px-0.5 pt-3 sm:p-4">
+      <div className="flex flex-1 flex-col px-0.5 pt-3 sm:p-3">
         <p className="text-[9px] font-bold uppercase tracking-[0.08em] text-amber-600 sm:text-xs">{product.category?.name || product.categoryName || product.category || "General"}</p>
-        <h3 className="mt-1.5 line-clamp-2 min-h-10 text-[13px] font-bold leading-[1.25rem] text-slate-900 group-hover:text-amber-600 sm:mt-2 sm:min-h-12 sm:text-base sm:leading-6">{product.name}</h3>
+        <h3 className="mt-1.5 line-clamp-2 min-h-10 text-[13px] font-bold leading-[1.25rem] text-slate-900 group-hover:text-amber-600 sm:mt-2 sm:min-h-10 sm:text-base sm:leading-6">{product.name}</h3>
 
         <div className="mt-2 flex items-center gap-1.5 text-[11px] sm:mt-3 sm:gap-2 sm:text-sm">
           <span className="flex items-center gap-1 rounded-md bg-green-600 px-1.5 py-1 font-bold text-white sm:px-2">{product.rating} <Star size={10} fill="currentColor" className="sm:h-3 sm:w-3" /></span>

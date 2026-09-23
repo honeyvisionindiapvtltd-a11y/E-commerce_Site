@@ -33,9 +33,26 @@ export function AuthProvider({ children }) {
     if (!auth.authToken) return undefined;
     let active = true;
     fetch(`${API_BASE}/auth/profile`, { headers: { Authorization: `Bearer ${auth.authToken}` } })
-      .then((response) => response.ok ? response.json() : Promise.reject(new Error("Session expired")))
-      .then((data) => { if (active && data.user?.role !== auth.user?.role) setAuth({ isLoggedIn: false, user: null, authToken: null }); })
-      .catch(() => { if (active) setAuth({ isLoggedIn: false, user: null, authToken: null }); });
+      .then(async (response) => {
+        if (response.status === 401) {
+          throw new Error("AUTH_SESSION_EXPIRED");
+        }
+        if (!response.ok) return null;
+        return response.json();
+      })
+      .then((data) => {
+        if (!active || !data?.user) return;
+        setAuth((current) => ({
+          ...current,
+          isLoggedIn: true,
+          user: { ...current.user, ...data.user },
+        }));
+      })
+      .catch((error) => {
+        if (active && error.message === "AUTH_SESSION_EXPIRED") {
+          setAuth({ isLoggedIn: false, user: null, authToken: null });
+        }
+      });
     return () => { active = false; };
   }, [auth.authToken, auth.user?.role]);
 

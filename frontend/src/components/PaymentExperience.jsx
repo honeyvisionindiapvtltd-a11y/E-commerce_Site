@@ -231,7 +231,7 @@ export default function PaymentExperience({
                   <div className="flex items-start gap-3"><MapPin size={18} className="mt-0.5 shrink-0 text-[#b17b00]" /><div className="min-w-0"><p className="text-sm font-black">Delivering to {billingName || "your selected address"}</p><p className="mt-1 text-xs leading-5 text-slate-500">{billingAddressLine}{billingCity ? `, ${billingCity}` : ""}{billingState ? `, ${billingState}` : ""}{billingPin ? ` - ${billingPin}` : ""}{billingCountry ? `, ${billingCountry}` : ""}{billingPhone ? ` · ${billingPhone}` : ""}</p></div></div>
                 </div>
 
-                <label className="mt-5 flex cursor-pointer items-start gap-3 text-sm text-slate-600"><input type="checkbox" checked={termsAccepted} onChange={(event) => setTermsAccepted(event.target.checked)} className="mt-1 h-4 w-4 accent-[#f4b400]" /><span>I agree to the HoneyVision Terms &amp; Conditions and Privacy Policy.</span></label>
+                <label className={`mt-5 flex cursor-pointer items-start gap-3 text-sm ${termsAccepted ? "text-slate-600" : "text-amber-800"}`}><input type="checkbox" checked={termsAccepted} onChange={(event) => setTermsAccepted(event.target.checked)} className="mt-1 h-4 w-4 accent-[#f4b400]" /><span>I agree to the HoneyVision Terms &amp; Conditions and Privacy Policy.{!termsAccepted && <span className="mt-1 block text-xs font-semibold">Please check this box before placing your order.</span>}</span></label>
               </div>
             </div>
           </section>
@@ -243,7 +243,7 @@ export default function PaymentExperience({
               <div className="my-5 border-t border-dashed border-slate-300" /><div className="flex items-end justify-between gap-3"><span className="font-black">Total Amount</span><span className="text-2xl font-black">{formatPrice(total)}</span></div>
               {discount > 0 && <div className="mt-4 flex items-center gap-2 rounded-lg bg-[#effaf1] px-3 py-2 text-xs font-bold text-emerald-700"><Tag size={15} /> You will save {formatPrice(discount)} on this order</div>}
               <p className="mt-3 text-[11px] leading-5 text-slate-400">Final payable amount is confirmed by HoneyVision's backend when the order is created.</p>
-              <button type="button" onClick={handlePayment} disabled={isSubmitting || !termsAccepted || isProviderUnavailable || (paymentMethod !== "cod" && isRazorpayBlocked)} className="mt-5 flex min-h-12 w-full items-center justify-center gap-2 rounded-lg bg-[#f4b400] px-4 text-base font-black text-[#071426] shadow-sm transition hover:bg-[#ffc933] disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-500">{isSubmitting ? "Processing Payment..." : ctaLabel} {!isSubmitting && <ArrowRight size={18} />}</button>
+              <button type="button" onClick={handlePayment} disabled={isSubmitting || isProviderUnavailable || (paymentMethod !== "cod" && isRazorpayBlocked)} className="mt-5 flex min-h-12 w-full items-center justify-center gap-2 rounded-lg bg-[#f4b400] px-4 text-base font-black text-[#071426] shadow-sm transition hover:bg-[#ffc933] disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-500">{isSubmitting ? "Processing Payment..." : ctaLabel} {!isSubmitting && <ArrowRight size={18} />}</button>
             </section>
 
             <section className="rounded-xl border border-[#dfe5ec] bg-white p-5 shadow-[0_8px_30px_rgba(7,20,38,0.06)] sm:p-6">

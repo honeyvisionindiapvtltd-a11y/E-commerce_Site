@@ -35,7 +35,7 @@ export default function Hero() {
             <span className="whitespace-nowrap">Up to 40% OFF</span>
           </div>
 
-          <h1 className="mt-4 text-[2rem] font-black leading-[1.05] tracking-[-0.05em] text-white sm:mt-7 sm:text-4xl lg:text-6xl">
+          <h1 className="mt-4 max-w-[19ch] text-[1.75rem] font-black leading-[1.08] tracking-[-0.04em] text-white sm:mt-7 sm:max-w-[22ch] sm:text-3xl lg:text-5xl">
             Powering your world with
             <span className="mt-1 block bg-gradient-to-r from-amber-300 via-orange-300 to-sky-300 bg-clip-text text-transparent sm:mt-2">
               smart IT & security

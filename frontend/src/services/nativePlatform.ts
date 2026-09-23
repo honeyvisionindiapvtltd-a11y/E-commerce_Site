@@ -87,11 +87,8 @@ export class NativePlatformService {
       return env;
     }
 
-    // Fallback for development
     if (this.isNativePlatform()) {
-      // For Android/iOS development, use a proper development server URL
-      // This should be replaced with actual production URL
-      return 'http://10.0.2.2:5000/api'; // Android emulator host
+      return 'https://api.honeyvision.in/api';
     }
 
     return '/api'; // Web or fallback

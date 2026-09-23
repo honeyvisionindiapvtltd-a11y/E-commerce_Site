@@ -11,13 +11,13 @@ import {
 import {
   protect,
   requireDeliveryAgentOrAdmin,
-  requireCustomer,
+  requireStorefrontUser,
 } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 
 // Query-string order lookup used by legacy frontend flows
-router.get("/", protect, requireCustomer, async (req, res) => {
+router.get("/", protect, requireStorefrontUser, async (req, res) => {
   const orderNumber = req.query.order || req.query.orderNumber;
 
   if (!orderNumber) {
@@ -38,7 +38,7 @@ router.get("/", protect, requireCustomer, async (req, res) => {
 router.get(
   "/:trackingNumber",
   protect,
-  requireCustomer,
+  requireStorefrontUser,
   trackShipment
 );
 

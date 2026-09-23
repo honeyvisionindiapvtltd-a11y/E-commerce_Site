@@ -37,21 +37,21 @@ export default function PromotionalBanners() {
   return (
     <section className="w-full px-3 py-4 sm:px-6 sm:py-6">
       <div className="grid gap-4 lg:grid-cols-3">
-        {banners.map((banner) => (
+        {banners.map((banner, index) => (
           <article
             key={banner.title}
-            className={`relative min-h-45 overflow-hidden rounded-xl p-4 sm:min-h-50 sm:p-6 ${banner.background}`}
+            className={`home-promo-card home-promo-card-${index} relative min-h-45 overflow-hidden rounded-xl p-4 sm:min-h-50 sm:p-6 ${banner.background}`}
           >
             <div className="relative z-10 max-w-[56%] sm:max-w-45">
               <p className={`text-[10px] font-bold leading-tight sm:text-xs ${banner.eyebrowColor}`}>
                 {banner.eyebrow}
               </p>
 
-              <h2 className="mt-2 whitespace-pre-line text-xl font-bold leading-tight text-slate-900 sm:mt-3 sm:text-2xl">
+              <h2 className="home-promo-title mt-2 whitespace-pre-line text-xl font-bold leading-tight text-slate-900 sm:mt-3 sm:text-2xl">
                 {banner.title}
               </h2>
 
-              <p className="mt-1.5 text-xs leading-4 text-slate-600 sm:mt-2 sm:text-sm sm:leading-normal">
+              <p className="home-promo-copy mt-1.5 text-xs leading-4 text-slate-600 sm:mt-2 sm:text-sm sm:leading-normal">
                 {banner.description}
               </p>
 

@@ -12,18 +12,95 @@ import {
   Truck,
   Wrench,
 } from "lucide-react";
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import ProductCard from "../components/ProductCard";
 import { useCommerce } from "../context/index.js";
-import { money, recommendationsFor } from "../lib/products";
+import { getProductGallery, money, productIdOf, recommendationsFor } from "../lib/products";
 import { computeTotals } from "../lib/orderTotals";
+
+const API_BASE = import.meta.env.VITE_API_URL || "/api";
+
+function normalizeCartProduct(product) {
+  const id = productIdOf(product);
+  const gallery = getProductGallery(product);
+  const image = gallery[0] || product.thumbnail || product.image || "";
+
+  return {
+    ...product,
+    id,
+    name: product.name || "Product",
+    image,
+    features: Array.isArray(product.features) ? product.features : [],
+    price: Number(product.price ?? product.salePrice ?? 0),
+    mrp: Number(product.mrp ?? product.originalPrice ?? product.price ?? 0),
+    delivery: product.delivery || "Delivery available",
+    installationEligible: Boolean(product.installationEligible),
+  };
+}
 
 export default function Cart() {
   const { cart, products, setQuantity, removeFromCart, addToCart, couponApplied, setCouponApplied } = useCommerce();
-  const validCart = cart.filter((item) => item && item.productId && Number(item.quantity || 0) > 0);
-  const items = validCart.map((item) => ({ ...item, product: products.find((product) => product.id === item.productId) })).filter((item) => item.product);
-  const { subtotal, installationFee: installation, shipping, discount, insurance, total } = computeTotals(items, { coupon: couponApplied, secureShipping: false });
+  const [loadedProducts, setLoadedProducts] = useState({});
+  const validCart = cart
+    .map((item) => ({ ...item, productId: item.productId || item.id }))
+    .filter((item) => item && item.productId && Number(item.quantity || 0) > 0);
+  const missingProductIds = useMemo(
+    () => validCart
+      .map((item) => String(item.productId))
+      .filter((productId) => !products.some((product) => String(product.id) === productId) && !Object.prototype.hasOwnProperty.call(loadedProducts, productId)),
+    [validCart, products, loadedProducts]
+  );
+
+  useEffect(() => {
+    if (!missingProductIds.length) return undefined;
+
+    let cancelled = false;
+    Promise.all(
+      missingProductIds.map(async (productId) => {
+        try {
+          const response = await fetch(`${API_BASE}/products/${encodeURIComponent(productId)}`);
+          if (!response.ok) return null;
+          const data = await response.json();
+          const product = data?.product || data?.data || data;
+          return product ? normalizeCartProduct(product) : null;
+        } catch {
+          return null;
+        }
+      })
+    ).then((fetchedProducts) => {
+      if (cancelled) return;
+      setLoadedProducts((current) => ({
+        ...current,
+        ...Object.fromEntries(
+          fetchedProducts.filter(Boolean).map((product) => [String(product.id), product])
+        ),
+        ...Object.fromEntries(missingProductIds.map((productId) => [productId, current[productId] || null])),
+      }));
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [missingProductIds, products, loadedProducts]);
+
+  const items = validCart
+    .map((item) => ({
+      ...item,
+      product: item.product || products.find((product) => String(product.id) === String(item.productId)) || loadedProducts[String(item.productId)],
+    }))
+    .filter((item) => item.product);
+
+  useEffect(() => {
+    items.forEach((item) => {
+      const storedItem = cart.find((cartItem) => String(cartItem.productId || cartItem.id) === String(item.productId));
+      if (!storedItem?.product) {
+        addToCart(item.productId, 0, Boolean(item.installation), item.product);
+      }
+    });
+  }, [items, cart, addToCart]);
+
+  const { subtotal, installationFee: installation, shipping, discount, total } = computeTotals(items, { coupon: couponApplied, secureShipping: false });
   const suggestions = useMemo(() => {
     const ids = new Set(items.map((item) => item.productId));
     return [...new Map(items.flatMap((item) => recommendationsFor(item.productId)).filter((product) => !ids.has(product.id)).map((product) => [product.id, product])).values()].slice(0, 4);
@@ -39,7 +116,7 @@ function CartItem({ item, onQuantity, onRemove }) {
   return <article className="grid gap-4 p-5 sm:grid-cols-[100px_minmax(0,1fr)_auto] sm:items-center"><img src={item.product.image} alt={item.product.name} className="h-24 w-24 rounded-xl bg-slate-50 object-contain" /><div><Link to={`/products/${item.productId}`} className="font-extrabold text-slate-900 hover:text-amber-600">{item.product.name}</Link><p className="mt-1 text-sm text-slate-500">{item.product.features.slice(0, 3).join(" · ")}</p><p className="mt-2 flex items-center gap-1 text-sm font-semibold text-green-700"><CheckCircle2 size={15} /> In stock · {item.product.delivery}</p>{item.installation && <p className="mt-2 flex items-center gap-1 text-sm font-semibold text-amber-700"><Wrench size={15} /> Installation service added</p>}<div className="mt-4 flex flex-wrap items-center gap-4"><div className="flex overflow-hidden rounded-lg border border-slate-200"><button onClick={() => onQuantity(item.productId, item.quantity - 1)} className="p-2.5 hover:bg-slate-50"><Minus size={16} /></button><span className="grid w-10 place-items-center border-x border-slate-200 text-sm font-semibold">{item.quantity}</span><button onClick={() => onQuantity(item.productId, item.quantity + 1)} className="p-2.5 hover:bg-slate-50"><Plus size={16} /></button></div><button onClick={() => onRemove(item.productId)} className="flex items-center gap-1 text-sm text-red-500"><Trash2 size={16} /> Remove</button></div></div><div className="sm:text-right"><p className="text-lg font-extrabold">{money(item.product.price * item.quantity)}</p><p className="mt-1 text-sm text-slate-400 line-through">{money(item.product.mrp * item.quantity)}</p></div></article>;
 }
 
-function OrderSummary({ subtotal, discount, shipping, installation, total, couponApplied, setCouponApplied }) { return <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm"><h2 className="text-xl font-extrabold">Order summary</h2>{couponApplied ? <div className="mt-5 flex items-center justify-between rounded-lg border border-dashed border-green-500 bg-green-50 p-3"><span className="flex items-center gap-2 text-sm font-bold text-green-700"><Tag size={17} /> HONEY10 <span className="font-normal">Coupon applied</span></span><button onClick={() => setCouponApplied(false)} className="text-sm font-bold text-green-700">Remove</button></div> : <button onClick={() => setCouponApplied(true)} className="mt-5 w-full rounded-lg border border-dashed border-amber-500 bg-amber-50 p-3 text-sm font-bold text-amber-700">Apply HONEY10 and save 10%</button>}<div className="mt-5 space-y-3 border-b border-slate-200 pb-5 text-sm"><Line label="Subtotal" value={money(subtotal)} /><Line label="Discount (HONEY10)" value={`- ${money(discount)}`} green /><Line label="Shipping" value={shipping ? money(shipping) : "FREE"} green={!shipping} /><Line label="Installation charges" value={money(installation)} /></div><div className="flex items-end justify-between py-5"><span className="font-extrabold">Total amount</span><span className="text-2xl font-extrabold">{money(total)}</span></div><p className="text-right text-xs text-green-700">You save {money(discount)} on this order</p><Link to="/checkout" className="mt-5 block rounded-lg bg-amber-500 px-5 py-3.5 text-center font-extrabold text-slate-950 hover:bg-amber-400">Proceed to checkout</Link></section>; }
+function OrderSummary({ subtotal, discount, shipping, installation, total, couponApplied, setCouponApplied }) { return <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm"><h2 className="text-xl font-extrabold">Order summary</h2>{couponApplied ? <div className="mt-5 flex items-center justify-between rounded-lg border border-dashed border-green-500 bg-green-50 p-3"><span className="flex items-center gap-2 text-sm font-bold text-green-700"><Tag size={17} /> HONEY10 <span className="font-normal">Coupon applied</span></span><button onClick={() => setCouponApplied(false)} className="text-sm font-bold text-green-700">Remove</button></div> : <button onClick={() => setCouponApplied(true)} className="mt-5 w-full rounded-lg border border-dashed border-amber-500 bg-amber-50 p-3 text-sm font-bold text-amber-700">Apply HONEY10 and save 10%</button>}<div className="mt-5 space-y-3 border-b border-slate-200 pb-5 text-sm"><Line label="Subtotal" value={money(subtotal)} /><Line label="Discount (HONEY10)" value={`- ${money(discount)}`} green /><Line label="Shipping" value={shipping ? money(shipping) : "FREE"} green={!shipping} /><Line label="Installation charges" value={money(installation)} /></div><div className="flex items-end justify-between py-5"><span className="font-extrabold">Total amount</span><span className="text-2xl font-extrabold">{money(total)}</span></div><p className="text-right text-xs text-green-700">You save {money(discount)} on this order</p><Link to="/checkout" className="mt-5 block rounded-lg bg-amber-500 px-5 py-3.5 text-center font-extrabold text-slate-950 hover:bg-amber-400">Place order</Link></section>; }
 function Line({ label, value, green = false }) { return <div className="flex justify-between gap-4 text-slate-600"><span>{label}</span><b className={green ? "text-green-600" : "text-slate-800"}>{value}</b></div>; }
 function Stat({ text }) { return <div><ShieldCheck className="mx-auto text-amber-500" size={24} /><p className="mt-1 font-bold text-slate-700">{text}</p></div>; }
 function TrustGrid() { return <section className="grid grid-cols-2 gap-px overflow-hidden rounded-2xl border border-slate-200 bg-slate-200"><Trust icon={ShieldCheck} text="Secure payments" /><Trust icon={RotateCcw} text="Easy returns" /><Trust icon={Truck} text="Fast delivery" /><Trust icon={PackageCheck} text="100% original" /></section>; }

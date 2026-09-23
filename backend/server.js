@@ -17,6 +17,7 @@ import notificationRoutes from './routes/notificationRoutes.js';
 import newsletterRoutes from './routes/newsletterRoutes.js';
 import installationsRoutes from './routes/installations.js';
 import returnRoutes from './routes/returnRoutes.js';
+import reviewRoutes from './routes/reviewRoutes.js';
 
 dotenv.config();
 
@@ -61,6 +62,7 @@ app.use('/api/chat', chatRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/newsletter', newsletterRoutes);
 app.use('/api', installationsRoutes);
+app.use('/api/reviews', reviewRoutes);
 
 // Create HTTP server for Socket.io
 const server = http.createServer(app);

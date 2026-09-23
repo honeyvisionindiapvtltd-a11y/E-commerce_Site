@@ -44,6 +44,9 @@ export default function Products() {
   const [categories, setCategories] =
     useState([]);
 
+  const [categoryTotal, setCategoryTotal] =
+    useState(0);
+
   const [loading, setLoading] = useState(true);
 
   const [categoryLoading, setCategoryLoading] =
@@ -196,6 +199,7 @@ export default function Products() {
             ? data.categories
             : []
         );
+        setCategoryTotal(Number(data?.totalProductCount || 0));
       } catch (error) {
         console.error(
           "Failed to load categories:",
@@ -213,9 +217,11 @@ export default function Products() {
     };
 
     loadCategories();
+    window.addEventListener("focus", loadCategories);
 
     return () => {
       mounted = false;
+      window.removeEventListener("focus", loadCategories);
     };
   }, []);
 
@@ -401,9 +407,11 @@ export default function Products() {
     };
 
     loadProducts();
+    window.addEventListener("focus", loadProducts);
 
     return () => {
       mounted = false;
+      window.removeEventListener("focus", loadProducts);
     };
   }, [
     categorySlug,
@@ -778,10 +786,10 @@ export default function Products() {
   // ==========================================
 
   return (
-    <main className="min-h-screen bg-[#f6f8fb] text-[#071426]">
+    <main className="products-page min-h-screen bg-[#f6f8fb] text-[#071426]">
 
       {/* HEADER */}
-      <section className="border-b border-slate-200 bg-white">
+      <section className="products-page-header border-b border-slate-200 bg-white">
         <div className="mx-auto max-w-[1500px] px-4 py-7 sm:px-6 lg:px-8">
 
           <div className="mb-5 flex items-center gap-2 text-sm text-slate-500">
@@ -880,7 +888,7 @@ export default function Products() {
       {/* MAIN */}
       <section className="mx-auto max-w-[1500px] px-4 py-7 sm:px-6 lg:px-8">
 
-        <div className="-mx-4 mb-3 border-y border-slate-200 bg-white sm:-mx-6 lg:hidden">
+        <div className="products-mobile-controls -mx-4 mb-3 border-y border-slate-200 bg-white sm:-mx-6 lg:hidden">
           <div className="grid grid-cols-2 divide-x divide-slate-200">
             <label className="flex h-14 items-center justify-center gap-2 text-sm font-bold text-[#071426]">
               <span className="text-lg leading-none">☷</span>
@@ -909,7 +917,7 @@ export default function Products() {
           </div>
         </div>
 
-        <div className="-mx-4 mb-3 flex gap-2 overflow-x-auto px-4 pb-1 sm:-mx-6 sm:px-6 lg:hidden">
+        <div className="products-mobile-quick-filters -mx-4 mb-3 flex gap-2 overflow-x-auto px-4 pb-1 sm:-mx-6 sm:px-6 lg:hidden">
           <div className="flex min-w-[132px] items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-[#071426]">
             <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-lg text-emerald-600">₹</span>
             <span>Rs. 501 -<br />Rs. 1500</span>
@@ -934,6 +942,7 @@ export default function Products() {
                 categories={
                   categories
                 }
+                totalProductCount={categoryTotal}
                 selectedCategorySlug={
                   categorySlug
                 }
@@ -956,6 +965,7 @@ export default function Products() {
               categories={
                 categories
               }
+              totalProductCount={categoryTotal}
               selectedCategorySlug={
                 categorySlug
               }
@@ -1011,7 +1021,7 @@ export default function Products() {
           {/* PRODUCTS */}
           <section className="min-w-0">
 
-            <div className="mb-6 overflow-hidden rounded-3xl">
+            <div className="products-mobile-promo mb-6 overflow-hidden rounded-3xl">
               <CategoryLandingHero
                 title={pageTitle}
                 subtitle={
@@ -1020,7 +1030,7 @@ export default function Products() {
               />
             </div>
 
-            <div className="rounded-3xl border border-slate-200 bg-white shadow-sm">
+            <div className="products-catalog-panel rounded-3xl border border-slate-200 bg-white shadow-sm">
 
               {/* TOOLBAR */}
               <div className="flex flex-col gap-4 border-b border-slate-200 p-4 sm:p-5 xl:flex-row xl:items-center xl:justify-between">
@@ -1205,7 +1215,7 @@ export default function Products() {
               )}
 
               {/* PRODUCT AREA */}
-              <div className="p-4 sm:p-5">
+              <div className="products-grid-area p-4 sm:p-5">
 
                 {error &&
                   !loading && (

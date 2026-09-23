@@ -8,11 +8,11 @@ import {
   markRazorpayPaymentFailed,
   markRazorpayPaymentCancelled,
 } from '../controllers/paymentController.js';
-import { protect, requireCustomer } from '../middleware/authMiddleware.js';
+import { protect, requireStorefrontUser } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
 
-router.use(protect, requireCustomer);
+router.use(protect, requireStorefrontUser);
 router.post('/create-checkout-session', createCheckoutSession);
 router.post('/razorpay/create-order', createRazorpayOrder);
 router.post('/razorpay/verify', verifyRazorpayPayment);

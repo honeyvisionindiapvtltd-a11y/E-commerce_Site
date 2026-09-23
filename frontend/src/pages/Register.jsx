@@ -98,7 +98,7 @@ export default function Register() {
       window.google.accounts.id.renderButton(googleButtonRef.current, {
         theme: "outline",
         size: "large",
-        width: 400,
+        width: Math.min(400, googleButtonRef.current.clientWidth || 400),
         text: "signup_with",
       });
     };
@@ -120,15 +120,15 @@ export default function Register() {
 
   return (
 
-    <section className="min-h-screen bg-gradient-to-br from-[#071426] via-[#0B315A] to-[#102D4E] flex items-center justify-center py-10 px-6">
+    <section className="min-h-screen overflow-x-hidden bg-gradient-to-br from-[#071426] via-[#0B315A] to-[#102D4E] flex items-center justify-center py-3 px-3 sm:py-6 sm:px-6 lg:py-10">
 
-      <div className="max-w-7xl w-full bg-white rounded-[35px] overflow-hidden shadow-2xl">
+      <div className="max-w-7xl w-full bg-white rounded-2xl sm:rounded-[35px] overflow-hidden shadow-2xl">
 
-        <div className="grid lg:grid-cols-2 min-h-[850px]">
+        <div className="grid lg:grid-cols-2 lg:min-h-[850px]">
 
           {/* ================= LEFT SIDE ================= */}
 
-          <div className="relative bg-[#071426] overflow-hidden">
+          <div className="relative hidden bg-[#071426] overflow-hidden lg:block">
 
             <div className="absolute -top-40 -left-32 w-[420px] h-[420px] bg-yellow-500/20 rounded-full blur-[130px]"></div>
 
@@ -206,11 +206,11 @@ export default function Register() {
 
                     {/* ================= RIGHT SIDE ================= */}
 
-          <div className="flex items-center justify-center px-10 lg:px-16 py-12 bg-white">
+          <div className="flex items-center justify-center px-4 py-8 sm:px-8 sm:py-12 lg:px-16 bg-white">
 
-            <div className="w-full max-w-lg">
+            <div className="w-full max-w-lg min-w-0">
 
-              <h2 className="text-4xl font-bold text-[#071426]">
+              <h2 className="text-3xl sm:text-4xl font-bold text-[#071426]">
 
                 Create Your Account
               </h2>
@@ -446,14 +446,14 @@ export default function Register() {
 
               {/* Terms */}
 
-              <div className="flex items-start gap-3 mt-6">
+              <div className="flex items-start gap-3 mt-6 min-w-0">
 
                 <input
                   type="checkbox"
                   className="accent-yellow-500 mt-1"
                 />
 
-                <p className="text-gray-600 leading-6">
+                <p className="text-gray-600 leading-6 wrap-break-word">
 
                   I agree to the{" "}
 
@@ -489,7 +489,7 @@ export default function Register() {
 
                 <div className="flex-1 h-px bg-gray-300"></div>
 
-                <span className="text-gray-500 text-sm uppercase">
+                <span className="text-gray-500 text-xs sm:text-sm uppercase whitespace-nowrap">
 
                   Or Continue With
 

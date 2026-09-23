@@ -12,7 +12,7 @@ export default function ProductGrid({ products = [], gridView = true }) {
   return (
     <div>
       {gridView ? (
-        <div className="grid grid-cols-2 gap-3 sm:gap-5 md:grid-cols-3 xl:grid-cols-3">
+        <div className="products-grid grid grid-cols-2 gap-3 sm:gap-5 md:grid-cols-3 lg:grid-cols-4">
           {products.map((p) => (
             <ProductCard key={p._id || p.id || p.slug || p.name} product={p} onQuickView={onQuickView} />
           ))}
@@ -21,7 +21,7 @@ export default function ProductGrid({ products = [], gridView = true }) {
         <div className="space-y-4">
           {products.map((p) => (
             <div key={p._id || p.id || p.slug || p.name} role="article" tabIndex={0} className="flex items-start gap-4 rounded-2xl border border-slate-200 bg-white p-4">
-              <img src={p.image} alt={p.name} loading="lazy" className="h-28 w-28 flex-shrink-0 object-contain" />
+              <img src={p.image} alt={p.name} loading="lazy" className="h-28 w-28 flex-shrink-0 bg-white object-contain" />
               <div className="flex-1">
                 <div className="flex items-center justify-between">
                   <div>

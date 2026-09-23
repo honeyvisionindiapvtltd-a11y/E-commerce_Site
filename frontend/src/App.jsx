@@ -5,6 +5,7 @@ import { APIProvider } from '@vis.gl/react-google-maps'
 import { NotificationContainer } from './components/Notifications/NotificationComponents.jsx'
 import useNotifications from './hooks/useNotifications.js'
 import { initializeNativeApp } from './services/nativeInit'
+import { networkStatus } from './services/networkStatus'
 import Navbar from './components/Navbar.jsx'
 import Footer from './components/Footer.jsx'
 import Home from './Home.jsx'
@@ -57,6 +58,7 @@ import MyAMC from "./pages/MyAMC.jsx";
 import RequestDemo from './pages/RequestDemo.jsx'
 import GetStarted from './pages/GetStarted.jsx'
 import ServiceDetail from './pages/ServiceDetail.jsx'
+import ScanProduct from './pages/ScanProduct.jsx'
 import NotFound from './pages/NotFound.jsx'
 import InformationPage from './pages/InformationPage.jsx'
 import Register from './pages/Register.jsx'
@@ -72,7 +74,8 @@ function RoleRoute({ roles, children }) {
   const { isLoggedIn, user } = useCommerce();
   const location = useLocation();
   if (!isLoggedIn) return <Navigate to="/login" replace state={{ from: location }} />;
-  if (!roles.includes(user?.role)) return <Navigate to={user?.role === "admin" ? "/admin" : user?.role === "delivery_agent" ? "/delivery-agent" : "/"} replace />;
+  const canUseCustomerExperience = user?.role === "admin" && roles.includes("customer");
+  if (!roles.includes(user?.role) && !canUseCustomerExperience) return <Navigate to={user?.role === "admin" ? "/admin" : user?.role === "delivery_agent" ? "/delivery-agent" : "/"} replace />;
   return children;
 }
 
@@ -80,13 +83,26 @@ function App() {
   const location = useLocation();
   const { isLoggedIn, user } = useCommerce();
   const { notifications, removeNotification } = useNotifications();
+  const [isOffline, setIsOffline] = useState(() => !navigator.onLine);
   const [isDarkTheme, setIsDarkTheme] = useState(() => localStorage.getItem('honey-vision-theme') === 'dark');
   const isAdminRoute = location.pathname.startsWith('/admin');
   const isDeliveryAgentRoute = location.pathname.startsWith('/delivery-agent');
+  const isCheckoutRoute = ['/checkout', '/payment', '/payment-methods'].includes(location.pathname);
 
   useEffect(() => {
-    // Initialize native app services on mount
+    const updateBrowserNetworkStatus = () => setIsOffline(!navigator.onLine);
+    const updateNativeNetworkStatus = (status) => setIsOffline(!status.connected);
+
+    window.addEventListener('online', updateBrowserNetworkStatus);
+    window.addEventListener('offline', updateBrowserNetworkStatus);
+    networkStatus.onStatusChange('app-offline-banner', updateNativeNetworkStatus);
     initializeNativeApp();
+
+    return () => {
+      window.removeEventListener('online', updateBrowserNetworkStatus);
+      window.removeEventListener('offline', updateBrowserNetworkStatus);
+      networkStatus.offStatusChange('app-offline-banner');
+    };
   }, []);
 
   useEffect(() => {
@@ -100,7 +116,13 @@ function App() {
 
   const appContent = (
     <div className="app-shell">
-      {!isAdminRoute && !isDeliveryAgentRoute && (
+      {isOffline && (
+        <div className="offline-network-banner" role="alert">
+          <strong>No internet connection</strong>
+          <span>Turn on your device network to continue using the app.</span>
+        </div>
+      )}
+      {!isAdminRoute && !isDeliveryAgentRoute && !isCheckoutRoute && (
         <Navbar isDarkTheme={isDarkTheme} onToggleTheme={() => setIsDarkTheme((value) => !value)} />
       )}
       <div className="page-content">
@@ -173,6 +195,7 @@ function App() {
           <Route path="/my-amc/:id" element={<RoleRoute roles={["customer"]}><MyAMC /></RoleRoute>} />
           <Route path="/request-demo" element={<RequestDemo />} />
           <Route path="/get-started" element={<GetStarted />} />
+          <Route path="/scan-product" element={<ScanProduct />} />
           <Route path="/register" element={<Register />} />
           <Route
   path="/track-order/:trackingNumber"
@@ -201,13 +224,13 @@ function App() {
           <Route path="*" element={<NotFound />} />
         </Routes>
       </div>
-      {!isAdminRoute && !isDeliveryAgentRoute && <Footer />}
+      {!isAdminRoute && !isDeliveryAgentRoute && !isCheckoutRoute && <Footer />}
       <NotificationContainer 
         notifications={notifications} 
         onRemove={removeNotification} 
       />
       {isLoggedIn && !isAdminRoute && <div className="fixed right-4 top-4 z-40"><NotificationCenter /></div>}
-      {!isAdminRoute && !isDeliveryAgentRoute && <ChatWidget />}
+      {!isAdminRoute && !isDeliveryAgentRoute && !isCheckoutRoute && <ChatWidget />}
     </div>
   );
 

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { useCommerce } from "../context/index.js";
 import DeliveryAvailability from "../components/DeliveryAvailability";
+import ReviewCard from "../components/ReviewCard";
 import { getProductGallery, money, normalizeProduct } from "../lib/products";
 import {
   Heart,
@@ -13,6 +14,7 @@ import {
   ShieldCheck,
   RotateCcw,
   CreditCard,
+  ShoppingCart,
   ChevronRight,
   ChevronLeft,
   GitCompareArrows,
@@ -118,7 +120,10 @@ export default function ProductDetails() {
   const [quantity, setQuantity] = useState(1);
   const [activeTab, setActiveTab] = useState("overview");
   const [shareStatus, setShareStatus] = useState("");
+  const [cartStatus, setCartStatus] = useState("");
   const [recentlyViewed, setRecentlyViewed] = useState([]);
+  const [reviews, setReviews] = useState([]);
+  const [reviewsLoading, setReviewsLoading] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -211,7 +216,6 @@ export default function ProductDetails() {
     }
 
     const currentIndex = images.indexOf(selectedImage);
-
     if (currentIndex >= 0) {
       setImageIndex(currentIndex);
     } else {
@@ -225,33 +229,45 @@ export default function ProductDetails() {
 
     try {
       const storageKey = "honeyvision_recently_viewed";
-      const saved = JSON.parse(
-        window.localStorage.getItem(storageKey) || "[]"
-      );
-
-      const ids = Array.isArray(saved) ? saved : [];
-
-      const nextIds = [
-        product.id,
-        ...ids.filter((id) => String(id) !== String(product.id)),
-      ].slice(0, 6);
-
+      const storedIds = JSON.parse(window.localStorage.getItem(storageKey) || "[]");
+      const nextIds = [product.id, ...storedIds.filter((id) => String(id) !== String(product.id))].slice(0, 6);
       window.localStorage.setItem(storageKey, JSON.stringify(nextIds));
 
       const viewed = products
-        .filter(
-          (item) =>
-            nextIds.some((id) => String(id) === String(item.id)) &&
-            String(item.id) !== String(product.id)
-        )
+        .filter((item) => nextIds.some((id) => String(id) === String(item.id)) && String(item.id) !== String(product.id))
         .slice(0, 4)
         .map((item) => normalizeProduct(item));
-
       setRecentlyViewed(viewed);
     } catch {
       setRecentlyViewed([]);
     }
   }, [product?.id, products]);
+
+  // Fetch product reviews
+  useEffect(() => {
+    if (!productId) return;
+
+    const fetchReviews = async () => {
+      try {
+        setReviewsLoading(true);
+        const response = await fetch(
+          `${API_BASE}/reviews/product/${productId}`
+        );
+
+        if (response.ok) {
+          const data = await response.json();
+          setReviews(data.reviews || []);
+        }
+      } catch (error) {
+        console.error("Error fetching reviews:", error);
+        setReviews([]);
+      } finally {
+        setReviewsLoading(false);
+      }
+    };
+
+    fetchReviews();
+  }, [productId]);
 
   const inWishlist = Boolean(
     product &&
@@ -264,7 +280,7 @@ export default function ProductDetails() {
 
     return products
       .filter((item) => String(item.id) !== String(product.id))
-      .slice(0, 8)
+      .slice(0, 25)
       .map((item) => normalizeProduct(item));
   }, [products, product?.id]);
 
@@ -283,8 +299,23 @@ export default function ProductDetails() {
 
   const handleBuyNow = () => {
     if (!product || stock <= 0) return;
-    addToCart(product.id, quantity, false);
-    navigate("/checkout");
+    navigate("/checkout", {
+      state: {
+        buyNowItem: {
+          productId: product.id,
+          quantity,
+          installation: false,
+          product,
+        },
+      },
+    });
+  };
+
+  const handleAddToCart = () => {
+    if (!product || stock <= 0) return;
+    addToCart(product.id, quantity, false, product);
+    setCartStatus(`${quantity} item${quantity === 1 ? "" : "s"} added to cart`);
+    window.setTimeout(() => setCartStatus(""), 2200);
   };
 
   const handleQuantityChange = (nextQuantity) => {
@@ -416,7 +447,7 @@ export default function ProductDetails() {
         ];
 
   return (
-    <section className="min-h-screen bg-[#f5f7fb] pb-16 pt-4 text-[#071426]">
+    <section className="product-details-page min-h-screen bg-[#f5f7fb] pb-16 pt-4 text-[#071426]">
       <div className="mx-auto max-w-[1450px] px-3 sm:px-5 lg:px-7">
         {/* Breadcrumb */}
         <nav className="mb-4 flex items-center gap-1.5 overflow-hidden px-1 text-xs sm:text-sm">
@@ -440,15 +471,15 @@ export default function ProductDetails() {
         </nav>
 
         {/* =========================================================
-            MAIN TWO-COLUMN AREA
-            Both cards are flex columns with h-full.
-            The grid uses items-stretch so both cards finish together.
+            MAIN LAYOUT
+            Mobile: flex with reordering (gallery, price, specs, delivery)
+            Desktop: 2-column grid (left: gallery, specs, delivery | right: price)
            ========================================================= */}
-        <div className="grid items-stretch gap-4 lg:grid-cols-2 lg:auto-rows-fr">
+        <div className="flex flex-col gap-4 lg:grid lg:grid-cols-2 lg:auto-rows-max lg:gap-4">
           {/* =========================
-              LEFT CARD
+              LEFT CARD - Gallery
              ========================= */}
-          <div className="flex h-full min-w-0 flex-col rounded-[24px] border border-slate-200 bg-white p-3 shadow-[0_12px_38px_rgba(7,20,38,.07)] sm:p-4">
+          <div className="order-1 flex min-w-0 flex-col rounded-[24px] border border-slate-200 bg-white p-3 shadow-[0_12px_38px_rgba(7,20,38,.07)] sm:p-4 lg:order-none lg:col-start-1 lg:row-start-1">
             {/* Gallery */}
             <div className="flex min-w-0 gap-3">
               {/* Thumbnails */}
@@ -459,7 +490,7 @@ export default function ProductDetails() {
                       key={`${image}-${index}`}
                       type="button"
                       onClick={() => selectImage(index)}
-                      className={`flex h-[70px] w-[70px] items-center justify-center overflow-hidden rounded-xl border bg-white p-1 transition ${
+                      className={`product-image-surface flex h-[70px] w-[70px] items-center justify-center overflow-hidden rounded-xl border bg-white p-1 transition ${
                         index === imageIndex
                           ? "border-[#f2b900] bg-[#fffaf0] ring-2 ring-[#f2b900]/20"
                           : "border-slate-200 hover:border-slate-300"
@@ -479,7 +510,7 @@ export default function ProductDetails() {
 
               {/* Main image panel */}
               <div className="min-w-0 flex-1">
-                <div className="relative flex min-h-[330px] items-center justify-center overflow-hidden rounded-[20px] border border-slate-200 bg-[radial-gradient(circle_at_center,#ffffff_0%,#f7f9fc_75%)] sm:min-h-[395px] lg:min-h-[420px]">
+                <div className="product-image-surface relative flex min-h-[330px] items-center justify-center overflow-hidden rounded-[20px] border border-slate-200 bg-[radial-gradient(circle_at_center,#ffffff_0%,#f7f9fc_75%)] sm:min-h-[395px] lg:min-h-[420px]">
                   {stock <= 0 && (
                     <span className="absolute bottom-4 left-4 z-10 rounded-full bg-red-600 px-3 py-1.5 text-[10px] font-extrabold uppercase tracking-wide text-white shadow-md sm:bottom-5 sm:left-5 sm:text-xs">
                       Out of stock
@@ -573,7 +604,7 @@ export default function ProductDetails() {
                       key={`mobile-${image}-${index}`}
                       type="button"
                       onClick={() => selectImage(index)}
-                      className={`h-14 w-14 shrink-0 overflow-hidden rounded-lg border bg-white p-1 ${
+                      className={`product-image-surface h-14 w-14 shrink-0 overflow-hidden rounded-lg border bg-white p-1 ${
                         index === imageIndex
                           ? "border-[#f2b900] ring-2 ring-[#f2b900]/20"
                           : "border-slate-200"
@@ -612,55 +643,13 @@ export default function ProductDetails() {
               />
             </div>
 
-            {/* Quick specifications - LEFT */}
-            <div className="mt-3 rounded-xl border border-slate-200 p-3.5">
-              <div className="flex items-center justify-between gap-3">
-                <h2 className="text-xs font-extrabold text-slate-800 sm:text-sm">
-                  Quick specifications
-                </h2>
 
-                <button
-                  type="button"
-                  onClick={() => setActiveTab("specs")}
-                  className="text-[10px] font-extrabold text-blue-600 hover:text-[#d59f00]"
-                >
-                  View all
-                </button>
-              </div>
-
-              {specificationRows.length > 0 ? (
-                <dl className="mt-2.5 grid grid-cols-2 gap-x-5">
-                  {specificationRows.slice(0, 6).map(([label, value]) => (
-                    <div
-                      key={label}
-                      className="min-w-0 border-b border-slate-100 py-2"
-                    >
-                      <dt className="text-[9px] text-slate-400">
-                        {label}
-                      </dt>
-                      <dd className="mt-0.5 truncate text-[10px] font-extrabold text-slate-700 sm:text-xs">
-                        {String(value)}
-                      </dd>
-                    </div>
-                  ))}
-                </dl>
-              ) : (
-                <p className="mt-3 text-xs text-slate-500">
-                  Specifications will be updated soon.
-                </p>
-              )}
-            </div>
-
-            {/* Delivery - LEFT */}
-            <div className="mt-3">
-              <DeliveryAvailability />
-            </div>
           </div>
 
           {/* =========================
-              RIGHT CARD
+              RIGHT CARD - Price + Purchase
              ========================= */}
-          <div className="flex h-full min-w-0 flex-col rounded-[24px] border border-slate-200 bg-white p-4 shadow-[0_12px_38px_rgba(7,20,38,.07)] sm:p-5">
+          <div className="order-2 flex min-w-0 flex-col rounded-[24px] border border-slate-200 bg-white p-4 shadow-[0_12px_38px_rgba(7,20,38,.07)] sm:p-5 lg:order-none lg:col-start-2 lg:row-start-1 lg:row-span-3">
             {/* Header */}
             <div className="flex items-center justify-between gap-3">
               <span className="rounded-full bg-blue-50 px-3 py-1.5 text-[10px] font-extrabold text-blue-700 ring-1 ring-blue-100">
@@ -827,6 +816,15 @@ export default function ProductDetails() {
               <div className="mt-3 grid gap-2 sm:grid-cols-2">
                 <button
                   type="button"
+                  onClick={handleAddToCart}
+                  disabled={stock <= 0}
+                  className="inline-flex h-11 items-center justify-center gap-2 rounded-lg border-2 border-[#f2b900] bg-[#fffaf0] px-3 text-xs font-extrabold text-[#071426] transition hover:bg-[#fff3c7] disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <ShoppingCart size={15} />
+                  Add to Cart
+                </button>
+                <button
+                  type="button"
                   onClick={handleBuyNow}
                   disabled={stock <= 0}
                   className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-[#071426] px-3 text-xs font-extrabold text-white transition hover:bg-[#0b315a] disabled:cursor-not-allowed disabled:opacity-50"
@@ -835,6 +833,12 @@ export default function ProductDetails() {
                   Buy Now
                 </button>
               </div>
+
+              {cartStatus && (
+                <p className="mt-2 text-center text-[10px] font-bold text-emerald-600">
+                  {cartStatus}
+                </p>
+              )}
             </div>
 
             {/* Benefits */}
@@ -894,10 +898,54 @@ export default function ProductDetails() {
                 {shareStatus}
               </p>
             )}
+          </div>
 
-            {/* This spacer makes the right card naturally use the full grid
-                height while keeping all primary purchase content together. */}
-            <div className="flex-1" />
+          {/* =========================
+              QUICK SPECIFICATIONS - Below price on mobile, right column on desktop
+             ========================= */}
+          <div className="order-3 rounded-xl border border-slate-200 bg-white p-3.5 shadow-[0_12px_38px_rgba(7,20,38,.07)] lg:order-none lg:col-start-1 lg:row-start-2">
+            <div className="flex items-center justify-between gap-3">
+              <h2 className="text-xs font-extrabold text-slate-800 sm:text-sm">
+                Quick specifications
+              </h2>
+
+              <button
+                type="button"
+                onClick={() => setActiveTab("specs")}
+                className="text-[10px] font-extrabold text-blue-600 hover:text-[#d59f00]"
+              >
+                View all
+              </button>
+            </div>
+
+            {specificationRows.length > 0 ? (
+              <dl className="mt-2.5 grid grid-cols-2 gap-x-5">
+                {specificationRows.slice(0, 6).map(([label, value]) => (
+                  <div
+                    key={label}
+                    className="min-w-0 border-b border-slate-100 py-2"
+                  >
+                    <dt className="text-[9px] text-slate-400">
+                      {label}
+                    </dt>
+                    <dd className="mt-0.5 truncate text-[10px] font-extrabold text-slate-700 sm:text-xs">
+                      {String(value)}
+                    </dd>
+                  </div>
+                ))}
+              </dl>
+            ) : (
+              <p className="mt-3 text-xs text-slate-500">
+                Specifications will be updated soon.
+              </p>
+            )}
+          </div>
+
+          {/* =========================
+              DELIVERY AVAILABILITY - Below specs on mobile, right column on desktop
+             ========================= */}
+          <div className="order-4 lg:order-none lg:col-start-1 lg:row-start-3">
+            <DeliveryAvailability />
           </div>
         </div>
 
@@ -1087,23 +1135,14 @@ export default function ProductDetails() {
                   </div>
                 </div>
 
-                {safeNumber(product.reviews) > 0 ? (
+                {reviewsLoading ? (
+                  <div className="mt-5 text-center py-8">
+                    <p className="text-slate-500">Loading reviews...</p>
+                  </div>
+                ) : reviews.length > 0 ? (
                   <div className="mt-5 grid gap-4 md:grid-cols-2">
-                    {[1, 2].map((item) => (
-                      <div
-                        key={item}
-                        className="rounded-xl border border-slate-200 p-4"
-                      >
-                        <p className="font-extrabold text-slate-800">
-                          Verified Customer
-                        </p>
-                        <div className="mt-1 text-sm text-amber-500">
-                          ★★★★★
-                        </div>
-                        <p className="mt-3 text-sm leading-6 text-slate-600">
-                          Excellent product quality and reliable performance.
-                        </p>
-                      </div>
+                    {reviews.slice(0, 4).map((review) => (
+                      <ReviewCard key={review._id} review={review} />
                     ))}
                   </div>
                 ) : (
@@ -1127,13 +1166,13 @@ export default function ProductDetails() {
 
         {/* Recently viewed */}
         {recentlyViewed.length > 0 && (
-          <div className="mt-4 rounded-[24px] border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-            <div className="mb-4 flex items-center justify-between gap-3">
+          <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4">
+            <div className="mb-3 flex items-center justify-between gap-3">
               <div>
-                <h2 className="text-lg font-extrabold">
+                <h2 className="text-base font-extrabold">
                   Recently Viewed
                 </h2>
-                <p className="mt-1 text-xs text-slate-500">
+                <p className="mt-0.5 text-[11px] text-slate-500">
                   Products you viewed earlier.
                 </p>
               </div>
@@ -1146,26 +1185,29 @@ export default function ProductDetails() {
               </Link>
             </div>
 
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="flex gap-2.5 overflow-x-auto pb-1 [scrollbar-width:thin]">
               {recentlyViewed.map((item) => (
                 <Link
                   key={item.id}
                   to={`/products/${item.id}`}
-                  className="group rounded-xl border border-slate-200 p-3 transition hover:-translate-y-1 hover:border-[#f2b900] hover:shadow-md"
+                  className="recently-viewed-card group min-w-[175px] flex-[0_0_175px] rounded-lg border border-slate-200 p-2 transition duration-200 hover:-translate-y-1 hover:border-[#f2b900] hover:shadow-lg sm:min-w-[200px] sm:flex-[0_0_200px]"
                 >
-                  <div className="flex h-32 items-center justify-center rounded-lg bg-slate-50">
+                  <div
+                    className="product-image-surface-white flex h-24 items-center justify-center rounded-md bg-slate-50"
+                    style={{ backgroundColor: "#ffffff" }}
+                  >
                     <ProductImage
                       src={item.image}
                       alt={item.name}
-                      className="h-full w-full object-contain p-3 transition group-hover:scale-105"
+                        className="h-full w-full object-contain p-2 transition group-hover:scale-105"
                     />
                   </div>
 
-                  <h3 className="mt-2 line-clamp-2 text-xs font-bold text-slate-800">
+                  <h3 className="mt-1.5 line-clamp-2 text-[11px] font-bold leading-4 text-slate-800">
                     {item.name}
                   </h3>
 
-                  <p className="mt-2 text-sm font-extrabold text-[#071426]">
+                  <p className="mt-1 text-xs font-extrabold text-[#071426]">
                     {money(safeNumber(item.price))}
                   </p>
                 </Link>
@@ -1209,58 +1251,66 @@ export default function ProductDetails() {
 
         {/* Related products */}
         {relatedProducts.length > 0 && (
-          <div className="mt-4 rounded-[24px] border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-            <div className="mb-4">
-              <h2 className="text-lg font-extrabold">
-                You May Also Like
-              </h2>
-              <p className="mt-1 text-xs text-slate-500">
-                Related products for your security setup.
-              </p>
+          <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <div>
+                <h2 className="text-base font-extrabold">
+                  You May Also Like
+                </h2>
+                <p className="mt-0.5 text-[11px] text-slate-500">
+                  Related products for your security setup.
+                </p>
+              </div>
+              <Link to="/products" className="shrink-0 text-[11px] font-extrabold text-blue-600 hover:text-[#d59f00]">
+                View All
+              </Link>
             </div>
 
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              {relatedProducts.slice(0, 4).map((item) => (
+            <div className="flex gap-2.5 overflow-x-auto pb-1 [scrollbar-width:thin]">
+              {relatedProducts.map((item) => (
                 <div
                   key={item.id}
-                  className="group overflow-hidden rounded-xl border border-slate-200 bg-white transition hover:-translate-y-1 hover:border-slate-300 hover:shadow-lg"
+                  className="related-product-card group min-w-[175px] flex-[0_0_175px] overflow-hidden rounded-lg border border-slate-200 bg-white transition hover:-translate-y-1 hover:border-[#f2b900] hover:shadow-lg sm:min-w-[200px] sm:flex-[0_0_200px]"
                 >
                   <Link to={`/products/${item.id}`} className="block">
-                    <div className="relative flex aspect-square items-center justify-center bg-slate-50">
+                    <div
+                      className="product-image-surface-white relative flex h-24 items-center justify-center bg-slate-50"
+                      style={{ backgroundColor: "#ffffff" }}
+                    >
                       <ProductImage
                         src={item.image}
                         alt={item.name}
-                        className="h-full w-full object-contain p-4 transition duration-300 group-hover:scale-105"
+                        className="h-full w-full object-contain p-2 transition duration-300 group-hover:scale-105"
                       />
                     </div>
                   </Link>
 
-                  <div className="p-3">
-                    <p className="text-[9px] font-bold uppercase tracking-wider text-slate-400">
+                  <div className="p-2">
+                    <p className="text-[8px] font-bold uppercase tracking-wider text-slate-400">
                       {item.category || "Product"}
                     </p>
 
-                    <h3 className="mt-1 line-clamp-2 min-h-[34px] text-xs font-bold text-slate-800">
+                    <h3 className="mt-1 line-clamp-2 min-h-[32px] text-[11px] font-bold leading-4 text-slate-800">
                       {item.name}
                     </h3>
 
-                    <div className="mt-2 flex items-center justify-between gap-2">
+                    <div className="mt-1.5 flex items-center justify-between gap-2">
                       <span className="text-[10px] font-semibold text-amber-500">
                         ★★★★★
                       </span>
 
-                      <span className="text-sm font-extrabold text-[#071426]">
+                      <span className="text-xs font-extrabold text-[#071426]">
                         {money(safeNumber(item.price))}
                       </span>
                     </div>
 
-                    <div className="mt-2">
+                    <div className="mt-1.5">
                       <button
                         type="button"
                         onClick={() =>
                           navigate(`/products/${item.id}`)
                         }
-                        className="rounded-lg border border-slate-200 py-1.5 text-[10px] font-bold text-slate-700 hover:bg-slate-50"
+                        className="w-full rounded-md border border-slate-200 py-1 text-[10px] font-bold text-slate-700 hover:bg-slate-50"
                       >
                         View
                       </button>

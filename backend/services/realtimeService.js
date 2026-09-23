@@ -17,6 +17,11 @@ let io;
 const connectedUsers = new Map(); // userId -> socket ids
 const userRooms = new Map(); // userId -> room names
 const localFrontendOrigins = [
+  'capacitor://localhost',
+  'https://localhost',
+  'http://localhost',
+  'https://honeyvision.in',
+  'https://www.honeyvision.in',
   'http://localhost:5173',
   'http://127.0.0.1:5173',
   'http://192.168.31.5:5173',

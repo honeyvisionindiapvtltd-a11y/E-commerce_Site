@@ -16,6 +16,7 @@ import { useNavigate } from "react-router-dom";
 
 export default function ProductSidebar({
   categories = [],
+  totalProductCount = 0,
   selectedCategorySlug = "",
   selectedSubCategorySlug = "",
   drawerOnly = false,
@@ -203,9 +204,7 @@ export default function ProductSidebar({
           </div>
 
           <span className="rounded-full bg-slate-100 px-2 py-1 text-xs font-bold text-slate-600">
-            {getTotalCount(
-              categories
-            )}
+            {totalProductCount || getTotalCount(categories)}
           </span>
 
         </button>

@@ -869,7 +869,7 @@ export default function Products() {
           </div>
 
           {isCctvProduct && (
-            <div className="space-y-4 rounded-xl border border-amber-200 bg-amber-50/50 p-4">
+            <div className="admin-cctv-specs space-y-4 rounded-xl border border-amber-200 bg-amber-50/50 p-4">
               <div>
                 <div className="text-xs font-semibold uppercase tracking-wide text-amber-700">CCTV Specifications</div>
                 <p className="mt-1 text-[11px] text-slate-500">Optional product attributes for camera catalog filtering. Leave unknown values blank.</p>

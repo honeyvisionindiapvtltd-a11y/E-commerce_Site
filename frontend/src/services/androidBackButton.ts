@@ -94,8 +94,12 @@ export class AndroidBackButtonService {
       }
     }
 
-    // If nothing else handled it, don't exit app - let user interact
-    console.log('No back button action registered');
+    if (window.history.length > 1) {
+      window.history.back();
+      return;
+    }
+
+    await App.exitApp();
   }
 }
 

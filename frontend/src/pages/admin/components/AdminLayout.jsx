@@ -12,7 +12,8 @@ import NotificationCenter from "../../../components/Notifications/NotificationCe
 const groups = [
   {title:"", items:[["Dashboard", "/admin", LayoutDashboard]]},
   {title:"STORE MANAGEMENT", items:[
-    ["Products","/admin/products",Package],["Categories","/admin/categories",ClipboardList],
+    ["Products","/admin/products",Package],["Product Image Search Index","/admin/product-image-index",Activity],
+    ["Categories","/admin/categories",ClipboardList],
     ["Orders","/admin/orders",ShoppingCart],["Customers","/admin/customers",Users],
     ["Inventory","/admin/inventory",Box], ["Installations","/admin/installations",Wrench], ["AMC Management","/admin/amc",ShieldCheck]
   ]},
@@ -63,7 +64,7 @@ export default function AdminLayout() {
     setSearchTerm("");
   };
 
-  return <div className="min-h-screen bg-slate-50 text-slate-900">
+  return <div className="admin-shell min-h-screen bg-slate-50 text-slate-900">
     {open && <div className="fixed inset-0 z-40 bg-black/50 lg:hidden" onClick={()=>setOpen(false)}/>}
     <aside className={`fixed inset-y-0 left-0 z-50 flex w-[235px] flex-col bg-[#031426] text-white transition-transform lg:translate-x-0 ${open?"translate-x-0":"-translate-x-full"}`}>
       <div className="flex h-16 items-center border-b border-white/10 px-5">
