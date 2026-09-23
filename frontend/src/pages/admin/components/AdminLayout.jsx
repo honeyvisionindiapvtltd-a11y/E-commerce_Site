@@ -12,7 +12,8 @@ import NotificationCenter from "../../../components/Notifications/NotificationCe
 const groups = [
   {title:"", items:[["Dashboard", "/admin", LayoutDashboard]]},
   {title:"STORE MANAGEMENT", items:[
-    ["Products","/admin/products",Package],["Categories","/admin/categories",ClipboardList],
+    ["Products","/admin/products",Package],["Product Image Search Index","/admin/product-image-index",Activity],
+    ["Categories","/admin/categories",ClipboardList],
     ["Orders","/admin/orders",ShoppingCart],["Customers","/admin/customers",Users],
     ["Inventory","/admin/inventory",Box], ["Installations","/admin/installations",Wrench]
   ]},

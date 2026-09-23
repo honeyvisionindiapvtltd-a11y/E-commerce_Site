@@ -4,10 +4,10 @@ import tailwindcss from "@tailwindcss/vite";
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), "");
-  const viteApiUrl = env.VITE_API_URL || "http://localhost:5000/api";
+  const viteApiUrl = env.VITE_API_URL || "/api";
   const proxyTarget = /^https?:\/\//.test(viteApiUrl)
     ? viteApiUrl.replace(/\/api\/?$/, "")
-    : "http://localhost:5003";
+    : "http://localhost:5000";
 
   return {
     plugins: [

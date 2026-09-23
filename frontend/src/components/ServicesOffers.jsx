@@ -12,6 +12,7 @@ import {
 export default function ServicesOffers() {
   const navigate = useNavigate();
   const [activeOffer, setActiveOffer] = useState(0);
+  const [desktopOfferPage, setDesktopOfferPage] = useState(0);
   const services = [
     {
       icon: <ShieldCheck size={30} />,
@@ -88,11 +89,54 @@ export default function ServicesOffers() {
       cardClass:
         "mobile-offer-card mobile-offer-card--yellow bg-gradient-to-br from-[#ffe27a] via-[#facc15] to-[#f59e0b] text-slate-900 shadow-[0_18px_28px_rgba(245,158,11,0.35)] ring-1 ring-slate-900/10",
     },
+    {
+      id: "smart-home",
+      badge: "NEW ARRIVAL",
+      badgeClass: "bg-emerald-500 text-white",
+      title: "Smart Home Deals",
+      text: "Save on smart locks, sensors and connected home essentials.",
+      buttonText: "Explore Now",
+      onClick: () => navigate("/products"),
+      buttonClass: "bg-white text-emerald-700 shadow-[0_8px_18px_rgba(255,255,255,0.3)]",
+      image: "/offers/smart-home.png",
+      imageClass: "w-20 sm:w-28 lg:w-44",
+      cardClass:
+        "mobile-offer-card mobile-offer-card--green bg-gradient-to-br from-[#064e3b] via-[#047857] to-[#34d399] text-white shadow-[0_18px_28px_rgba(5,150,105,0.28)] ring-1 ring-white/10",
+    },
+    {
+      id: "business",
+      badge: "BUSINESS SAVINGS",
+      badgeClass: "bg-white text-violet-700",
+      title: "Upgrade Your Office",
+      text: "Better pricing on reliable networking and office IT bundles.",
+      buttonText: "Shop Bundles",
+      onClick: () => navigate("/products"),
+      buttonClass: "bg-white text-violet-700 shadow-[0_8px_18px_rgba(255,255,255,0.3)]",
+      image: "/offers/business.png",
+      imageClass: "w-20 sm:w-28 lg:w-44",
+      cardClass:
+        "mobile-offer-card mobile-offer-card--violet bg-gradient-to-br from-[#4c1d95] via-[#6d28d9] to-[#a78bfa] text-white shadow-[0_18px_28px_rgba(109,40,217,0.28)] ring-1 ring-white/10",
+    },
+    {
+      id: "support",
+      badge: "HONEYVISION CARE",
+      badgeClass: "bg-slate-900 text-white",
+      title: "Installation Support",
+      text: "Get expert help for setup, maintenance and security upgrades.",
+      buttonText: "Book Support",
+      onClick: () => navigate("/services"),
+      buttonClass: "bg-amber-400 text-slate-950 shadow-[0_8px_18px_rgba(251,191,36,0.3)]",
+      image: "/offers/support.png",
+      imageClass: "w-20 sm:w-28 lg:w-44",
+      cardClass:
+        "mobile-offer-card mobile-offer-card--teal bg-gradient-to-br from-[#164e63] via-[#0e7490] to-[#67e8f9] text-white shadow-[0_18px_28px_rgba(14,116,144,0.28)] ring-1 ring-white/10",
+    },
   ];
 
   useEffect(() => {
     const timer = setInterval(() => {
       setActiveOffer((current) => (current + 1) % offers.length);
+      setDesktopOfferPage((current) => (current + 1) % Math.ceil(offers.length / 3));
     }, 4200);
 
     return () => clearInterval(timer);
@@ -177,8 +221,8 @@ export default function ServicesOffers() {
             </div>
           </div>
 
-          <div className="hidden gap-4 sm:grid lg:grid-cols-3">
-            {offers.map((offer) => (
+          <div className="desktop-offer-stage hidden gap-4 sm:grid sm:grid-cols-3">
+            {offers.slice(desktopOfferPage * 3, desktopOfferPage * 3 + 3).map((offer) => (
               <div key={`${offer.id}-desktop`} className={`${offer.cardClass} relative overflow-hidden rounded-2xl p-4 sm:p-6 lg:rounded-3xl lg:p-8`}>
                 <span className={`rounded-full px-2 py-1 text-[10px] font-semibold sm:text-xs ${offer.badgeClass}`}>
                   {offer.badge}
@@ -206,6 +250,18 @@ export default function ServicesOffers() {
                   className={`absolute -bottom-1 right-0 ${offer.imageClass}`}
                 />
               </div>
+            ))}
+          </div>
+
+          <div className="hidden items-center justify-center gap-2 pt-4 sm:flex" aria-label="Offer slides">
+            {Array.from({ length: Math.ceil(offers.length / 3) }, (_, index) => (
+              <button
+                key={`desktop-offer-dot-${index}`}
+                type="button"
+                aria-label={`Show offer set ${index + 1}`}
+                onClick={() => setDesktopOfferPage(index)}
+                className={`h-1.5 rounded-full transition-all ${desktopOfferPage === index ? "w-7 bg-slate-900" : "w-2 bg-slate-300"}`}
+              />
             ))}
           </div>
         </div>

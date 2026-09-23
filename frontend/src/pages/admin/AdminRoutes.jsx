@@ -20,6 +20,7 @@ import SupportTickets from "./pages/SupportTickets";
 import LiveChats from "./pages/LiveChats";
 import AdminInstallationDetails from "./AdminInstallationDetails";
 import AdminInstallations from "./AdminInstallations";
+import ProductImageIndex from "./pages/ProductImageIndex";
 
 export default function AdminRoutes() {
   return (
@@ -28,6 +29,7 @@ export default function AdminRoutes() {
         <Route index element={<DashboardPage />} />
         <Route path="dashboard" element={<DashboardPage />} />
         <Route path="products" element={<Products />} />
+        <Route path="product-image-index" element={<ProductImageIndex />} />
         <Route path="categories" element={<Categories />} />
         <Route path="orders" element={<Orders />} />
         <Route path="customers" element={<Customers />} />

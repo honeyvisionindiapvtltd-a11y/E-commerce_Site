@@ -1,10 +1,16 @@
 import Product from "../models/Product.js";
 import Category from "../models/Category.js";
+import ProductImageIndex from "../models/ProductImageIndex.js";
 import {
   buildListPagination,
   buildProductListProjection,
   getSearchRegex,
 } from "../utils/productListQuery.js";
+import {
+  indexProductImageCatalog,
+  getProductImageIndexSummary as getProductImageIndexStats,
+  searchProductsByImage,
+} from "../services/productImageSearchService.js";
 
 // ============================================================
 // GET ALL PRODUCTS
@@ -1102,6 +1108,104 @@ const getNewArrivals = async (
 // EXPORTS
 // ============================================================
 
+const getProductImageIndexSummary = async (req, res) => {
+  try {
+    const summary = await getProductImageIndexStats();
+    res.status(200).json({
+      success: true,
+      ...summary,
+    });
+  } catch (error) {
+    console.error('GET PRODUCT IMAGE INDEX SUMMARY ERROR:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to load product image index summary',
+      error: error.message,
+    });
+  }
+};
+
+const refreshProductImageIndex = async (req, res) => {
+  try {
+    const payload = req.body || {};
+    const result = await indexProductImageCatalog({
+      reindexAll: Boolean(payload.reindexAll),
+      reindexFailed: Boolean(payload.reindexFailed),
+      reindexOutdated: Boolean(payload.reindexOutdated),
+      limit: Number(payload.limit || 0),
+    });
+
+    res.status(200).json({
+      success: true,
+      ...result,
+    });
+  } catch (error) {
+    console.error('REFRESH PRODUCT IMAGE INDEX ERROR:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to refresh product image index',
+      error: error.message,
+    });
+  }
+};
+
+const searchByImage = async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        matched: false,
+        message: 'No image uploaded.',
+      });
+    }
+
+    const acceptedTypes = ['image/jpeg', 'image/png', 'image/webp'];
+    if (!acceptedTypes.includes(req.file.mimetype)) {
+      return res.status(400).json({
+        success: false,
+        matched: false,
+        message: 'Unsupported image format. Use JPG, PNG, or WebP.',
+      });
+    }
+
+    if (req.file.size > 10 * 1024 * 1024) {
+      return res.status(400).json({
+        success: false,
+        matched: false,
+        message: 'Image too large. Maximum size is 10 MB.',
+      });
+    }
+
+    const candidate = await searchProductsByImage(req.file.buffer, req.file.mimetype, {
+      source: req.body?.source || 'camera',
+      device: req.body?.device || 'web',
+      brand: req.body?.brand || '',
+      model: req.body?.model || '',
+      sku: req.body?.sku || '',
+      barcode: req.body?.barcode || '',
+      text: req.body?.text || '',
+      category: req.body?.category || '',
+    });
+
+    return res.status(200).json({
+      success: true,
+      ...candidate,
+    });
+  } catch (error) {
+    console.error('SEARCH BY IMAGE ERROR:', error);
+    return res.status(500).json({
+      success: false,
+      matched: false,
+      confidence: 0,
+      matchType: 'error',
+      message: 'We could not complete the image search. Please try again.',
+      product: null,
+      possibleMatches: [],
+      error: error.message,
+    });
+  }
+};
+
 export {
   getProducts,
   getProductById,
@@ -1112,4 +1216,7 @@ export {
   getFeaturedProducts,
   getBestSellers,
   getNewArrivals,
+  getProductImageIndexSummary,
+  refreshProductImageIndex,
+  searchByImage,
 };

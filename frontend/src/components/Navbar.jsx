@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
+  Camera,
   ChevronDown,
   CircleHelp,
   GitCompareArrows,
@@ -323,6 +324,15 @@ export default function Navbar({ isDarkTheme = false, onToggleTheme }) {
               />
             </div>
 
+            <button
+              type="button"
+              onClick={() => navigate('/scan-product')}
+              className="grid h-full w-11 place-items-center border-l border-slate-200 bg-slate-100 text-slate-700 transition hover:bg-slate-200"
+              aria-label="Scan product"
+              title="Scan Product"
+            >
+              <Camera size={18} />
+            </button>
             <button
               type="submit"
               className="grid h-full w-11 place-items-center bg-linear-to-b from-yellow-400 to-yellow-500 text-slate-950 transition hover:from-yellow-300 hover:to-yellow-400"

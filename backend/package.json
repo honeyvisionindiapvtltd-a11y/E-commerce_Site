@@ -12,7 +12,9 @@
     "seed:cctv-starter": "node scripts/seedCctvStarterCatalog.js",
     "seed-admin": "node scripts/seedAdmin.js",
     "hash-passwords": "node scripts/hashPasswords.js",
-    "import-json-catalog": "node scripts/importJsonCatalog.js"
+    "import-json-catalog": "node scripts/importJsonCatalog.js",
+    "products:index-images": "node scripts/indexProductImages.js",
+    "products:index-images:all": "node scripts/indexProductImages.js --all"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
@@ -21,6 +23,7 @@
     "express": "^4.21.2",
     "jsonwebtoken": "^9.0.0",
     "mongoose": "^9.9.1",
+    "multer": "^2.4.0",
     "nodemailer": "^9.0.5",
     "openai": "^7.5.0",
     "pdfkit": "^0.13.0",

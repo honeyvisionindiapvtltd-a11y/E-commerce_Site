@@ -56,6 +56,7 @@ import AMC from "./pages/AMC";
 import RequestDemo from './pages/RequestDemo.jsx'
 import GetStarted from './pages/GetStarted.jsx'
 import ServiceDetail from './pages/ServiceDetail.jsx'
+import ScanProduct from './pages/ScanProduct.jsx'
 import NotFound from './pages/NotFound.jsx'
 import InformationPage from './pages/InformationPage.jsx'
 import Register from './pages/Register.jsx'
@@ -189,6 +190,7 @@ function App() {
           <Route path="/amc" element={<AMC />} />
           <Route path="/request-demo" element={<RequestDemo />} />
           <Route path="/get-started" element={<GetStarted />} />
+          <Route path="/scan-product" element={<ScanProduct />} />
           <Route path="/register" element={<Register />} />
           <Route
   path="/track-order/:trackingNumber"
