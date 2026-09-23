@@ -20,6 +20,9 @@ import {
   customerCreateInstallation,
   createInstallationPaymentOrder,
   verifyInstallationPayment,
+  markInstallationPaymentFailed,
+  markInstallationPaymentCancelled,
+  markInstallationPaymentCollected,
 } from '../controllers/installationController.js';
 
 const router = Router();
@@ -72,6 +75,7 @@ router.put('/agent/installations/:bookingId/location', protect, requireDeliveryA
 
 // Add agent notes
 router.put('/agent/installations/:bookingId/notes', protect, requireDeliveryAgent, agentAddNotes);
+router.put('/agent/installations/:bookingId/payment/collect', protect, requireDeliveryAgent, markInstallationPaymentCollected);
 
 // ==========================================
 // CUSTOMER ROUTES
@@ -81,6 +85,9 @@ router.put('/agent/installations/:bookingId/notes', protect, requireDeliveryAgen
 router.post('/installations', protect, requireCustomer, customerCreateInstallation);
 router.post('/installations/:bookingId/payment/create-order', protect, requireCustomer, createInstallationPaymentOrder);
 router.post('/installations/:bookingId/payment/verify', protect, requireCustomer, verifyInstallationPayment);
+router.post('/installations/:bookingId/payment/failed', protect, requireCustomer, markInstallationPaymentFailed);
+router.post('/installations/:bookingId/payment/cancelled', protect, requireCustomer, markInstallationPaymentCancelled);
+router.put('/admin/installations/:bookingId/payment/collect', protect, requireAdmin, markInstallationPaymentCollected);
 
 // List customer's installations
 router.get('/customer/installations', protect, requireCustomer, customerListInstallations);

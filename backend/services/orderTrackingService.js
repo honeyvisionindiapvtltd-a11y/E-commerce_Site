@@ -10,10 +10,10 @@ import {
 } from "../constants/orderStatuses.js";
 import { emitOrderStatusUpdate } from "./realtimeService.js";
 import { canTransitionOrderStatus } from "./orderLifecycleService.js";
+import inventoryService, { isInventoryAuthorityEnabled } from "./inventoryService.js";
 
 const allowedTransitions = {
-  ORDER_PLACED: ["PAYMENT_CONFIRMED", "PROCESSING", "CANCELLED"],
-  PAYMENT_CONFIRMED: ["PROCESSING", "CANCELLED"],
+  ORDER_PLACED: ["PROCESSING", "CANCELLED"],
   PROCESSING: ["PACKED", "CANCELLED", "RETURN_REQUESTED"],
   PACKED: ["SHIPPED", "OUT_FOR_DELIVERY", "CANCELLED"],
   SHIPPED: ["OUT_FOR_DELIVERY", "DELIVERED"],
@@ -145,10 +145,15 @@ export const updateOrderTracking = async ({
   await order.save();
 
   if (status === ORDER_STATUSES.CANCELLED && !order.stockRestoredAt) {
-    await Promise.all(order.items.map((item) =>
-      Product.findByIdAndUpdate(item.product, { $inc: { stock: item.quantity } }),
-    ));
+    if (isInventoryAuthorityEnabled() && order.stockReservationStatus === "RESERVED") {
+      await Promise.all(order.items.map((item) => inventoryService.releaseInventory(item.product, item.quantity, { type: "ORDER", id: order.orderNumber })));
+    } else if (!isInventoryAuthorityEnabled() && order.stockReservationStatus === "RESERVED") {
+      await Promise.all(order.items.map((item) =>
+        Product.findByIdAndUpdate(item.product, { $inc: { stock: item.quantity } }),
+      ));
+    }
     order.stockRestoredAt = event.timestamp;
+    order.stockReservationStatus = "RELEASED";
     await order.save();
   }
 

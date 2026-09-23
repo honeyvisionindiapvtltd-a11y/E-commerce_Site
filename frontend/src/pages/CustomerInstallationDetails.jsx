@@ -1,11 +1,72 @@
 import { ArrowLeft, CalendarDays, MapPin, Wrench } from "lucide-react";
-import { Link, useParams } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { useCommerce } from "../context/index.js";
 
 export default function CustomerInstallationDetails() {
   const { id } = useParams();
-  const { installationBookings } = useCommerce();
-  const booking = installationBookings.find((item) => String(item.id || item._id) === String(id));
+  const navigate = useNavigate();
+  const { installationBookings, fetchInstallation, createInstallationPayment, verifyInstallationPayment, markInstallationPaymentFailed, markInstallationPaymentCancelled } = useCommerce();
+  const [retryingPayment, setRetryingPayment] = useState(false);
+  const [paymentError, setPaymentError] = useState("");
+  const [remoteBooking, setRemoteBooking] = useState(null);
+  const booking = remoteBooking || installationBookings.find((item) => String(item.id || item._id || item.bookingNumber) === String(id));
+
+  useEffect(() => {
+    if (!id || booking) return;
+    fetchInstallation(id).then(setRemoteBooking).catch(() => {});
+  }, [booking, fetchInstallation, id]);
+
+  const retryPayment = async () => {
+    setRetryingPayment(true);
+    setPaymentError("");
+    try {
+      const bookingId = booking.id || booking._id || booking.bookingNumber;
+      const paymentData = await createInstallationPayment(bookingId, String(booking.paymentMethod || "upi").toLowerCase());
+      if (!window.Razorpay) {
+        await new Promise((resolve, reject) => {
+          const script = document.createElement("script");
+          script.src = "https://checkout.razorpay.com/v1/checkout.js";
+          script.onload = resolve;
+          script.onerror = () => reject(new Error("Unable to load Razorpay checkout."));
+          document.body.appendChild(script);
+        });
+      }
+      const response = await new Promise((resolve, reject) => {
+        let completed = false;
+        const checkout = new window.Razorpay({
+          key: paymentData.keyId,
+          amount: paymentData.razorpayOrder.amount,
+          currency: paymentData.razorpayOrder.currency,
+          name: "Honey Vision",
+          description: `Installation ${booking.bookingNumber || bookingId}`,
+          order_id: paymentData.razorpayOrder.id,
+          handler: async (razorpayResponse) => {
+            completed = true;
+            try { resolve(await verifyInstallationPayment(bookingId, razorpayResponse)); } catch (error) { reject(error); }
+          },
+          modal: { ondismiss: () => {
+            if (completed) return;
+            void markInstallationPaymentCancelled(bookingId).catch(() => {});
+            reject(new Error("Payment was cancelled."));
+          } },
+        });
+        checkout.on("payment.failed", () => {
+          if (completed) return;
+          completed = true;
+          void markInstallationPaymentFailed(bookingId).catch(() => {});
+          reject(new Error("Installation payment failed."));
+        });
+        checkout.open();
+      });
+      const confirmed = response.installation || response.data?.installation;
+      if (confirmed) navigate("/installation/success", { state: { booking: confirmed } });
+    } catch (error) {
+      setPaymentError(error.message || "Unable to retry payment.");
+    } finally {
+      setRetryingPayment(false);
+    }
+  };
 
   if (!booking) {
     return (
@@ -32,6 +93,13 @@ export default function CustomerInstallationDetails() {
             <Info icon={CalendarDays} label="Preferred date" value={booking.preferredDate || "Not scheduled"} />
             <Info icon={MapPin} label="Location" value={booking.customer?.address || booking.address || "Address pending"} />
           </div>
+          {booking.paymentStatus !== "PAID" && !["COD", "CANCELLED", "INSTALLATION_COMPLETED"].includes(String(booking.paymentMethod || "").toUpperCase()) && booking.status !== "CANCELLED" && booking.status !== "INSTALLATION_COMPLETED" && (
+            <div className="mt-6 rounded-2xl border border-amber-200 bg-amber-50 p-4">
+              <p className="text-sm font-semibold text-amber-900">Payment is still pending.</p>
+              {paymentError && <p className="mt-2 text-sm text-red-700">{paymentError}</p>}
+              <button type="button" onClick={retryPayment} disabled={retryingPayment} className="mt-3 rounded-lg bg-amber-500 px-4 py-2.5 text-sm font-bold text-slate-950 disabled:opacity-60">{retryingPayment ? "Opening payment..." : "Try Payment Again"}</button>
+            </div>
+          )}
         </section>
       </div>
     </main>

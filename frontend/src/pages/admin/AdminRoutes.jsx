@@ -20,6 +20,8 @@ import SupportTickets from "./pages/SupportTickets";
 import LiveChats from "./pages/LiveChats";
 import AdminInstallationDetails from "./AdminInstallationDetails";
 import AdminInstallations from "./AdminInstallations";
+import AdminNotifications from "./pages/Notifications";
+import AMCManagement from "./AMCManagement.jsx";
 
 export default function AdminRoutes() {
   return (
@@ -42,10 +44,12 @@ export default function AdminRoutes() {
         <Route path="reports" element={<Reports />} />
         <Route path="admin-users" element={<AdminUsers />} />
         <Route path="settings" element={<Settings />} />
+        <Route path="notifications" element={<AdminNotifications />} />
         <Route path="support" element={<SupportTickets />} />
         <Route path="live-chats" element={<LiveChats />} />
         <Route path="installations" element={<AdminInstallations />} />
         <Route path="installations/:id" element={<AdminInstallationDetails />} />
+        <Route path="amc" element={<AMCManagement />} />
       </Route>
       <Route path="*" element={<Navigate to="/admin" replace />} />
     </Routes>

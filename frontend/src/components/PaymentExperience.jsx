@@ -22,21 +22,21 @@ const paymentOptions = [
     id: "googlepay",
     group: "UPI",
     title: "Google Pay",
-    description: "Google Pay payment will be processed through the configured Google Pay provider.",
+    description: "Choose Google Pay inside Razorpay Checkout.",
     icon: WalletCards,
   },
   {
     id: "phonepe",
     group: "UPI",
     title: "PhonePe",
-    description: "PhonePe payment will be processed through the configured PhonePe provider.",
+    description: "Choose PhonePe inside Razorpay Checkout.",
     icon: Smartphone,
   },
   {
     id: "paytm",
     group: "UPI",
     title: "Paytm",
-    description: "Paytm payment will be processed through the configured Paytm provider.",
+    description: "Choose Paytm inside Razorpay Checkout.",
     icon: Smartphone,
   },
   {
@@ -83,7 +83,6 @@ const methodLabel = (method) => ({
 export default function PaymentExperience({
   paymentMethod,
   setPaymentMethod,
-  selectedUpiApp,
   setSelectedUpiApp,
   paymentError,
   paymentErrorType,
@@ -114,8 +113,7 @@ export default function PaymentExperience({
     groups[option.group] = [...(groups[option.group] || []), option];
     return groups;
   }, {});
-  const unavailableProviders = new Set(["googlepay", "phonepe", "paytm"]);
-  const isProviderUnavailable = unavailableProviders.has(paymentMethod);
+  const isProviderUnavailable = false;
   const selectedMethodId = paymentMethod;
   const selectedOption = paymentOptions.find((option) => option.id === selectedMethodId) || paymentOptions[0];
   const SelectedIcon = selectedOption.icon;
@@ -183,14 +181,12 @@ export default function PaymentExperience({
                     <div className="space-y-1">
                       {options.map((option) => {
                         const Icon = option.icon;
-                        const unavailable = unavailableProviders.has(option.id);
-                        const active = option.id === selectedMethodId && !unavailable;
+                        const active = option.id === selectedMethodId;
                         return (
-                          <button key={option.id} type="button" disabled={unavailable} onClick={() => { setPaymentMethod(option.id); setSelectedUpiApp(option.id === "googlepay" || option.id === "phonepe" || option.id === "paytm" ? option.id : ""); }} aria-pressed={active} className={`flex min-h-14 w-full items-start gap-3 rounded-lg border px-3 py-2.5 text-left transition ${active ? "border-[#f4b400] bg-[#fff8df] text-[#071426]" : "border-transparent text-slate-600 hover:border-slate-200 hover:bg-white"} ${unavailable ? "cursor-not-allowed text-slate-500 opacity-75" : ""}`}>
+                          <button key={option.id} type="button" onClick={() => { setPaymentMethod(option.id); setSelectedUpiApp(option.id === "googlepay" || option.id === "phonepe" || option.id === "paytm" ? option.id : ""); }} role="radio" aria-checked={active} className={`flex min-h-14 w-full items-start gap-3 rounded-lg border px-3 py-2.5 text-left transition ${active ? "border-[#f4b400] bg-[#fff8df] text-[#071426]" : "border-transparent text-slate-600 hover:border-slate-200 hover:bg-white"}`}>
                             <Icon size={18} className={`mt-0.5 shrink-0 ${active ? "text-[#b17b00]" : "text-slate-400"}`} />
                             <span className="min-w-0 flex-1">
                               <span className="block break-words text-sm font-bold leading-5">{option.title}</span>
-                              {unavailable && <span className="mt-0.5 block text-[10px] font-bold leading-4 text-slate-500">Currently unavailable</span>}
                             </span>
                             <span className={`mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-full border ${active ? "border-[#f4b400]" : "border-slate-300"}`}>{active && <span className="h-2.5 w-2.5 rounded-full bg-[#f4b400]" />}</span>
                           </button>
@@ -207,12 +203,12 @@ export default function PaymentExperience({
                   <div><p className="text-lg font-black">{methodLabel(paymentMethod)}</p><p className="mt-1 text-sm text-slate-500">{selectedOption.description}</p></div>
                 </div>
 
-                {(isProviderUnavailable || paymentError) && (
+                {paymentError && (
                   <div role="status" className={`mt-5 flex items-start gap-3 rounded-lg border p-4 text-sm ${isProviderUnavailable || paymentErrorType === "unavailable" || paymentErrorType === "cancelled" || paymentErrorType === "validation" ? "border-amber-200 bg-[#fffaf0] text-amber-900" : "border-red-200 bg-red-50 text-red-700"}`}>
-                    {isProviderUnavailable || paymentErrorType !== "failed" ? <ShieldCheck size={19} className="mt-0.5 shrink-0" /> : <X size={19} className="mt-0.5 shrink-0" />}
+                    {paymentErrorType !== "failed" ? <ShieldCheck size={19} className="mt-0.5 shrink-0" /> : <X size={19} className="mt-0.5 shrink-0" />}
                     <div>
-                      <p className="font-bold">{isProviderUnavailable ? `${methodLabel(paymentMethod)} is currently unavailable` : paymentErrorType === "cancelled" ? "Payment was cancelled" : paymentErrorType === "failed" ? "Payment failed" : "Payment information"}</p>
-                      <p className="mt-1">{isProviderUnavailable ? `Please select Razorpay or Cash on Delivery to continue.` : paymentError}</p>
+                      <p className="font-bold">{paymentErrorType === "cancelled" ? "Payment was cancelled" : paymentErrorType === "failed" ? "Payment failed" : "Payment information"}</p>
+                      <p className="mt-1">{paymentError}</p>
                     </div>
                   </div>
                 )}
@@ -220,7 +216,7 @@ export default function PaymentExperience({
                 {selectedMethodId === "cod" ? (
                   <div className="mt-6 rounded-lg border border-amber-200 bg-[#fffaf0] p-5"><div className="flex gap-3"><PackageCheck className="shrink-0 text-[#b17b00]" /><div><p className="font-bold">Pay when your order arrives</p><p className="mt-1 text-sm leading-6 text-slate-600">Your order will be placed as pending and collected on delivery.</p></div></div></div>
                 ) : ["googlepay", "phonepe", "paytm"].includes(selectedMethodId) ? (
-                  <div className="mt-6 rounded-lg border border-amber-200 bg-[#fffaf0] p-5 text-sm text-amber-900">{methodLabel(selectedMethodId)} is currently unavailable. Please select another payment method.</div>
+                  <div className="mt-6 rounded-lg border border-[#dbe7f5] bg-[#f7fbff] p-5 text-sm text-slate-600">{methodLabel(selectedMethodId)} will open Razorpay Checkout. Select the matching UPI app inside the secure Razorpay window.</div>
                 ) : (
                   <div className="mt-6 space-y-4">
                     <div className="rounded-lg border border-[#dbe7f5] bg-[#f7fbff] p-5">

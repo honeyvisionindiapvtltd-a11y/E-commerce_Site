@@ -1,5 +1,6 @@
 import Product from "../models/Product.js";
 import Category from "../models/Category.js";
+import inventoryService, { isInventoryAuthorityEnabled } from "../services/inventoryService.js";
 import {
   buildListPagination,
   buildProductListProjection,
@@ -706,6 +707,20 @@ const createProduct = async (req, res) => {
         metaDescription,
       });
 
+    if (isInventoryAuthorityEnabled()) {
+      await inventoryService.createInventory({
+        productId: String(product._id),
+        sku: product.sku,
+        totalStock: Number(stock || 0),
+        availableStock: Number(stock || 0),
+        reservedStock: 0,
+        soldStock: 0,
+        damagedStock: 0,
+        lowStockThreshold: Number(lowStockThreshold || 0),
+        currentPrice: Number(price || 0),
+      });
+    }
+
     // ========================================================
     // POPULATE CREATED PRODUCT
     // ========================================================
@@ -875,7 +890,20 @@ const updateProduct = async (req, res) => {
       safeBody.subCategory = nextSubCategory || null;
     }
 
-    if (safeBody.stock !== undefined) safeBody.stock = Number(safeBody.stock || 0);
+    if (safeBody.stock !== undefined) {
+      safeBody.stock = Number(safeBody.stock || 0);
+      if (isInventoryAuthorityEnabled()) {
+        if (req.body.stockAdjustment !== true) {
+          return res.status(409).json({ success: false, message: "Stock changes must use the Inventory adjustment workflow." });
+        }
+        const inventory = await inventoryService.requireInventory(product._id);
+        const delta = safeBody.stock - inventory.availableStock;
+        if (delta !== 0) {
+          await inventoryService.adjustInventory(product._id, delta, "Product edit stock adjustment", req.user._id, req.body.stockAdjustmentId ? { type: "PRODUCT_EDIT", id: req.body.stockAdjustmentId } : null);
+        }
+        delete safeBody.stock;
+      }
+    }
     if (safeBody.price !== undefined) safeBody.price = Number(safeBody.price || 0);
     if (safeBody.mrp !== undefined) safeBody.mrp = Number(safeBody.mrp || 0);
     if (safeBody.gstPercentage !== undefined) safeBody.gstPercentage = Number(safeBody.gstPercentage || 0);

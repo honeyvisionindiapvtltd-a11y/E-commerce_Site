@@ -2,7 +2,6 @@ import { useMemo } from "react";
 
 const STATUS_CONFIG = [
   ["ORDER_PLACED", "Order Placed", "bg-amber-400", "#fbbf24"],
-  ["PAYMENT_CONFIRMED", "Payment Confirmed", "bg-cyan-500", "#06b6d4"],
   ["PROCESSING", "Processing", "bg-blue-500", "#3b82f6"],
   ["PACKED", "Packed", "bg-indigo-500", "#6366f1"],
   ["SHIPPED", "Shipped", "bg-purple-500", "#8b5cf6"],

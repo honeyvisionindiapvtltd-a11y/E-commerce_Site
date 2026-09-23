@@ -12,13 +12,12 @@ import { SOCKET_URL } from "../../../lib/socketConfig.js";
 const API_BASE = import.meta.env.VITE_API_URL || "/api";
 
 const normalizeDeliveryStatus = (status) => {
-  const canonical = ["ORDER_PLACED", "PAYMENT_CONFIRMED", "PROCESSING", "PACKED", "SHIPPED", "OUT_FOR_DELIVERY", "DELIVERED", "FAILED_DELIVERY"];
+  const canonical = ["ORDER_PLACED", "PROCESSING", "PACKED", "SHIPPED", "OUT_FOR_DELIVERY", "DELIVERED", "FAILED_DELIVERY"];
   return canonical.includes(status) ? status : "ORDER_PLACED";
 };
 
 const statusLabel = (status) => ({
   ORDER_PLACED: "Preparing",
-  PAYMENT_CONFIRMED: "Payment confirmed",
   PROCESSING: "Processing",
   PACKED: "Packed",
   SHIPPED: "Shipped",
@@ -28,8 +27,7 @@ const statusLabel = (status) => ({
 }[status] || status);
 
 const allowedStatusTransitions = {
-  ORDER_PLACED: ["PAYMENT_CONFIRMED", "PROCESSING", "CANCELLED"],
-  PAYMENT_CONFIRMED: ["PROCESSING", "CANCELLED"],
+  ORDER_PLACED: ["PROCESSING", "CANCELLED"],
   PROCESSING: ["PACKED", "CANCELLED", "RETURN_REQUESTED"],
   PACKED: ["SHIPPED", "OUT_FOR_DELIVERY", "CANCELLED"],
   SHIPPED: ["OUT_FOR_DELIVERY", "DELIVERED", "CANCELLED"],
@@ -251,7 +249,7 @@ export default function Delivery() {
         setSearch={setQuery}
         filter={filter}
         setFilter={setFilter}
-        options={["ORDER_PLACED", "PAYMENT_CONFIRMED", "PROCESSING", "PACKED", "SHIPPED", "OUT_FOR_DELIVERY", "DELIVERED", "FAILED_DELIVERY"]}
+        options={["ORDER_PLACED", "PROCESSING", "PACKED", "SHIPPED", "OUT_FOR_DELIVERY", "DELIVERED", "FAILED_DELIVERY"]}
       />
 
       <Table

@@ -11,20 +11,23 @@ import {
   Camera,
   Package,
   PackageCheck,
+  Wrench,
+  ShieldCheck,
   CheckCircle,
   Clock,
-  ShieldCheck,
   Edit3,
   Phone,
   Mail,
   Headphones,
 } from "lucide-react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, NavLink, useNavigate } from "react-router-dom";
 import { useCommerce } from "../context/index.js";
+import { useNotificationContext } from "../context/useNotificationContext.js";
 
 export default function Profile() {
   const navigate = useNavigate();
   const { user, profile, orders, wishlist, addresses, paymentMethods, products, logout } = useCommerce();
+  const { unreadCount } = useNotificationContext();
 
   const displayProfile = {
     ...profile,
@@ -63,6 +66,11 @@ export default function Profile() {
       })
     : [];
   const totalOrders = ownOrders.length;
+  const ordersThisMonth = ownOrders.filter((order) => {
+    const createdAt = new Date(order.createdAt || order.orderDate || order.date);
+    const now = new Date();
+    return createdAt.getFullYear() === now.getFullYear() && createdAt.getMonth() === now.getMonth();
+  }).length;
   const deliveredCount = ownOrders.filter((order) => String(order.status).toLowerCase().includes("delivered")).length;
   const pendingCount = ownOrders.filter((order) => String(order.status).toLowerCase().includes("pending")).length;
   const wishlistCount = wishlist.length;
@@ -83,9 +91,7 @@ export default function Profile() {
 
           <div className="flex items-center gap-2 text-sm text-gray-300 mb-8">
 
-            <span className="hover:text-white cursor-pointer">
-              Home
-            </span>
+            <Link to="/" className="hover:text-white">Home</Link>
 
             <span>/</span>
 
@@ -94,23 +100,12 @@ export default function Profile() {
             </span>
 
           </div>
-
           {/* Profile Information */}
-
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-8">
-
-            {/* User */}
-
             <div className="flex items-center gap-6">
-
-              {/* Profile Image */}
-
               <div className="relative">
-
                 <div className="w-28 h-28 rounded-full bg-white p-1 shadow-xl">
-
                   <div className="w-full h-full rounded-full bg-gradient-to-br from-[#E5E7EB] to-[#CBD5E1] flex items-center justify-center overflow-hidden">
-
                     <User
                       size={58}
                       className="text-[#071426]"
@@ -123,6 +118,10 @@ export default function Profile() {
                 {/* Edit Button */}
 
                 <button
+                  type="button"
+                  disabled
+                  aria-label="Profile photo upload is not available yet"
+                  title="Profile photo upload is not available yet"
                   className="
                     absolute
                     bottom-0
@@ -139,6 +138,8 @@ export default function Profile() {
                     border-[#071426]
                     hover:bg-yellow-400
                     transition
+                    opacity-60
+                    cursor-not-allowed
                   "
                 >
 
@@ -160,11 +161,7 @@ export default function Profile() {
 
                   </h1>
 
-                  <span className="bg-[#F4B400] text-[#071426] text-xs font-bold px-3 py-1 rounded-full">
-
-                    VERIFIED
-
-                  </span>
+                  {user?.emailVerified && <span className="bg-[#F4B400] text-[#071426] text-xs font-bold px-3 py-1 rounded-full">VERIFIED</span>}
 
                 </div>
 
@@ -274,7 +271,7 @@ export default function Profile() {
             </div>
 
             <p className="text-green-600 text-sm mt-4 font-medium">
-              +4 this month
+              {ordersThisMonth ? `+${ordersThisMonth} this month` : "No new orders this month"}
             </p>
 
           </div>
@@ -488,6 +485,35 @@ export default function Profile() {
 
                 </Link>
 
+                {/* Installation History */}
+
+                <NavLink
+                  to="/installation/history"
+                  className={({ isActive }) => `
+                    w-full
+                    flex
+                    items-center
+                    gap-4
+                    px-4
+                    py-3.5
+                    rounded-xl
+                    transition
+                    mt-1
+                    ${isActive ? "bg-[#FFF7DB] text-[#071426] font-semibold" : "text-gray-600 hover:bg-gray-50 hover:text-[#071426]"}
+                  `}
+                >
+                  <Wrench size={20} />
+                  Installation History
+                </NavLink>
+
+                <NavLink
+                  to="/my-amc"
+                  className={({ isActive }) => `w-full flex items-center gap-4 px-4 py-3.5 rounded-xl transition mt-1 ${isActive ? "bg-[#FFF7DB] text-[#071426] font-semibold" : "text-gray-600 hover:bg-gray-50 hover:text-[#071426]"}`}
+                >
+                  <ShieldCheck size={20} />
+                  My AMC
+                </NavLink>
+
 
                 {/* Wishlist */}
 
@@ -608,7 +634,7 @@ export default function Profile() {
 
                   </span>
 
-                  <span className="w-2.5 h-2.5 rounded-full bg-red-500"></span>
+                  {unreadCount > 0 && <span className="rounded-full bg-[#F4B400] px-2 py-0.5 text-xs font-bold text-[#071426]">{unreadCount > 99 ? "99+" : unreadCount}</span>}
 
                 </Link>
 

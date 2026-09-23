@@ -16,6 +16,7 @@ import chatRoutes from './routes/chatRoutes.js';
 import notificationRoutes from './routes/notificationRoutes.js';
 import newsletterRoutes from './routes/newsletterRoutes.js';
 import installationsRoutes from './routes/installations.js';
+import returnRoutes from './routes/returnRoutes.js';
 
 dotenv.config();
 
@@ -53,6 +54,7 @@ app.use('/api/payment', paymentRoutes);
 app.use('/api/tracking', trackingRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/inventory', inventoryRoutes);
+app.use('/api/returns', returnRoutes);
 app.use('/api/delivery', deliveryRoutes);
 app.use('/api/support', supportRoutes);
 app.use('/api/chat', chatRoutes);

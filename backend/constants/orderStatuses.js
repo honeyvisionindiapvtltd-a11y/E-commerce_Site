@@ -1,6 +1,5 @@
 export const ORDER_STATUSES = Object.freeze({
   ORDER_PLACED: "ORDER_PLACED",
-  PAYMENT_CONFIRMED: "PAYMENT_CONFIRMED",
   PROCESSING: "PROCESSING",
   PACKED: "PACKED",
   SHIPPED: "SHIPPED",
@@ -14,7 +13,6 @@ export const ORDER_STATUSES = Object.freeze({
 
 export const STATUS_TITLES = Object.freeze({
   ORDER_PLACED: "Order Placed",
-  PAYMENT_CONFIRMED: "Payment Confirmed",
   PROCESSING: "Processing",
   PACKED: "Packed",
   SHIPPED: "Order Shipped",
@@ -28,7 +26,6 @@ export const STATUS_TITLES = Object.freeze({
 
 export const STATUS_DESCRIPTIONS = Object.freeze({
   ORDER_PLACED: "Your order has been placed successfully.",
-  PAYMENT_CONFIRMED: "Payment has been confirmed.",
   PROCESSING: "Your order is being processed.",
   PACKED: "Your order has been packed and is ready for shipment.",
   SHIPPED: "Your order has been shipped and is on its way.",

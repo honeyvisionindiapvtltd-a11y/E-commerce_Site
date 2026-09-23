@@ -1,4 +1,4 @@
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import {
   Phone,
   Mail,
@@ -12,16 +12,56 @@ import {
   FaTwitter,
   FaYoutube,
 } from 'react-icons/fa'
+import { companyInfo } from "../config/companyInfo.js";
 
 export default function Footer() {
   const navigate = useNavigate();
+
+  const categoryLinks = [
+    ["Laptops", "laptops"],
+    ["Desktop PCs", "desktop-pcs"],
+    ["CCTV Cameras", "cctv-cameras"],
+    ["Drones", "drones"],
+    ["Networking", "networking"],
+    ["Storage", "storage"],
+    ["Gaming", "gaming"],
+    ["Printers", "printers"],
+  ];
+
+  const supportLinks = [
+    ["Contact Us", "/contact"],
+    ["Track Order", "/order-tracking"],
+    ["Installation Service", "/installation"],
+    ["AMC Plans", "/amc"],
+    ["Warranty", "/warranty"],
+    ["Returns", "/contact?topic=returns"],
+    ["FAQs", "/faqs"],
+  ];
+
+  const companyLinks = [
+    ["About Us", "/about"],
+    ["Solutions", "/solutions"],
+    ["Technology", "/technology"],
+    ["Industries", "/industries"],
+    ["Blogs", "/blogs"],
+    ["Privacy Policy", "/privacy-policy"],
+    ["Terms & Conditions", "/terms"],
+  ];
+
+  const socialLinks = [
+    [FaFacebookF, companyInfo.socialLinks.facebook, "Facebook"],
+    [FaInstagram, companyInfo.socialLinks.instagram, "Instagram"],
+    [FaLinkedinIn, companyInfo.socialLinks.linkedin, "LinkedIn"],
+    [FaTwitter, companyInfo.socialLinks.twitter, "Twitter"],
+    [FaYoutube, companyInfo.socialLinks.youtube, "YouTube"],
+  ];
 
   const handleSubscribe = () => {
     navigate("/contact");
   };
 
   const handleBrochure = () => {
-    window.open("https://www.honeyvision.in", "_blank", "noopener,noreferrer");
+    navigate("/contact?topic=brochure");
   };
 
   return (
@@ -56,17 +96,23 @@ export default function Footer() {
 
               <div className="flex gap-3">
                 <MapPin size={16} className="shrink-0 text-yellow-400"/>
-                Bengaluru, India
+                <a href={companyInfo.locationHref} target="_blank" rel="noreferrer" className="hover:text-yellow-400">
+                  {companyInfo.location}
+                </a>
               </div>
 
               <div className="flex gap-3">
                 <Phone size={16} className="shrink-0 text-yellow-400"/>
-                +91 XXXXX XXXXX
+                <a href={`tel:${companyInfo.phoneRaw}`} className="hover:text-yellow-400">
+                  {companyInfo.phone}
+                </a>
               </div>
 
               <div className="flex gap-3">
                 <Mail size={16} className="shrink-0 text-yellow-400"/>
-                support@honeyvision.in
+                <a href={`mailto:${companyInfo.supportEmail}`} className="hover:text-yellow-400">
+                  {companyInfo.supportEmail}
+                </a>
               </div>
 
             </div>
@@ -83,14 +129,11 @@ export default function Footer() {
 
             <ul className="space-y-2 text-xs sm:space-y-3 sm:text-sm">
 
-              <li>Laptops</li>
-              <li>Desktop PCs</li>
-              <li>CCTV Cameras</li>
-              <li>Drones</li>
-              <li>Networking</li>
-              <li>Storage</li>
-              <li>Gaming</li>
-              <li>Printers</li>
+              {categoryLinks.map(([label, slug]) => (
+                <li key={slug}>
+                  <Link to={`/products?category=${slug}`} className="transition hover:text-yellow-400">{label}</Link>
+                </li>
+              ))}
 
             </ul>
 
@@ -106,13 +149,11 @@ export default function Footer() {
 
             <ul className="space-y-2 text-xs sm:space-y-3 sm:text-sm">
 
-              <li>Contact Us</li>
-              <li>Track Order</li>
-              <li>Installation Service</li>
-              <li>AMC Plans</li>
-              <li>Warranty</li>
-              <li>Returns</li>
-              <li>FAQs</li>
+              {supportLinks.map(([label, path]) => (
+                <li key={path}>
+                  <Link to={path} className="transition hover:text-yellow-400">{label}</Link>
+                </li>
+              ))}
 
             </ul>
 
@@ -128,13 +169,11 @@ export default function Footer() {
 
             <ul className="space-y-2 text-xs sm:space-y-3 sm:text-sm">
 
-              <li>About Us</li>
-              <li>Solutions</li>
-              <li>Technology</li>
-              <li>Industries</li>
-              <li>Blogs</li>
-              <li>Privacy Policy</li>
-              <li>Terms & Conditions</li>
+              {companyLinks.map(([label, path]) => (
+                <li key={path}>
+                  <Link to={path} className="transition hover:text-yellow-400">{label}</Link>
+                </li>
+              ))}
 
             </ul>
 
@@ -171,7 +210,7 @@ export default function Footer() {
             </div>
 
             <button type="button" onClick={handleBrochure} className="mt-4 w-full rounded-lg bg-yellow-500 py-2.5 text-sm font-semibold text-black hover:bg-yellow-600 sm:mt-5">
-              Download Brochure
+              Request Brochure
             </button>
 
           </div>
@@ -222,11 +261,11 @@ export default function Footer() {
 
           <div className="mt-1 flex gap-4 lg:mt-0">
 
-            <FaFacebookF className="hover:text-yellow-400 cursor-pointer"/>
-            <FaInstagram className="hover:text-yellow-400 cursor-pointer"/>
-            <FaLinkedinIn className="hover:text-yellow-400 cursor-pointer"/>
-            <FaTwitter className="hover:text-yellow-400 cursor-pointer"/>
-            <FaYoutube className="hover:text-yellow-400 cursor-pointer"/>
+            {socialLinks.map(([Icon, href, label]) => href ? (
+              <a key={label} href={href} target="_blank" rel="noreferrer" aria-label={label} className="transition hover:text-yellow-400">
+                <Icon />
+              </a>
+            ) : null)}
 
           </div>
 

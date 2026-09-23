@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { ArrowLeft, CalendarDays, MapPin, Phone, Mail, User, Clock3, CheckCircle2, AlertTriangle, CircleDollarSign, Wrench, UserCog, MessageSquareText, Navigation } from 'lucide-react';
+import { ArrowLeft, CalendarDays, MapPin, Phone, Mail, User, Clock3, Wrench, UserCog, MessageSquareText, Navigation } from 'lucide-react';
 import { useCommerce } from '../../context/index.js';
 
 const API_BASE = import.meta.env.VITE_API_URL || '/api';
@@ -54,56 +54,45 @@ export default function AdminInstallationDetails() {
   const [agentInput, setAgentInput] = useState('');
   const [noteInput, setNoteInput] = useState('');
 
-  const loadInstallation = async () => {
-    if (!authToken) return;
-
-    try {
-      setLoading(true);
-      const response = await fetch(`${API_BASE}/admin/installations/${encodeURIComponent(id)}`, {
-        headers: { Authorization: `Bearer ${authToken}` },
-      });
-
-      if (!response.ok) {
-        throw new Error('Unable to load installation booking');
-      }
-
-      const payload = await response.json();
-      const booking = payload.data || payload;
-      setInstallation(booking);
-      setStatusInput(booking.status || '');
-      setAgentInput(booking.assignedAgentId || '');
-      setNoteInput(booking.adminNotes || '');
-    } catch (err) {
-      setError(err.message || 'Unable to load booking details');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const loadAgents = async () => {
-    if (!authToken) return;
-
-    try {
-      const response = await fetch(`${API_BASE}/admin/users?role=delivery_agent`, {
-        headers: { Authorization: `Bearer ${authToken}` },
-      });
-      if (response.ok) {
-        const payload = await response.json();
-        setAgents(payload.data || payload.users || []);
-      }
-    } catch (err) {
-      console.error('Unable to load agents:', err);
-    }
-  };
-
   useEffect(() => {
-    loadAgents();
+    if (!authToken) return;
+    let ignore = false;
+    fetch(`${API_BASE}/admin/users?role=delivery_agent`, { headers: { Authorization: `Bearer ${authToken}` } })
+      .then(async (response) => {
+        if (!response.ok) return null;
+        const payload = await response.json();
+        return payload.data || payload.users || [];
+      })
+      .then((nextAgents) => {
+        if (!ignore && nextAgents) setAgents(nextAgents);
+      })
+      .catch(() => {});
+    return () => { ignore = true; };
   }, [authToken]);
 
   useEffect(() => {
-    if (id && authToken) {
-      loadInstallation();
-    }
+    if (!id || !authToken) return;
+    let ignore = false;
+    fetch(`${API_BASE}/admin/installations/${encodeURIComponent(id)}`, { headers: { Authorization: `Bearer ${authToken}` } })
+      .then(async (response) => {
+        if (!response.ok) throw new Error('Unable to load installation booking');
+        const payload = await response.json();
+        return payload.data || payload;
+      })
+      .then((booking) => {
+        if (ignore) return;
+        setInstallation(booking);
+        setStatusInput(booking.status || '');
+        setAgentInput(booking.assignedAgentId || '');
+        setNoteInput(booking.adminNotes || '');
+      })
+      .catch((loadError) => {
+        if (!ignore) setError(loadError.message || 'Unable to load booking details');
+      })
+      .finally(() => {
+        if (!ignore) setLoading(false);
+      });
+    return () => { ignore = true; };
   }, [id, authToken]);
 
   const statusOptions = useMemo(() => [
@@ -190,6 +179,25 @@ export default function AdminInstallationDetails() {
       setInstallation(payload.data || installation);
     } catch (err) {
       setError(err.message || 'Unable to save admin notes');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const collectCodPayment = async () => {
+    if (!installation || String(installation.paymentMethod || '').toUpperCase() !== 'COD') return;
+    setSaving(true);
+    try {
+      const response = await fetch(`${API_BASE}/admin/installations/${encodeURIComponent(installation.id || installation._id)}/payment/collect`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` },
+        body: JSON.stringify({ amount: Number(installation.total) }),
+      });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.message || 'Unable to collect COD payment');
+      setInstallation(payload.data || installation);
+    } catch (err) {
+      setError(err.message || 'Unable to collect COD payment');
     } finally {
       setSaving(false);
     }
@@ -473,7 +481,13 @@ export default function AdminInstallationDetails() {
               <ul className="space-y-3 text-sm text-slate-700">
                 <li className="flex items-center justify-between gap-3"><span>Order</span><strong>{installation.orderNumber || installation.orderId || 'Not linked'}</strong></li>
                 <li className="flex items-center justify-between gap-3"><span>Customer notes</span><strong>{installation.customerNotes ? 'Added' : 'None'}</strong></li>
+                <li className="flex items-center justify-between gap-3"><span>Payment method</span><strong>{String(installation.paymentMethod || 'ONLINE').toUpperCase() === 'COD' ? 'Cash on Delivery' : String(installation.paymentMethod || 'ONLINE').toUpperCase()}</strong></li>
                 <li className="flex items-center justify-between gap-3"><span>Payment status</span><strong>{installation.paymentStatus || 'pending'}</strong></li>
+                <li className="flex items-center justify-between gap-3"><span>Amount</span><strong>{formatCurrency(installation.total)}</strong></li>
+                {installation.paymentStatus !== 'PAID' && String(installation.paymentMethod || '').toUpperCase() === 'COD' && (
+                  <li><button type="button" onClick={collectCodPayment} disabled={saving} className="w-full rounded-lg bg-amber-500 px-3 py-2 text-xs font-semibold text-slate-950 disabled:opacity-60">Mark COD Payment Collected</button></li>
+                )}
+                {installation.paidAt && <li className="flex items-center justify-between gap-3"><span>Paid at</span><strong>{formatDate(installation.paidAt)}</strong></li>}
                 <li className="flex items-center justify-between gap-3"><span>Completion</span><strong>{installation.completedDate ? formatDate(installation.completedDate) : 'Pending'}</strong></li>
               </ul>
             </section>

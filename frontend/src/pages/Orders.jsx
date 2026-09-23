@@ -309,7 +309,7 @@ export default function Orders() {
                         </div>
                       </div>
                     </Link>
-                    {((order.actions?.canCancel ?? ['ORDER_PLACED', 'PAYMENT_CONFIRMED', 'PROCESSING', 'PACKED'].includes(order.status)) && order.status !== 'DELIVERED') && (
+                    {((order.actions?.canCancel ?? ['ORDER_PLACED', 'PROCESSING', 'PACKED'].includes(order.status)) && order.status !== 'DELIVERED') && (
                       <button
                         type="button"
                         onClick={(event) => handleCancelOrder(event, order)}

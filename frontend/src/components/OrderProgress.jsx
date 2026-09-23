@@ -30,40 +30,34 @@ export const OrderProgress = ({ status, estimatedDeliveryDate }) => {
       position: 0,
     },
     {
-      id: ORDER_STATUSES.PAYMENT_CONFIRMED,
-      label: "Payment Confirmed",
-      icon: CheckCircle2,
-      position: 1,
-    },
-    {
       id: ORDER_STATUSES.PROCESSING,
       label: "Processing",
       icon: Package,
-      position: 2,
+      position: 1,
     },
     {
       id: ORDER_STATUSES.PACKED,
       label: "Packed",
       icon: Package,
-      position: 3,
+      position: 2,
     },
     {
       id: ORDER_STATUSES.SHIPPED,
       label: "Shipped",
       icon: Truck,
-      position: 4,
+      position: 3,
     },
     {
       id: ORDER_STATUSES.OUT_FOR_DELIVERY,
       label: "Out for Delivery",
       icon: Truck,
-      position: 5,
+      position: 4,
     },
     {
       id: ORDER_STATUSES.DELIVERED,
       label: "Delivered",
       icon: Home,
-      position: 6,
+      position: 5,
     },
   ];
 

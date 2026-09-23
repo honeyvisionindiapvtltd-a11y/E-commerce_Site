@@ -2,6 +2,7 @@ import Order from "../models/Order.js";
 import ReturnRequest from "../models/ReturnRequest.js";
 import { updateOrderTracking } from "../services/orderTrackingService.js";
 import { getReturnEligibility } from "../services/orderLifecycleService.js";
+import inventoryService, { isInventoryAuthorityEnabled } from "../services/inventoryService.js";
 
 const allowedStatuses = ["REQUESTED", "APPROVED", "REJECTED", "PICKUP_SCHEDULED", "PICKED_UP", "REFUNDED"];
 const findOrder = (orderNumber) => Order.findOne({ orderNumber: String(orderNumber).trim() });
@@ -68,5 +69,50 @@ export const updateReturn = async (req, res) => {
   } catch (error) {
     console.error("updateReturn error:", error);
     return res.status(500).json({ success: false, message: "Failed to update return request", error: error.message });
+  }
+};
+
+export const processReturnInventory = async (req, res) => {
+  try {
+    if (!isInventoryAuthorityEnabled()) return res.status(409).json({ success: false, message: "Inventory authority is not enabled." });
+    const { disposition, reason = "", items } = req.body || {};
+    if (!["SELLABLE_RETURN", "DAMAGED_RETURN", "REPLACEMENT", "REFUND"].includes(disposition)) {
+      return res.status(400).json({ success: false, message: "A valid return inventory disposition is required." });
+    }
+    const request = await ReturnRequest.findById(req.params.id);
+    if (!request) return res.status(404).json({ success: false, message: "Return request not found" });
+    if (!["PICKED_UP", "REFUNDED"].includes(request.status)) return res.status(409).json({ success: false, message: "Inventory can be processed only after the return is picked up." });
+    if (request.inventoryProcessed) return res.json({ success: true, request, idempotent: true });
+
+    const order = await Order.findById(request.order).select("items");
+    if (!order) return res.status(404).json({ success: false, message: "The related order was not found" });
+    const requestedItems = Array.isArray(items) && items.length ? items : order.items.map((item) => ({ productId: item.product, quantity: item.quantity }));
+    const orderItems = new Map(order.items.map((item) => [String(item.product), item]));
+
+    for (const item of requestedItems) {
+      const orderItem = orderItems.get(String(item.productId));
+      const quantity = Number(item.quantity);
+      if (!orderItem || !Number.isInteger(quantity) || quantity < 1 || quantity > Number(orderItem.quantity)) {
+        return res.status(400).json({ success: false, message: "Return quantity is invalid for the selected item." });
+      }
+      await inventoryService.processReturnInventory(
+        item.productId,
+        quantity,
+        disposition,
+        { type: "RETURN", id: `${request._id}:${item.productId}` },
+        String(reason).trim(),
+        req.user._id,
+      );
+    }
+
+    request.inventoryDisposition = disposition;
+    request.inventoryProcessed = true;
+    request.inventoryProcessedAt = new Date();
+    request.inventoryProcessedBy = req.user._id;
+    await request.save();
+    return res.json({ success: true, request });
+  } catch (error) {
+    console.error("processReturnInventory error:", error);
+    return res.status(400).json({ success: false, message: error.message || "Failed to process return inventory" });
   }
 };

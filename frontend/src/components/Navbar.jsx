@@ -175,7 +175,7 @@ export default function Navbar({ isDarkTheme = false, onToggleTheme }) {
   };
 
   return (
-    <header className="sticky top-0 z-50 w-full bg-[#071426] text-white shadow-lg">
+    <header className="relative z-50 w-full bg-[#071426] text-white shadow-lg">
       {/* Top header */}
       <div className="border-b border-white/10">
         <div className="flex h-11 w-full items-center justify-between px-3 text-xs sm:px-6 sm:text-sm">

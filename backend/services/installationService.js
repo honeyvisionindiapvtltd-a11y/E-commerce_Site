@@ -15,6 +15,7 @@ import {
   emitInstallationLocationUpdate,
   emitInstallationStatusUpdate,
 } from './realtimeService.js';
+import { notifyAdmins } from './notificationService.js';
 
 /**
  * Installation Service
@@ -57,14 +58,22 @@ const additionalServicePriceMap = {
   demo: 199,
 };
 
+export const isSupportedInstallationService = (serviceId) => Object.prototype.hasOwnProperty.call(servicePriceMap, String(serviceId || '').trim().toLowerCase());
+export const areSupportedAdditionalServices = (serviceIds = []) => Array.isArray(serviceIds)
+  && serviceIds.every((serviceId) => Object.prototype.hasOwnProperty.call(additionalServicePriceMap, String(serviceId || '').trim().toLowerCase()));
+
 export const calculateInstallationPricing = ({ serviceId, additionalServiceIds = [], order } = {}) => {
   const normalizedServiceId = String(serviceId || '').trim().toLowerCase();
-  const installationPrice = servicePriceMap[normalizedServiceId] ?? 1499;
+  if (!isSupportedInstallationService(normalizedServiceId)) {
+    throw new Error('Unsupported installation service.');
+  }
+  const installationPrice = servicePriceMap[normalizedServiceId];
 
   const additionalTotal = Array.isArray(additionalServiceIds)
     ? additionalServiceIds.reduce((total, item) => {
         const key = String(item || '').trim().toLowerCase();
-        return total + (additionalServicePriceMap[key] || 0);
+        if (!Object.prototype.hasOwnProperty.call(additionalServicePriceMap, key)) throw new Error('Unsupported additional installation service.');
+        return total + additionalServicePriceMap[key];
       }, 0)
     : 0;
 
@@ -98,11 +107,15 @@ export const createInstallationBooking = async (bookingData) => {
     serviceId,
     orderId,
     orderNumber,
+    productId,
+    productName,
+    clientRequestId,
     customer = {},
     preferredDate,
     preferredSlot,
     notes = '',
     additionalServices = [],
+    paymentMethod = 'ONLINE',
   } = bookingData;
 
   if (!userId) {
@@ -132,12 +145,15 @@ export const createInstallationBooking = async (bookingData) => {
   const booking = new Installation({
     id: `INSTALL-${Date.now().toString().slice(-6)}`,
     bookingNumber: generateInstallationBookingNumber(),
+    clientRequestId: clientRequestId ? String(clientRequestId).trim().slice(0, 120) : undefined,
     userId,
     customerName: customer.name,
     customerPhone: customer.phone,
     customerEmail: customer.email,
     orderId: orderId ? String(orderId) : null,
     orderNumber: orderNumber ? String(orderNumber) : null,
+    productId: productId || null,
+    productName: productName || '',
     service,
     serviceId: chosenServiceId,
     additionalServices: Array.isArray(additionalServices) ? additionalServices : [],
@@ -167,6 +183,7 @@ export const createInstallationBooking = async (bookingData) => {
     adminNotes: '',
     customerNotes: notes,
     paymentStatus: 'PENDING',
+    paymentMethod: String(paymentMethod || 'ONLINE').trim().toUpperCase(),
     paymentAmount: computedPricing.total,
     status: INSTALLATION_STATUSES.BOOKED,
     statusHistory: [
@@ -182,6 +199,19 @@ export const createInstallationBooking = async (bookingData) => {
   });
 
   await booking.save();
+  void notifyAdmins({
+    type: 'INSTALLATION_BOOKED',
+    category: 'INSTALLATION',
+    title: 'New installation booking',
+    message: `${booking.customerName || 'A customer'} booked ${booking.service}.`,
+    relatedId: booking._id,
+    relatedType: 'Installation',
+    orderId: booking.orderId,
+    orderNumber: booking.orderNumber || '',
+    metadata: { installationId: booking.id, bookingNumber: booking.bookingNumber, customerName: booking.customerName, service: booking.service },
+    actionUrl: `/admin/installations/${encodeURIComponent(booking.id)}`,
+    eventKey: `installation:${booking._id}:booked`,
+  });
   return booking;
 };
 
@@ -345,6 +375,14 @@ export const updateInstallationStatus = async (bookingId, newStatus, updateData 
   if (!isValidStatusTransition(currentStatus, canonicalNewStatus)) {
     throw new Error(`Cannot transition from ${currentStatus} to ${canonicalNewStatus}`);
   }
+  if (canonicalNewStatus === INSTALLATION_STATUSES.FAILED && !String(updateData.failureReason || updateData.note || '').trim()) {
+    throw new Error('A failure reason is required.');
+  }
+  if (canonicalNewStatus === INSTALLATION_STATUSES.INSTALLATION_COMPLETED
+    && updateData.changedByRole === 'delivery_agent'
+    && !updateData.completionDetails) {
+    throw new Error('Completion details are required.');
+  }
 
   const previousStatus = currentStatus;
   booking.status = newStatus;
@@ -389,11 +427,71 @@ export const updateInstallationStatus = async (bookingId, newStatus, updateData 
     };
   }
 
-  booking.updatedAt = new Date();
-  await booking.save();
+  const nextUpdatedAt = new Date();
+  const historyEntry = booking.statusHistory[booking.statusHistory.length - 1];
+  const transitionUpdate = await Installation.updateOne(
+    {
+      _id: booking._id,
+      status: currentStatus,
+      updatedAt: booking.updatedAt,
+      ...(updateData.assignedAgentId ? { assignedAgentId: updateData.assignedAgentId } : {}),
+    },
+    {
+      $set: {
+        status: booking.status,
+        agentAcceptanceDate: booking.agentAcceptanceDate,
+        completedDate: booking.completedDate,
+        completionDetails: booking.completionDetails,
+        failureDetails: booking.failureDetails,
+        cancellationDetails: booking.cancellationDetails,
+        updatedAt: nextUpdatedAt,
+      },
+      $push: { statusHistory: historyEntry },
+    },
+  );
+  if (!transitionUpdate.matchedCount) throw new Error('Installation changed before this update completed. Please refresh and try again.');
+  const refreshedBooking = await getInstallationBooking(bookingId);
+  Object.assign(booking, refreshedBooking);
 
   const customerId = booking.userId?._id ? String(booking.userId._id) : String(booking.userId || '');
   const assignedAgentId = booking.assignedAgentId?._id ? String(booking.assignedAgentId._id) : String(booking.assignedAgentId || '');
+
+  const statusNotification = {
+    INSTALLATION_CONFIRMED: ['Installation confirmed', 'Installation booking confirmed.'],
+    AGENT_ACCEPTED: ['Installation accepted', 'The assigned technician accepted the installation booking.'],
+    ON_THE_WAY: ['Technician on the way', 'The assigned technician is on the way to the customer.'],
+    ARRIVED: ['Technician arrived', 'The assigned technician has arrived at the installation location.'],
+    INSTALLATION_IN_PROGRESS: ['Installation in progress', 'Installation work is now in progress.'],
+    INSTALLATION_COMPLETED: ['Installation completed', 'Installation work has been completed.'],
+    INSTALLATION_FAILED: ['Installation failed', 'Installation could not be completed.'],
+    INSTALLATION_CANCELLED: ['Installation cancelled', 'Installation booking was cancelled.'],
+  }[newStatus];
+  if (statusNotification) {
+    const notificationType = newStatus === INSTALLATION_STATUSES.CONFIRMED
+      ? 'INSTALLATION_CONFIRMED'
+      : newStatus === INSTALLATION_STATUSES.AGENT_ACCEPTED
+        ? 'INSTALLATION_AGENT_ACCEPTED'
+        : newStatus === INSTALLATION_STATUSES.ON_THE_WAY
+          ? 'INSTALLATION_ON_THE_WAY'
+          : newStatus === INSTALLATION_STATUSES.ARRIVED
+            ? 'INSTALLATION_ARRIVED'
+            : newStatus === INSTALLATION_STATUSES.INSTALLATION_IN_PROGRESS
+              ? 'INSTALLATION_IN_PROGRESS'
+              : newStatus;
+    void notifyAdmins({
+      type: notificationType,
+      category: 'INSTALLATION',
+      title: statusNotification[0],
+      message: `${statusNotification[1]} Booking ${booking.bookingNumber || booking.id}.`,
+      relatedId: booking._id,
+      relatedType: 'Installation',
+      orderId: booking.orderId,
+      orderNumber: booking.orderNumber || '',
+      metadata: { installationId: booking.id, bookingNumber: booking.bookingNumber, previousStatus, status: newStatus, customerName: booking.customerName },
+      actionUrl: `/admin/installations/${encodeURIComponent(booking.id)}`,
+      eventKey: `installation:${booking._id}:status:${newStatus}`,
+    });
+  }
 
   emitInstallationStatusUpdate(String(booking._id), customerId, assignedAgentId, newStatus, {
     previousStatus,
@@ -466,6 +564,19 @@ export const assignInstallationAgent = async (bookingId, agentId, assignedBy = n
   await booking.save();
 
   const customerId = booking.userId?._id ? String(booking.userId._id) : String(booking.userId || '');
+  void notifyAdmins({
+    type: 'INSTALLATION_ASSIGNED',
+    category: 'INSTALLATION',
+    title: 'Installation assigned',
+    message: `${agent.name || 'A technician'} was assigned to booking ${booking.bookingNumber || booking.id}.`,
+    relatedId: booking._id,
+    relatedType: 'Installation',
+    orderId: booking.orderId,
+    orderNumber: booking.orderNumber || '',
+    metadata: { installationId: booking.id, bookingNumber: booking.bookingNumber, customerName: booking.customerName, deliveryAgentId: agentId, deliveryAgentName: agent.name },
+    actionUrl: `/admin/installations/${encodeURIComponent(booking.id)}`,
+    eventKey: `installation:${booking._id}:assigned:${agentId}`,
+  });
   emitInstallationAssigned(String(booking._id), customerId, String(agentId), agent.name);
   emitInstallationStatusUpdate(String(booking._id), customerId, String(agentId), INSTALLATION_STATUSES.ASSIGNED, {
     previousStatus,

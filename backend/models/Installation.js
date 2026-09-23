@@ -16,6 +16,12 @@ const installationSchema = new mongoose.Schema(
       sparse: true,
       index: true,
     },
+    clientRequestId: {
+      type: String,
+      trim: true,
+      sparse: true,
+      index: true,
+    },
 
     // Customer information (reference + denormalized)
     userId: {
@@ -37,6 +43,15 @@ const installationSchema = new mongoose.Schema(
     orderNumber: {
       type: String,
       sparse: true,
+    },
+    productId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Product',
+      default: null,
+    },
+    productName: {
+      type: String,
+      default: '',
     },
 
     // Installation service details
@@ -171,7 +186,7 @@ const installationSchema = new mongoose.Schema(
     },
     paymentMethod: {
       type: String,
-      enum: ['ONLINE', 'COD'],
+      enum: ['UPI', 'CARD', 'NETBANKING', 'WALLET', 'ONLINE', 'COD'],
       default: 'ONLINE',
     },
     paymentProvider: {
@@ -216,5 +231,6 @@ installationSchema.index({ assignedAgentId: 1, status: 1 });
 installationSchema.index({ status: 1, createdAt: -1 });
 installationSchema.index({ city: 1, state: 1 });
 installationSchema.index({ preferredDate: 1, status: 1 });
+installationSchema.index({ userId: 1, clientRequestId: 1 }, { unique: true, sparse: true });
 
 export default mongoose.model('Installation', installationSchema, 'installations');

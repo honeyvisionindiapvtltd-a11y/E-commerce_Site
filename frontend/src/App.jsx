@@ -49,9 +49,11 @@ import DeliveryAgentDashboard from './pages/DeliveryAgentDashboard.jsx'
 import AgentInstallationDashboard from './pages/AgentInstallationDashboard.jsx'
 import Installation from './pages/Installation.jsx'
 import InstallationSuccess from './pages/InstallationSuccess.jsx'
+import InstallationPaymentFailure from './pages/InstallationPaymentFailure.jsx'
 import InstallationHistory from './pages/InstallationHistory.jsx'
 import CustomerInstallationDetails from './pages/CustomerInstallationDetails.jsx'
 import AMC from "./pages/AMC";
+import MyAMC from "./pages/MyAMC.jsx";
 import RequestDemo from './pages/RequestDemo.jsx'
 import GetStarted from './pages/GetStarted.jsx'
 import ServiceDetail from './pages/ServiceDetail.jsx'
@@ -162,10 +164,13 @@ function App() {
           <Route path="/delivery" element={<Delivery />} />
           <Route path="/installation" element={<Installation />} />
           <Route path="/installation/success" element={<InstallationSuccess />} />
+          <Route path="/installation/payment-failure" element={<InstallationPaymentFailure />} />
           <Route path="/installation/history" element={<InstallationHistory />} />
           <Route path="/installation/history/:id" element={<CustomerInstallationDetails />} />
           <Route path="/services/:serviceSlug" element={<ServiceDetail />} />
           <Route path="/amc" element={<AMC />} />
+          <Route path="/my-amc" element={<RoleRoute roles={["customer"]}><MyAMC /></RoleRoute>} />
+          <Route path="/my-amc/:id" element={<RoleRoute roles={["customer"]}><MyAMC /></RoleRoute>} />
           <Route path="/request-demo" element={<RequestDemo />} />
           <Route path="/get-started" element={<GetStarted />} />
           <Route path="/register" element={<Register />} />

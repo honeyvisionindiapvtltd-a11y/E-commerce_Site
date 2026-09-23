@@ -32,6 +32,8 @@ import chatRoutes from './routes/chatRoutes.js';
 import notificationRoutes from './routes/notificationRoutes.js';
 import newsletterRoutes from './routes/newsletterRoutes.js';
 import installationsRoutes from './routes/installations.js';
+import inventoryRoutes from './routes/inventory.js';
+import amcRoutes from './routes/amcRoutes.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -120,6 +122,8 @@ app.use('/api/payments', paymentRoutes);
 app.use('/api/delivery', deliveryRoutes);
 app.use('/api/delivery', deliveryServiceabilityRoutes);
 app.use('/api/returns', returnRoutes);
+app.use('/api/inventory', inventoryRoutes);
+app.use('/api/amc', amcRoutes);
 
 // Start server with robust DB/connect logic
 const startServer = async () => {

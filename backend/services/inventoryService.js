@@ -1,5 +1,28 @@
 import Inventory from '../models/Inventory.js';
+import InventoryMovement from '../models/InventoryMovement.js';
+import Product from '../models/Product.js';
 import { emitInventoryUpdate, emitPriceUpdate, emitAdminNotification } from './realtimeService.js';
+
+export const isInventoryAuthorityEnabled = () => process.env.INVENTORY_AUTHORITY_ENABLED === 'true';
+
+export const assertInventoryAuthorityReady = async () => {
+  if (!isInventoryAuthorityEnabled()) return;
+  const [products, inventories] = await Promise.all([
+    Product.find({}, '_id').lean(),
+    Inventory.find({}, 'productId').lean(),
+  ]);
+  const productIds = new Set(products.map((product) => String(product._id)));
+  const inventoryIds = inventories.map((inventory) => String(inventory.productId));
+  const inventoryIdSet = new Set(inventoryIds);
+  const complete = products.length === inventories.length
+    && inventoryIds.length === inventoryIdSet.size
+    && [...productIds].every((productId) => inventoryIdSet.has(productId));
+  if (!complete) {
+    const error = new Error(`Inventory authority is not ready: ${products.length} products and ${inventories.length} complete inventory records required`);
+    error.code = 'INVENTORY_AUTHORITY_NOT_READY';
+    throw error;
+  }
+};
 
 /**
  * Inventory Management Service
@@ -7,6 +30,211 @@ import { emitInventoryUpdate, emitPriceUpdate, emitAdminNotification } from './r
  */
 
 export const inventoryService = {
+  async requireInventory(productId) {
+    const inventory = await Inventory.findOne({ productId });
+    if (!inventory) {
+      const error = new Error(`Inventory is not initialized for product ${productId}`);
+      error.code = 'INVENTORY_NOT_INITIALIZED';
+      throw error;
+    }
+    return inventory;
+  },
+
+  async getAvailableStock(productId) {
+    const inventory = await this.requireInventory(productId);
+    return inventory.availableStock;
+  },
+
+  async checkAvailability(productId, quantity) {
+    if (Array.isArray(productId)) return this.checkAvailabilityForItems(productId);
+    const requested = Number(quantity);
+    if (!Number.isInteger(requested) || requested < 1) return false;
+    const inventory = await this.requireInventory(productId);
+    return inventory.availableStock >= requested;
+  },
+
+  async recordMovement({ productId, sku = '', movementType, quantity, before, after, reference, reason = '', performedBy = null }) {
+    try {
+      return await InventoryMovement.create({
+        productId: String(productId),
+        inventoryId: after._id,
+        sku,
+        movementType,
+        quantity,
+        previousAvailable: before.availableStock,
+        newAvailable: after.availableStock,
+        previousReserved: before.reservedStock,
+        newReserved: after.reservedStock,
+        previousSold: before.soldStock,
+        newSold: after.soldStock,
+        referenceType: reference.type,
+        referenceId: String(reference.id),
+        reason,
+        performedBy: performedBy ? String(performedBy) : null,
+      });
+    } catch (error) {
+      if (error?.code === 11000) {
+        return InventoryMovement.findOne({
+          productId: String(productId),
+          movementType,
+          referenceType: reference.type,
+          referenceId: String(reference.id),
+        });
+      }
+      throw error;
+    }
+  },
+
+  async reserveInventory(productId, quantity, reference) {
+    const requested = Number(quantity);
+    if (!Number.isInteger(requested) || requested < 1) throw new Error('Quantity must be a positive integer');
+    if (!reference?.type || !reference?.id) throw new Error('Inventory reservation reference is required');
+
+    const current = await this.requireInventory(productId);
+    const updated = await Inventory.findOneAndUpdate(
+      {
+        productId: String(productId),
+        availableStock: { $gte: requested },
+        reservations: { $not: { $elemMatch: { referenceType: reference.type, referenceId: String(reference.id), status: 'RESERVED' } } },
+      },
+      {
+        $inc: { availableStock: -requested, reservedStock: requested },
+        $push: { reservations: { referenceType: reference.type, referenceId: String(reference.id), quantity: requested, status: 'RESERVED', createdAt: new Date(), updatedAt: new Date() } },
+      },
+      { new: true, runValidators: true },
+    );
+    if (!updated) {
+      const latest = await Inventory.findOne({ productId: String(productId) });
+      if (latest?.reservations?.some((reservation) => (
+        reservation.referenceType === reference.type
+        && reservation.referenceId === String(reference.id)
+        && reservation.quantity === requested
+        && reservation.status === 'RESERVED'
+      ))) return latest;
+      const error = new Error('INSUFFICIENT_STOCK');
+      error.code = 'INSUFFICIENT_STOCK';
+      throw error;
+    }
+
+    await this.recordMovement({
+      productId,
+      sku: updated.sku,
+      movementType: 'ORDER_RESERVED',
+      quantity: requested,
+      before: { availableStock: updated.availableStock + requested, reservedStock: updated.reservedStock - requested, soldStock: updated.soldStock },
+      after: updated,
+      reference,
+    });
+    emitInventoryUpdate(String(productId), updated.availableStock, updated.status);
+    return updated;
+  },
+
+  async releaseInventory(productId, quantity, reference) {
+    return this.transitionReservation(productId, quantity, reference, 'RELEASED', 'ORDER_RELEASED', { $inc: { availableStock: Number(quantity), reservedStock: -Number(quantity) } });
+  },
+
+  async commitInventory(productId, quantity, reference) {
+    return this.transitionReservation(productId, quantity, reference, 'COMMITTED', 'ORDER_COMMITTED', { $inc: { reservedStock: -Number(quantity), soldStock: Number(quantity) } });
+  },
+
+  async transitionReservation(productId, quantity, reference, reservationStatus, movementType, stockUpdate) {
+    const requested = Number(quantity);
+    if (!Number.isInteger(requested) || requested < 1) throw new Error('Quantity must be a positive integer');
+    if (!reference?.type || !reference?.id) throw new Error('Inventory reference is required');
+    const current = await this.requireInventory(productId);
+    const hasActiveReservation = current.reservations?.some((reservation) => (
+      reservation.referenceType === reference.type
+      && reservation.referenceId === String(reference.id)
+      && reservation.quantity === requested
+      && reservation.status === 'RESERVED'
+    ));
+    const priorMovement = await InventoryMovement.findOne({ productId: String(productId), movementType, referenceType: reference.type, referenceId: String(reference.id) });
+    if (priorMovement && !hasActiveReservation) return current;
+
+    const updated = await Inventory.findOneAndUpdate(
+      { productId: String(productId), reservations: { $elemMatch: { referenceType: reference.type, referenceId: String(reference.id), quantity: requested, status: 'RESERVED' } }, ...(reservationStatus === 'RELEASED' ? { reservedStock: { $gte: requested } } : {}) },
+      { ...stockUpdate, $set: { 'reservations.$[reservation].status': reservationStatus, 'reservations.$[reservation].updatedAt': new Date() } },
+      { new: true, runValidators: true, arrayFilters: [{ 'reservation.referenceType': reference.type, 'reservation.referenceId': String(reference.id), 'reservation.status': 'RESERVED' }] },
+    );
+    if (!updated) return current;
+
+    await this.recordMovement({
+      productId,
+      sku: updated.sku,
+      movementType,
+      quantity: requested,
+      before: reservationStatus === 'RELEASED'
+        ? { availableStock: updated.availableStock - requested, reservedStock: updated.reservedStock + requested, soldStock: updated.soldStock }
+        : { availableStock: updated.availableStock, reservedStock: updated.reservedStock + requested, soldStock: updated.soldStock - requested },
+      after: updated,
+      reference,
+    });
+    emitInventoryUpdate(String(productId), updated.availableStock, updated.status);
+    return updated;
+  },
+
+  async restoreInventory(productId, quantity, reason, performedBy = null, reference = null) {
+    const requested = Number(quantity);
+    if (!Number.isInteger(requested) || requested < 1) throw new Error('Quantity must be a positive integer');
+    const current = await this.requireInventory(productId);
+    const updated = await Inventory.findOneAndUpdate(
+      { productId: String(productId), soldStock: { $gte: requested } },
+      { $inc: { availableStock: requested, soldStock: -requested }, $set: { status: 'in_stock' } },
+      { new: true, runValidators: true },
+    );
+    if (!updated) throw new Error('INSUFFICIENT_SOLD_STOCK');
+    await this.recordMovement({ productId, sku: updated.sku, movementType: 'RETURN_RESTOCKED', quantity: requested, before: current, after: updated, reference: reference || { type: 'RESTORE', id: `${productId}:${Date.now()}` }, reason, performedBy });
+    emitInventoryUpdate(String(productId), updated.availableStock, updated.status);
+    return updated;
+  },
+
+  async processReturnInventory(productId, quantity, disposition, reference, reason = '', performedBy = null) {
+    if (!["SELLABLE_RETURN", "DAMAGED_RETURN", "REPLACEMENT", "REFUND"].includes(disposition)) throw new Error('Invalid return inventory disposition');
+    if (disposition === 'REFUND' || disposition === 'REPLACEMENT') return this.requireInventory(productId);
+    const requested = Number(quantity);
+    if (!Number.isInteger(requested) || requested < 1) throw new Error('Quantity must be a positive integer');
+    const movementType = disposition === 'DAMAGED_RETURN' ? 'DAMAGED' : 'RETURN_RESTOCKED';
+    const current = await this.requireInventory(productId);
+    const existing = await InventoryMovement.findOne({ productId: String(productId), movementType, referenceType: reference.type, referenceId: String(reference.id) });
+    if (existing) return current;
+    const updated = await Inventory.findOneAndUpdate(
+      { productId: String(productId), soldStock: { $gte: requested } },
+      disposition === 'DAMAGED_RETURN'
+        ? { $inc: { soldStock: -requested, damagedStock: requested } }
+        : { $inc: { soldStock: -requested, availableStock: requested } },
+      { new: true, runValidators: true },
+    );
+    if (!updated) throw new Error('INSUFFICIENT_SOLD_STOCK');
+    await this.recordMovement({
+      productId,
+      sku: updated.sku,
+      movementType,
+      quantity: requested,
+      before: current,
+      after: updated,
+      reference,
+      reason,
+      performedBy,
+    });
+    emitInventoryUpdate(String(productId), updated.availableStock, updated.status);
+    return updated;
+  },
+
+  async adjustInventory(productId, quantity, reason, performedBy = null, reference = null) {
+    const delta = Number(quantity);
+    if (!Number.isInteger(delta) || delta === 0) throw new Error('Adjustment must be a non-zero integer');
+    const current = await this.requireInventory(productId);
+    const updated = await Inventory.findOneAndUpdate(
+      { productId: String(productId), ...(delta < 0 ? { availableStock: { $gte: Math.abs(delta) } } : {}) },
+      { $inc: { availableStock: delta, totalStock: delta } },
+      { new: true, runValidators: true },
+    );
+    if (!updated) throw new Error('INSUFFICIENT_STOCK');
+    await this.recordMovement({ productId, sku: updated.sku, movementType: 'MANUAL_ADJUSTMENT', quantity: Math.abs(delta), before: current, after: updated, reference: reference || { type: 'MANUAL_ADJUSTMENT', id: `${productId}:${Date.now()}` }, reason, performedBy });
+    emitInventoryUpdate(String(productId), updated.availableStock, updated.status);
+    return updated;
+  },
+
   /**
    * Get inventory for a product
    */
@@ -38,99 +266,39 @@ export const inventoryService = {
    * Update stock - handles reservations, sales, returns
    */
   async updateStock(productId, quantity, type = 'out', orderId = null, reason = '') {
-    try {
-      const inventory = await Inventory.findOne({ productId });
-      if (!inventory) throw new Error('Product not found');
-
-      const previousStock = inventory.availableStock;
-
-      // Update based on type
-      switch (type) {
-        case 'out': // Sale
-          inventory.availableStock = Math.max(0, inventory.availableStock - quantity);
-          inventory.soldStock += quantity;
-          break;
-
-        case 'in': // Restock/Return
-          inventory.availableStock += quantity;
-          inventory.availableStock = Math.min(inventory.totalStock, inventory.availableStock);
-          break;
-
-        case 'reserve': // Reserve for pending order
-          inventory.reservedStock += quantity;
-          inventory.availableStock = Math.max(0, inventory.availableStock - quantity);
-          break;
-
-        case 'release': // Release reserved stock
-          inventory.reservedStock = Math.max(0, inventory.reservedStock - quantity);
-          inventory.availableStock += quantity;
-          break;
-
-        case 'damage':
-          inventory.availableStock = Math.max(0, inventory.availableStock - quantity);
-          break;
-
-        case 'adjustment': // Manual adjustment
-          const diff = quantity - previousStock;
-          inventory.availableStock = Math.max(0, quantity);
-          break;
-      }
-
-      // Add movement record
-      inventory.movements.push({
-        type,
-        quantity,
-        orderId,
-        reason,
-      });
-
-      // Update status based on available stock
-      if (inventory.availableStock === 0) {
-        inventory.status = 'out_of_stock';
-      } else if (inventory.availableStock <= inventory.lowStockThreshold) {
-        inventory.status = 'low_stock';
-      } else {
-        inventory.status = 'in_stock';
-      }
-
-      // Check and trigger alerts
-      if (inventory.status === 'low_stock' && !inventory.alerts.some(a => a.type === 'low_stock' && !a.resolved)) {
-        inventory.alerts.push({
-          type: 'low_stock',
-          message: `Stock for product ${productId} is low: ${inventory.availableStock}`,
-        });
-
-        // Emit admin notification
-        emitAdminNotification(
-          `Low Stock Alert: ${productId}`,
-          { productId, stock: inventory.availableStock, threshold: inventory.lowStockThreshold },
-          'warning'
-        );
-      }
-
-      if (inventory.status === 'out_of_stock') {
-        inventory.alerts.push({
-          type: 'out_of_stock',
-          message: `Product ${productId} is out of stock`,
-        });
-
-        emitAdminNotification(
-          `Out of Stock: ${productId}`,
-          { productId },
-          'error'
-        );
-      }
-
-      await inventory.save();
-
-      // Emit real-time update
-      emitInventoryUpdate(productId, inventory.availableStock, inventory.status);
-
-      return inventory;
-    } catch (error) {
-      console.error('Error updating stock:', error);
-      throw error;
+    const requested = Number(quantity);
+    if (!Number.isInteger(requested) || requested < 1) throw new Error('Quantity must be a positive integer');
+    const reference = { type: 'LEGACY_STOCK', id: orderId || `${productId}:${type}:${Date.now()}` };
+    if (type === 'reserve') return this.reserveInventory(productId, requested, reference);
+    if (type === 'release') return this.releaseInventory(productId, requested, reference);
+    if (type === 'adjustment') {
+      const current = await this.requireInventory(productId);
+      const delta = requested - current.availableStock;
+      return delta === 0 ? current : this.adjustInventory(productId, delta, reason, null);
     }
+
+    const current = await this.requireInventory(productId);
+    const update = type === 'in'
+      ? { $inc: { availableStock: requested, totalStock: requested } }
+      : type === 'damage'
+        ? { $inc: { availableStock: -requested, damagedStock: requested } }
+        : { $inc: { availableStock: -requested, soldStock: requested } };
+    const filter = { productId: String(productId) };
+    if (type === 'out' || type === 'damage') filter.availableStock = { $gte: requested };
+    const updated = await Inventory.findOneAndUpdate(filter, update, { new: true, runValidators: true });
+    if (!updated) throw new Error('INSUFFICIENT_STOCK');
+    await this.recordMovement({
+      productId,
+      sku: updated.sku,
+      movementType: type === 'in' ? 'INITIAL_STOCK' : type === 'damage' ? 'DAMAGED' : 'ORDER_COMMITTED',
+      quantity: requested,
+      before: current,
+      after: updated,
+      reference,
+      reason,
+    });
+    emitInventoryUpdate(String(productId), updated.availableStock, updated.status);
+    return updated;
   },
 
   /**
@@ -269,7 +437,7 @@ export const inventoryService = {
   /**
    * Check stock availability for multiple products
    */
-  async checkAvailability(items) {
+  async checkAvailabilityForItems(items) {
     try {
       const availability = await Promise.all(
         items.map(async (item) => {

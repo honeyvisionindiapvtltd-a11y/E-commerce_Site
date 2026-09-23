@@ -7,6 +7,7 @@ import {
   listManagedDeliveryAgents,
   listMyDeliveries,
   markDelivered,
+  collectCodPayment,
   failDelivery,
   startDelivery,
   updateDeliveryLocation,
@@ -30,6 +31,7 @@ router.get("/orders/:orderNumber", protect, requireDeliveryAgent, getMyDelivery)
 router.post("/orders/:orderNumber/start", protect, requireDeliveryAgent, startDelivery);
 router.post("/orders/:orderNumber/location", protect, requireDeliveryAgent, updateDeliveryLocation);
 router.post("/orders/:orderNumber/deliver", protect, requireDeliveryAgent, markDelivered);
+router.post("/orders/:orderNumber/collect-cod", protect, requireDeliveryAgent, collectCodPayment);
 router.post("/orders/:orderNumber/fail", protect, requireDeliveryAgent, failDelivery);
 
 export default router;

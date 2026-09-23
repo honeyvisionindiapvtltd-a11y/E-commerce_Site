@@ -7,7 +7,6 @@ const API_BASE = import.meta.env.VITE_API_URL || '/api';
 
 const STATUS_STEPS = [
   { key: ORDER_STATUSES.ORDER_PLACED, label: 'Order Placed', icon: Package },
-  { key: ORDER_STATUSES.PAYMENT_CONFIRMED, label: 'Payment Confirmed', icon: CheckCircle2 },
   { key: ORDER_STATUSES.PROCESSING, label: 'Processing', icon: Clock },
   { key: ORDER_STATUSES.PACKED, label: 'Packed', icon: Package },
   { key: ORDER_STATUSES.SHIPPED, label: 'Shipped', icon: Truck },
@@ -97,6 +96,7 @@ export default function TrackOrder() {
           <div className="mb-8">
             <p className="text-sm text-slate-500">Current Status</p>
             <h2 className="mt-1 text-2xl font-black text-[#071426]">{formatStatus(shipment.status)}</h2>
+            <p className="mt-2 text-sm text-slate-500">Payment: <span className="font-bold text-[#071426]">{String(shipment.paymentStatus || 'PENDING').toUpperCase() === 'PAID' ? 'Paid' : String(shipment.paymentMethod || '').toUpperCase() === 'COD' ? 'Cash on Delivery - Pending' : 'Payment Pending'}</span></p>
           </div>
 
           <div className="space-y-6">

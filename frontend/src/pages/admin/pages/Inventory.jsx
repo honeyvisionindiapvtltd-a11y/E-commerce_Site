@@ -1,17 +1,23 @@
 ﻿import { useEffect, useState } from "react";
 import { ArrowDownToLine, ArrowUpFromLine } from "lucide-react";
-import { adminListProducts, adminUpdate } from "../api";
+import { adminAdjustInventory, adminListInventory, adminUpdate } from "../api";
 import PageHeader from "../components/PageHeader";
 import Toolbar from "../components/Toolbar";
 import Table from "../components/Table";
 import Modal from "../components/Modal";
 import { Field, inputClass } from "../components/FormField";
 const normalizeInventoryRow = (product) => ({
+  ...product.product,
   ...product,
-  id: product._id || product.id,
-  sku: product.sku || String(product._id || product.id || "").toUpperCase(),
-  category: product.category?.name || product.category || "Uncategorized",
-  stock: Number(product.stock || 0),
+  id: product.productId || product._id || product.id,
+  name: product.product?.name || product.name,
+  sku: product.sku || product.product?.sku || String(product.productId || product._id || product.id || "").toUpperCase(),
+  category: product.product?.category?.name || product.category?.name || product.category || "Uncategorized",
+  stock: Number(product.availableStock ?? product.stock ?? 0),
+  totalStock: Number(product.totalStock ?? product.stock ?? 0),
+  reservedStock: Number(product.reservedStock || 0),
+  soldStock: Number(product.soldStock || 0),
+  damagedStock: Number(product.damagedStock || 0),
 });
 
 export default function Inventory() {
@@ -21,12 +27,14 @@ export default function Inventory() {
   const [qty, setQty] = useState(1);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [authorityEnabled, setAuthorityEnabled] = useState(false);
 
   const refreshRows = async () => {
     setLoading(true);
     setError("");
     try {
-      const data = await adminListProducts();
+      const data = await adminListInventory();
+      setAuthorityEnabled(Boolean(data.authorityEnabled));
       setRows((data.products || []).map(normalizeInventoryRow));
     } catch (loadError) {
       setError(loadError.message || "Unable to load inventory from MongoDB.");
@@ -39,7 +47,8 @@ export default function Inventory() {
     let active = true;
     const loadRows = async () => {
       try {
-        const data = await adminListProducts();
+        const data = await adminListInventory();
+        if (active) setAuthorityEnabled(Boolean(data.authorityEnabled));
         if (active) setRows((data.products || []).map(normalizeInventoryRow));
       } catch (loadError) {
         if (active) setError(loadError.message || "Unable to load inventory from MongoDB.");
@@ -60,7 +69,8 @@ export default function Inventory() {
     const nextStock = Math.max(0, current + delta);
 
     try {
-      await adminUpdate("products", item.id, { stock: nextStock });
+      if (authorityEnabled) await adminAdjustInventory(item.id, delta, "Admin inventory adjustment");
+      else await adminUpdate("products", item.id, { stock: nextStock });
       setItem(null);
       setQty(1);
       await refreshRows();
@@ -91,6 +101,10 @@ export default function Inventory() {
               <span className={row.stock <= 5 ? "font-bold text-red-500" : "text-emerald-600"}>{row.stock}</span>
             ),
           },
+          { key: "totalStock", label: "Total" },
+          { key: "reservedStock", label: "Reserved" },
+          { key: "soldStock", label: "Sold" },
+          { key: "damagedStock", label: "Damaged" },
           {
             key: "status",
             label: "Stock Status",

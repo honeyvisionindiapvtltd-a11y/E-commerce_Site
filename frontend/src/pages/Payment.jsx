@@ -77,7 +77,7 @@ const Payment = () => {
      PAYMENT METHOD
   ============================================================ */
 
-  const validPaymentMethods = ["cod", "razorpay", "phonepe", "googlepay", "paytm"];
+  const validPaymentMethods = ["cod", "razorpay", "upi", "card", "netbanking", "wallet", "phonepe", "googlepay", "paytm"];
 
   const selectedPaymentMethod = validPaymentMethods.includes(
     checkoutState.paymentMethod
@@ -92,6 +92,7 @@ const Payment = () => {
       orderIdFromState ||
       `HV${Date.now().toString().slice(-8)}`
   );
+  const [clientRequestId] = useState(() => window.crypto?.randomUUID?.() || `order-${Date.now()}-${Math.random().toString(36).slice(2)}`);
 
   const [paymentMethod, setPaymentMethod] = useState(
     selectedPaymentMethod
@@ -378,13 +379,9 @@ const Payment = () => {
       return;
     }
 
-    if (["phonepe", "googlepay", "paytm"].includes(paymentMethod)) {
-      setPaymentErrorType("unavailable");
-      setPaymentError(`${paymentMethod === "phonepe" ? "PhonePe" : paymentMethod === "googlepay" ? "Google Pay" : "Paytm"} is currently unavailable. Please select Razorpay or Cash on Delivery.`);
-      return;
-    }
-
     setIsSubmitting(true);
+    let razorpayModalOpen = false;
+    let attemptFinalized = false;
 
     try {
       /*
@@ -402,6 +399,7 @@ const Payment = () => {
         secureShipping,
         items: checkoutItems,
         orderId,
+        clientRequestId,
       });
 
       const currentOrderId =
@@ -523,6 +521,7 @@ const Payment = () => {
           order_id: razorOrder.id,
 
           handler: async function (response) {
+            attemptFinalized = true;
             try {
               const verifyData = await requestJson("/payments/razorpay/verify", {
                 method: "POST",
@@ -559,6 +558,16 @@ const Payment = () => {
                   "Payment verification failed"
               );
               setPaymentErrorType("failed");
+              setIsSubmitting(false);
+              navigate('/payment/failure', {
+                state: {
+                  orderId: currentOrderId,
+                  paymentMethod,
+                  amount: total,
+                  itemCount,
+                  reason: 'verification',
+                },
+              });
             }
           },
 
@@ -584,6 +593,8 @@ const Payment = () => {
 
           modal: {
             ondismiss: function () {
+              if (attemptFinalized) return;
+              attemptFinalized = true;
               void requestJson("/payments/razorpay/cancelled", {
                 method: "POST",
                 body: JSON.stringify({ orderId: currentOrderId }),
@@ -609,6 +620,8 @@ const Payment = () => {
         rzp.on(
           "payment.failed",
           function (response) {
+            if (attemptFinalized) return;
+            attemptFinalized = true;
             void requestJson("/payments/razorpay/failed", {
               method: "POST",
               body: JSON.stringify({ orderId: currentOrderId }),
@@ -632,6 +645,7 @@ const Payment = () => {
           }
         );
 
+        razorpayModalOpen = true;
         rzp.open();
 
         return;
@@ -643,7 +657,7 @@ const Payment = () => {
       );
       setPaymentErrorType("failed");
     } finally {
-      setIsSubmitting(false);
+      if (!razorpayModalOpen) setIsSubmitting(false);
     }
   };
 

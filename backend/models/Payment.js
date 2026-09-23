@@ -5,7 +5,7 @@ const normalizePaymentMethod = (method) => String(method ?? '').trim().toLowerCa
 const paymentSchema = new mongoose.Schema(
   {
     paymentId: { type: String, required: true, unique: true, index: true },
-    orderId: { type: String, required: true, index: true },
+    orderId: { type: String, default: '', index: true },
     userId: { type: String, required: true, index: true },
     amount: { type: Number, required: true, min: 0 },
     currency: { type: String, required: true, default: 'INR', enum: ['INR', 'USD', 'EUR'] },

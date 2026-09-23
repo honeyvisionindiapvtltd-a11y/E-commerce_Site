@@ -1,9 +1,32 @@
 import express from 'express';
+import Product from '../models/Product.js';
 import inventoryService from '../services/inventoryService.js';
 import { protect, requireAdmin } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
 router.use(protect, requireAdmin);
+
+router.get('/list', async (req, res) => {
+  try {
+    const inventories = await (await import('../models/Inventory.js')).default.find().sort({ updatedAt: -1 }).lean();
+    const authorityEnabled = process.env.INVENTORY_AUTHORITY_ENABLED === 'true';
+    const products = await Product.find({ _id: { $in: inventories.map((item) => item.productId) } }).select('name sku category').lean();
+    const productsById = new Map(products.map((product) => [String(product._id), product]));
+    res.json({ success: true, authorityEnabled, products: inventories.map((inventory) => ({ ...inventory, product: productsById.get(String(inventory.productId)) || null })) });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+router.post('/:productId/adjust', async (req, res) => {
+  try {
+    const { quantity, reason, referenceId } = req.body || {};
+    const inventory = await inventoryService.adjustInventory(req.params.productId, quantity, reason, req.user._id, referenceId ? { type: 'ADMIN_ADJUSTMENT', id: referenceId } : null);
+    res.json({ success: true, inventory });
+  } catch (error) {
+    res.status(error.message === 'INSUFFICIENT_STOCK' ? 409 : 400).json({ success: false, error: error.message });
+  }
+});
 
 /**
  * GET /api/inventory/:productId

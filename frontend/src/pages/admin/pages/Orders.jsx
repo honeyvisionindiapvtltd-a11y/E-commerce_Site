@@ -11,8 +11,7 @@ const API_BASE = import.meta.env.VITE_API_URL || "/api";
 
 const badge = (status) => ({
   ORDER_PLACED: "bg-amber-50 text-amber-600",
-  PAYMENT_CONFIRMED: "bg-amber-50 text-amber-600",
-  Processing: "bg-purple-50 text-purple-600",
+  PROCESSING: "bg-purple-50 text-purple-600",
   PACKED: "bg-purple-50 text-purple-600",
   SHIPPED: "bg-blue-50 text-blue-600",
   OUT_FOR_DELIVERY: "bg-blue-50 text-blue-600",
@@ -25,7 +24,7 @@ const normalizeOrder = (order, index = 0) => {
 
   return {
     id: order?.orderNumber || order?.id || order?._id || `HV${(index + 1).toString().padStart(4, "0")}`,
-    customer: order?.customer || order?.shippingAddress?.name || `Customer ${index + 1}`,
+    customer: order?.customer || order?.user?.name || order?.shippingAddress?.name || `Customer ${index + 1}`,
     phone: order?.phone || order?.shippingAddress?.phone || "",
     items: Array.isArray(order?.items)
       ? order.items.reduce((sum, item) => sum + (Number(item.quantity) || 1), 0)
@@ -34,6 +33,7 @@ const normalizeOrder = (order, index = 0) => {
     payment: String(order?.paymentMethod || order?.payment || "COD").toUpperCase() === "COD"
       ? "Cash on Delivery"
       : "Online",
+    paymentStatus: String(order?.paymentStatus || "PENDING").toUpperCase(),
     status: order?.status || ORDER_STATUSES.ORDER_PLACED,
     date: order?.createdAt ? createdAt.toISOString().split("T")[0] : order?.date || createdAt.toISOString().split("T")[0],
   };
@@ -130,8 +130,14 @@ export default function Orders() {
           },
           { key: "items", label: "Items" },
           { key: "amount", label: "Amount", render: (row) => `₹${Number(row.amount || 0).toLocaleString()}` },
-          { key: "payment", label: "Payment" },
-          { key: "status", label: "Status", render: (row) => (
+          { key: "payment", label: "Payment Method" },
+          { key: "paymentStatus", label: "Payment Status", render: (row) => (
+              <span className={`rounded px-2 py-1 text-[9px] font-semibold ${row.paymentStatus === "PAID" ? "bg-emerald-50 text-emerald-600" : row.paymentStatus === "FAILED" ? "bg-red-50 text-red-600" : row.paymentStatus === "REFUNDED" ? "bg-blue-50 text-blue-600" : "bg-amber-50 text-amber-600"}`}>
+                {row.paymentStatus === "PAID" ? "Paid" : row.paymentStatus === "FAILED" ? "Failed" : row.paymentStatus === "REFUNDED" ? "Refunded" : "Payment Pending"}
+              </span>
+            )
+          },
+          { key: "status", label: "Order Status", render: (row) => (
               <select
                 value={row.status}
                 onChange={(event) => update(row.id, event.target.value)}
@@ -160,8 +166,9 @@ export default function Orders() {
             <p><b>Phone:</b> {view.phone}</p>
             <p><b>Items:</b> {view.items}</p>
             <p><b>Total:</b> ₹{Number(view.amount || 0).toLocaleString()}</p>
-            <p><b>Payment:</b> {view.payment}</p>
-            <p><b>Status:</b> {view.status}</p>
+            <p><b>Payment Method:</b> {view.payment}</p>
+            <p><b>Payment Status:</b> {view.paymentStatus}</p>
+            <p><b>Order Status:</b> {getStatusLabel(view.status)}</p>
             <p><b>Date:</b> {view.date}</p>
             <button
               onClick={() => {

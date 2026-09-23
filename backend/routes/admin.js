@@ -1,23 +1,106 @@
 import express from 'express';
 import Order from '../models/Order.js';
 import Product from '../models/Product.js';
+import Inventory from '../models/Inventory.js';
 import {
   ORDER_STATUS_VALUES,
 } from '../constants/orderStatuses.js';
 import { emitDeliveryUpdate } from '../services/realtimeService.js';
 import { emitAdminNotification } from '../services/realtimeService.js';
 import { updateOrderTracking } from '../services/orderTrackingService.js';
-import inventoryService from '../services/inventoryService.js';
+import inventoryService, { isInventoryAuthorityEnabled } from '../services/inventoryService.js';
 import { protect, requireAdmin } from '../middleware/authMiddleware.js';
 import User from '../models/User.js';
 import DeliveryZone from '../models/DeliveryZone.js';
 import Category from '../models/Category.js';
 import Installation from '../models/Installation.js';
 import { confirmedOrderFilter } from '../utils/orderQueries.js';
+import { clearNotifications, deleteNotification, listNotifications, markAllNotificationsRead, markNotificationRead, markNotificationUnread } from '../services/notificationService.js';
+import { getPreferences, patchPreferences } from '../controllers/notificationController.js';
 
 const router = express.Router();
+const asyncHandler = (handler) => (req, res, next) => Promise.resolve(handler(req, res, next)).catch(next);
 
 router.use(protect, requireAdmin);
+
+router.get('/inventory/health', async (req, res, next) => {
+  try {
+    const [products, inventories] = await Promise.all([
+      Product.find({}, '_id stock sku').lean(),
+      Inventory.find({}, 'productId sku totalStock availableStock reservedStock soldStock damagedStock').lean(),
+    ]);
+    const productIds = new Set(products.map((product) => String(product._id)));
+    const inventoryByProduct = new Map();
+    let duplicateInventory = 0;
+    inventories.forEach((inventory) => {
+      const key = String(inventory.productId);
+      if (inventoryByProduct.has(key)) duplicateInventory += 1;
+      else inventoryByProduct.set(key, inventory);
+    });
+    const missingInventory = products.filter((product) => !inventoryByProduct.has(String(product._id))).length;
+    const orphanInventory = inventories.filter((inventory) => !productIds.has(String(inventory.productId))).length;
+    const invalidInventory = inventories.filter((inventory) => ['totalStock', 'availableStock', 'reservedStock', 'soldStock', 'damagedStock'].some((field) => !Number.isFinite(Number(inventory[field])) || Number(inventory[field]) < 0)).length;
+    const invalidStatus = inventories.filter((inventory) => !['in_stock', 'low_stock', 'out_of_stock', 'discontinued'].includes(inventory.status)).length;
+    const skuMismatch = inventories.filter((inventory) => {
+      const product = products.find((candidate) => String(candidate._id) === String(inventory.productId));
+      return product && String(product.sku || '') !== String(inventory.sku || '');
+    }).length;
+    const stockMismatch = products.filter((product) => {
+      const inventory = inventoryByProduct.get(String(product._id));
+      if (!inventory || ['totalStock', 'availableStock', 'reservedStock', 'soldStock', 'damagedStock'].some((field) => !Number.isFinite(Number(inventory[field])) || Number(inventory[field]) < 0)) return false;
+      return Number(product.stock) !== Number(inventory.availableStock) + Number(inventory.reservedStock) + Number(inventory.soldStock);
+    }).length;
+    const authorityReady = missingInventory === 0
+      && orphanInventory === 0
+      && duplicateInventory === 0
+      && stockMismatch === 0
+      && invalidInventory === 0
+      && invalidStatus === 0
+      && skuMismatch === 0;
+    res.json({
+      success: true,
+      productCount: products.length,
+      inventoryCount: inventories.length,
+      coverage: products.length ? inventories.length / products.length : 1,
+      missingInventory,
+      orphanInventory,
+      duplicateInventory,
+      duplicateProductIds: duplicateInventory,
+      stockMismatch,
+      invalidInventory,
+      invalidStatus,
+      skuMismatch,
+      authorityEnabled: isInventoryAuthorityEnabled(),
+      authorityReady,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.get('/notifications', async (req, res, next) => {
+  try { res.json({ success: true, ...(await listNotifications(req.user, req.query)) }); } catch (error) { next(error); }
+});
+router.get('/notifications/unread-count', async (req, res, next) => {
+  try { const result = await listNotifications(req.user, { page: 1, limit: 1 }); res.json({ success: true, unreadCount: result.unreadCount }); } catch (error) { next(error); }
+});
+router.patch('/notifications/:id/read', async (req, res, next) => {
+  try { const notification = await markNotificationRead(req.user, req.params.id); if (!notification) return res.status(404).json({ success: false, message: 'Notification not found.' }); res.json({ success: true, notification }); } catch (error) { next(error); }
+});
+router.patch('/notifications/:id/unread', async (req, res, next) => {
+  try { const notification = await markNotificationUnread(req.user, req.params.id); if (!notification) return res.status(404).json({ success: false, message: 'Notification not found.' }); const result = await listNotifications(req.user, { page: 1, limit: 1 }); res.json({ success: true, notification, unreadCount: result.unreadCount }); } catch (error) { next(error); }
+});
+router.patch('/notifications/read-all', async (req, res, next) => {
+  try { await markAllNotificationsRead(req.user); res.json({ success: true, unreadCount: 0 }); } catch (error) { next(error); }
+});
+router.delete('/notifications/:id', async (req, res, next) => {
+  try { const notification = await deleteNotification(req.user, req.params.id); if (!notification) return res.status(404).json({ success: false, message: 'Notification not found.' }); res.json({ success: true }); } catch (error) { next(error); }
+});
+router.delete('/notifications', async (req, res, next) => {
+  try { await clearNotifications(req.user); res.json({ success: true, unreadCount: 0 }); } catch (error) { next(error); }
+});
+router.get('/notifications/preferences', asyncHandler(getPreferences));
+router.patch('/notifications/preferences', asyncHandler(patchPreferences));
 
 router.get('/users', async (req, res) => {
   try {
@@ -150,7 +233,7 @@ router.get('/dashboard', async (req, res) => {
     previousStartDate.setDate(previousStartDate.getDate() - periodDays);
     const validOrderFilter = confirmedOrderFilter();
     const paidOrderFilter = { paymentStatus: 'PAID', status: { $nin: ['CANCELLED', 'RETURNED'] } };
-    const pendingStatuses = ['ORDER_PLACED', 'PAYMENT_CONFIRMED', 'PROCESSING', 'PACKED', 'SHIPPED', 'OUT_FOR_DELIVERY'];
+    const pendingStatuses = ['ORDER_PLACED', 'PROCESSING', 'PACKED', 'SHIPPED', 'OUT_FOR_DELIVERY'];
     const statusCounts = Object.fromEntries(ORDER_STATUS_VALUES.map((status) => [status, 0]));
     const dateLabels = [];
     for (let index = 0; index < periodDays; index += 1) {

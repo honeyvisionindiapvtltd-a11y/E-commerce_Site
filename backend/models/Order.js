@@ -70,6 +70,12 @@ const orderItemSchema = new mongoose.Schema(
       min: 1,
     },
 
+    sku: { type: String, default: "" },
+    unitPrice: { type: Number, default: 0, min: 0 },
+    discount: { type: Number, default: 0, min: 0 },
+    tax: { type: Number, default: 0, min: 0 },
+    finalPrice: { type: Number, default: 0, min: 0 },
+
     price: {
       type: Number,
       required: true,
@@ -204,6 +210,20 @@ const orderSchema = new mongoose.Schema(
       type: String,
       required: true,
       unique: true,
+      index: true,
+    },
+
+    clientRequestId: {
+      type: String,
+      default: undefined,
+      trim: true,
+      index: true,
+    },
+
+    stockReservationStatus: {
+      type: String,
+      enum: ["NONE", "RESERVED", "COMMITTED", "RELEASED"],
+      default: "NONE",
       index: true,
     },
 
@@ -450,10 +470,15 @@ const orderSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
+
+    paymentCollectedAt: { type: Date, default: null },
+    paymentCollectedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
   },
   {
     timestamps: true,
   }
 );
+
+orderSchema.index({ user: 1, clientRequestId: 1 }, { unique: true, sparse: true });
 
 export default mongoose.model("Order", orderSchema);
