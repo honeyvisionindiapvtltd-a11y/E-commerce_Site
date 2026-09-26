@@ -5,6 +5,7 @@ const notificationSchema = new mongoose.Schema(
     recipient: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true, index: true },
     recipientType: { type: String, enum: ["customer", "admin", "delivery_agent"], required: true, index: true },
     type: { type: String, required: true, trim: true, index: true },
+    category: { type: String, enum: ["ORDER", "PAYMENT", "DELIVERY", "INSTALLATION", "SUPPORT", "PROMOTION", "PRICE_ALERT", "SECURITY", "CUSTOMER", "PRODUCT", "INVENTORY", "SYSTEM"], default: "SYSTEM", index: true },
     title: { type: String, required: true, trim: true, maxlength: 160 },
     message: { type: String, required: true, trim: true, maxlength: 1000 },
     actionUrl: { type: String, default: "", maxlength: 300 },

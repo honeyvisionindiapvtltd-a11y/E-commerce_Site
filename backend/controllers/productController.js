@@ -1,16 +1,16 @@
 import Product from "../models/Product.js";
 import Category from "../models/Category.js";
-import ProductImageIndex from "../models/ProductImageIndex.js";
-import {
-  buildListPagination,
-  buildProductListProjection,
-  getSearchRegex,
-} from "../utils/productListQuery.js";
+import inventoryService, { isInventoryAuthorityEnabled } from "../services/inventoryService.js";
 import {
   indexProductImageCatalog,
   getProductImageIndexSummary as getProductImageIndexStats,
   searchProductsByImage,
 } from "../services/productImageSearchService.js";
+import {
+  buildListPagination,
+  buildProductListProjection,
+  getSearchRegex,
+} from "../utils/productListQuery.js";
 
 // ============================================================
 // GET ALL PRODUCTS
@@ -712,6 +712,20 @@ const createProduct = async (req, res) => {
         metaDescription,
       });
 
+    if (isInventoryAuthorityEnabled()) {
+      await inventoryService.createInventory({
+        productId: String(product._id),
+        sku: product.sku,
+        totalStock: Number(stock || 0),
+        availableStock: Number(stock || 0),
+        reservedStock: 0,
+        soldStock: 0,
+        damagedStock: 0,
+        lowStockThreshold: Number(lowStockThreshold || 0),
+        currentPrice: Number(price || 0),
+      });
+    }
+
     // ========================================================
     // POPULATE CREATED PRODUCT
     // ========================================================
@@ -881,7 +895,20 @@ const updateProduct = async (req, res) => {
       safeBody.subCategory = nextSubCategory || null;
     }
 
-    if (safeBody.stock !== undefined) safeBody.stock = Number(safeBody.stock || 0);
+    if (safeBody.stock !== undefined) {
+      safeBody.stock = Number(safeBody.stock || 0);
+      if (isInventoryAuthorityEnabled()) {
+        if (req.body.stockAdjustment !== true) {
+          return res.status(409).json({ success: false, message: "Stock changes must use the Inventory adjustment workflow." });
+        }
+        const inventory = await inventoryService.requireInventory(product._id);
+        const delta = safeBody.stock - inventory.availableStock;
+        if (delta !== 0) {
+          await inventoryService.adjustInventory(product._id, delta, "Product edit stock adjustment", req.user._id, req.body.stockAdjustmentId ? { type: "PRODUCT_EDIT", id: req.body.stockAdjustmentId } : null);
+        }
+        delete safeBody.stock;
+      }
+    }
     if (safeBody.price !== undefined) safeBody.price = Number(safeBody.price || 0);
     if (safeBody.mrp !== undefined) safeBody.mrp = Number(safeBody.mrp || 0);
     if (safeBody.gstPercentage !== undefined) safeBody.gstPercentage = Number(safeBody.gstPercentage || 0);
@@ -1105,23 +1132,13 @@ const getNewArrivals = async (
 };
 
 // ============================================================
-// EXPORTS
-// ============================================================
-
 const getProductImageIndexSummary = async (req, res) => {
   try {
     const summary = await getProductImageIndexStats();
-    res.status(200).json({
-      success: true,
-      ...summary,
-    });
+    res.status(200).json({ success: true, ...summary });
   } catch (error) {
-    console.error('GET PRODUCT IMAGE INDEX SUMMARY ERROR:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to load product image index summary',
-      error: error.message,
-    });
+    console.error("GET PRODUCT IMAGE INDEX SUMMARY ERROR:", error);
+    res.status(500).json({ success: false, message: "Failed to load product image index summary", error: error.message });
   }
 };
 
@@ -1134,77 +1151,39 @@ const refreshProductImageIndex = async (req, res) => {
       reindexOutdated: Boolean(payload.reindexOutdated),
       limit: Number(payload.limit || 0),
     });
-
-    res.status(200).json({
-      success: true,
-      ...result,
-    });
+    res.status(200).json({ success: true, ...result });
   } catch (error) {
-    console.error('REFRESH PRODUCT IMAGE INDEX ERROR:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to refresh product image index',
-      error: error.message,
-    });
+    console.error("REFRESH PRODUCT IMAGE INDEX ERROR:", error);
+    res.status(500).json({ success: false, message: "Failed to refresh product image index", error: error.message });
   }
 };
 
 const searchByImage = async (req, res) => {
   try {
-    if (!req.file) {
-      return res.status(400).json({
-        success: false,
-        matched: false,
-        message: 'No image uploaded.',
-      });
-    }
-
-    const acceptedTypes = ['image/jpeg', 'image/png', 'image/webp'];
+    if (!req.file) return res.status(400).json({ success: false, matched: false, message: "No image uploaded." });
+    const acceptedTypes = ["image/jpeg", "image/png", "image/webp"];
     if (!acceptedTypes.includes(req.file.mimetype)) {
-      return res.status(400).json({
-        success: false,
-        matched: false,
-        message: 'Unsupported image format. Use JPG, PNG, or WebP.',
-      });
+      return res.status(400).json({ success: false, matched: false, message: "Unsupported image format. Use JPG, PNG, or WebP." });
     }
-
-    if (req.file.size > 10 * 1024 * 1024) {
-      return res.status(400).json({
-        success: false,
-        matched: false,
-        message: 'Image too large. Maximum size is 10 MB.',
-      });
-    }
-
     const candidate = await searchProductsByImage(req.file.buffer, req.file.mimetype, {
-      source: req.body?.source || 'camera',
-      device: req.body?.device || 'web',
-      brand: req.body?.brand || '',
-      model: req.body?.model || '',
-      sku: req.body?.sku || '',
-      barcode: req.body?.barcode || '',
-      text: req.body?.text || '',
-      category: req.body?.category || '',
+      source: req.body?.source || "camera",
+      device: req.body?.device || "web",
+      brand: req.body?.brand || "",
+      model: req.body?.model || "",
+      sku: req.body?.sku || "",
+      barcode: req.body?.barcode || "",
+      text: req.body?.text || "",
+      category: req.body?.category || "",
     });
-
-    return res.status(200).json({
-      success: true,
-      ...candidate,
-    });
+    return res.status(200).json({ success: true, ...candidate });
   } catch (error) {
-    console.error('SEARCH BY IMAGE ERROR:', error);
-    return res.status(500).json({
-      success: false,
-      matched: false,
-      confidence: 0,
-      matchType: 'error',
-      message: 'We could not complete the image search. Please try again.',
-      product: null,
-      possibleMatches: [],
-      error: error.message,
-    });
+    console.error("SEARCH BY IMAGE ERROR:", error);
+    return res.status(500).json({ success: false, matched: false, confidence: 0, matchType: "error", message: "We could not complete the image search. Please try again.", product: null, possibleMatches: [], error: error.message });
   }
 };
+
+// EXPORTS
+// ============================================================
 
 export {
   getProducts,

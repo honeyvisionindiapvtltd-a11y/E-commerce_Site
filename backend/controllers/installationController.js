@@ -1,6 +1,7 @@
 import Installation from '../models/Installation.js';
 import User from '../models/User.js';
 import Order from '../models/Order.js';
+import Product from '../models/Product.js';
 import {
   createInstallationBooking,
   calculateInstallationPricing,
@@ -14,6 +15,8 @@ import {
   addInstallationNotes,
   getInstallationStatistics,
   getRecentInstallationBookings,
+  isSupportedInstallationService,
+  areSupportedAdditionalServices,
 } from '../services/installationService.js';
 import { INSTALLATION_STATUSES, isValidStatusTransition } from '../constants/installationStatuses.js';
 import Payment from '../models/Payment.js';
@@ -148,15 +151,17 @@ export const adminUpdateInstallationStatus = async (req, res) => {
       });
     }
 
-    if (status === INSTALLATION_STATUSES.CONFIRMED && booking.paymentStatus !== 'PAID' && booking.paymentMethod !== 'COD') {
-      return res.status(400).json({ success: false, message: 'Installation payment must be paid before confirmation.' });
-    }
-
     if (!isValidStatusTransition(booking.status, status)) {
       return res.status(400).json({
         success: false,
         message: `Invalid status transition from ${booking.status} to ${status}`,
       });
+    }
+
+    if (status === INSTALLATION_STATUSES.INSTALLATION_COMPLETED
+      && String(booking.paymentMethod || '').toUpperCase() === 'COD'
+      && booking.paymentStatus !== 'PAID') {
+      return res.status(409).json({ success: false, message: 'COD payment must be collected before completing this installation.' });
     }
 
     const updated = await updateInstallationStatus(bookingId, status, {
@@ -385,6 +390,7 @@ export const agentAcceptInstallation = async (req, res) => {
       changedBy: agentId,
       changedByRole: 'delivery_agent',
       changedByName: req.user.name,
+      assignedAgentId: agentId,
       note: 'Agent accepted the installation',
     });
 
@@ -438,6 +444,7 @@ export const agentDeclineInstallation = async (req, res) => {
       changedBy: agentId,
       changedByRole: 'delivery_agent',
       changedByName: req.user.name,
+      assignedAgentId: agentId,
       note: reason || 'Agent declined the installation',
     });
 
@@ -503,10 +510,17 @@ export const agentUpdateInstallationStatus = async (req, res) => {
       });
     }
 
+    if (status === INSTALLATION_STATUSES.INSTALLATION_COMPLETED
+      && String(booking.paymentMethod || '').toUpperCase() === 'COD'
+      && booking.paymentStatus !== 'PAID') {
+      return res.status(409).json({ success: false, message: 'COD payment must be collected before completing this installation.' });
+    }
+
     const updated = await updateInstallationStatus(bookingId, status, {
       changedBy: agentId,
       changedByRole: 'delivery_agent',
       changedByName: req.user.name,
+      assignedAgentId: agentId,
       note: note || '',
       failureReason: status === INSTALLATION_STATUSES.FAILED ? failureReason : undefined,
       agentNotes: status === INSTALLATION_STATUSES.FAILED ? note : undefined,
@@ -523,6 +537,59 @@ export const agentUpdateInstallationStatus = async (req, res) => {
       success: false,
       message: error.message || 'Failed to update installation status',
     });
+  }
+};
+
+/**
+ * PUT /installations/:bookingId/payment/collect
+ * Record cash collected for a COD installation.
+ */
+export const markInstallationPaymentCollected = async (req, res) => {
+  try {
+    const booking = await getInstallationBooking(req.params.bookingId);
+    if (!booking) return res.status(404).json({ success: false, message: 'Installation booking not found.' });
+
+    const isAdmin = req.user?.role === 'admin';
+    const isAssignedAgent = String(booking.assignedAgentId) === String(req.user?._id);
+    if (!isAdmin && !isAssignedAgent) return res.status(403).json({ success: false, message: 'You are not authorized to collect this payment.' });
+    if (String(booking.paymentMethod || '').toUpperCase() !== 'COD') return res.status(400).json({ success: false, message: 'Only COD installation payments can be collected here.' });
+    if (booking.paymentStatus === 'PAID') return res.json({ success: true, data: booking, message: 'Installation payment is already marked as collected.' });
+    const collectedAmount = Number(req.body?.amount);
+    if (!Number.isFinite(collectedAmount) || collectedAmount !== Number(booking.total)) return res.status(400).json({ success: false, message: `Collect the exact installation amount of ₹${Number(booking.total).toLocaleString('en-IN')}.` });
+
+    const payment = await Payment.findOneAndUpdate(
+      { paymentId: `installation:cod:${booking._id}` },
+      {
+        $setOnInsert: {
+          paymentId: `installation:cod:${booking._id}`,
+          orderId: booking.bookingNumber,
+          userId: String(booking.userId),
+          amount: Number(booking.total),
+          currency: booking.paymentCurrency || 'INR',
+          status: 'completed',
+          paymentMethod: 'cod',
+          paymentProvider: 'manual',
+          transactionId: `cod:${booking._id}`,
+          completedAt: new Date(),
+          description: `COD installation payment for ${booking.bookingNumber}`,
+          metadata: { installationId: String(booking._id), collectedBy: String(req.user._id) },
+        },
+      },
+      { upsert: true, new: true, setDefaultsOnInsert: true },
+    );
+    const paymentUpdate = await Installation.updateOne(
+      { _id: booking._id, paymentStatus: 'PENDING' },
+      {
+        $set: { paymentStatus: 'PAID', paymentProvider: 'cod', paymentTransactionId: `cod:${booking._id}`, paidAt: new Date(), paymentAmount: Number(booking.total), paymentRecordId: payment._id },
+        $push: { statusHistory: { status: booking.status, previousStatus: booking.status, changedBy: req.user._id, changedByRole: isAdmin ? 'admin' : 'delivery_agent', changedByName: req.user.name, timestamp: new Date(), note: `COD payment collected: ${booking.total}` } },
+      },
+    );
+    const updatedBooking = await findInstallationDocument(req.params.bookingId);
+    if (!paymentUpdate.matchedCount) return res.json({ success: true, data: updatedBooking, message: 'Installation payment is already marked as collected.' });
+    emitInstallationStatusUpdate(String(updatedBooking._id), String(updatedBooking.userId), '', updatedBooking.status, { paymentStatus: updatedBooking.paymentStatus, paymentMethod: updatedBooking.paymentMethod, paidAt: updatedBooking.paidAt });
+    return res.json({ success: true, data: updatedBooking, message: 'COD payment marked as collected.' });
+  } catch (error) {
+    return res.status(400).json({ success: false, message: error.message || 'Unable to collect installation payment.' });
   }
 };
 
@@ -624,39 +691,66 @@ export const agentAddNotes = async (req, res) => {
  */
 export const customerCreateInstallation = async (req, res) => {
   try {
-    const { service, serviceId, orderId, orderNumber, customer = {}, preferredDate, preferredSlot, notes = '', additionalServices = [] } = req.body || {};
+    const { service, serviceId, orderId, orderNumber, productId, customer = {}, preferredDate, preferredSlot, notes = '', additionalServices = [], paymentMethod = 'ONLINE', clientRequestId = '' } = req.body || {};
     const userId = req.user._id;
-
-    if (!orderId) {
-      return res.status(400).json({ success: false, message: 'Please select the order for which installation is required.' });
+    const accountName = req.user.profile?.fullName || req.user.name || '';
+    const accountPhone = req.user.profile?.phone || req.user.phone || '';
+    const accountEmail = req.user.profile?.email || req.user.email || '';
+    const normalizedPaymentMethod = String(paymentMethod || 'ONLINE').trim().toUpperCase();
+    const allowedPaymentMethods = new Set(['UPI', 'CARD', 'NETBANKING', 'WALLET', 'ONLINE', 'COD']);
+    if (!allowedPaymentMethods.has(normalizedPaymentMethod)) {
+      return res.status(400).json({ success: false, message: 'Unsupported installation payment method.' });
     }
 
-    const orderFilters = [{ orderNumber: String(orderId) }, { id: String(orderId) }];
-    if (/^[a-fA-F0-9]{24}$/.test(String(orderId))) orderFilters.push({ _id: orderId });
-    const selectedOrder = await Order.findOne({
-      $or: orderFilters,
-      user: userId,
-    }).populate('items.product', 'installationAvailable');
+    let selectedOrder = null;
+    let linkedProduct = null;
+    if (orderId) {
+      const orderFilters = [{ orderNumber: String(orderId) }, { id: String(orderId) }];
+      if (/^[a-fA-F0-9]{24}$/.test(String(orderId))) orderFilters.push({ _id: orderId });
+      selectedOrder = await Order.findOne({
+        $or: orderFilters,
+        user: userId,
+      });
 
-    if (!selectedOrder) {
-      return res.status(403).json({ success: false, message: 'The selected order does not belong to this customer.' });
+      if (!selectedOrder) {
+        return res.status(403).json({ success: false, message: 'The selected order does not belong to this customer.' });
+      }
+
+      const orderStatuses = [selectedOrder.status, selectedOrder.orderLifecycleStatus]
+        .map((value) => String(value || '').toUpperCase());
+      if (orderStatuses.some((status) => ['CANCELLED', 'RETURNED', 'REFUNDED'].includes(status))) {
+        return res.status(400).json({ success: false, message: 'This order cannot be used for a new installation booking.' });
+      }
+
+      const orderProductIds = selectedOrder.items.map((item) => String(item.product?._id || item.product?.id || item.productId || item.product));
+      if (productId && !orderProductIds.includes(String(productId))) {
+        return res.status(400).json({ success: false, message: 'The selected product is not part of this order.' });
+      }
+      const eligibleProducts = await Product.find({
+        _id: { $in: productId ? [productId] : orderProductIds },
+        installationAvailable: true,
+      }).select('name').lean();
+      if (!eligibleProducts.length) {
+        return res.status(400).json({ success: false, message: 'This order does not contain an installation-eligible product.' });
+      }
+      linkedProduct = eligibleProducts.find((product) => String(product._id) === String(productId)) || eligibleProducts[0];
     }
 
-    if (['CANCELLED', 'RETURNED', 'REFUNDED'].includes(String(selectedOrder.status || '').toUpperCase())) {
-      return res.status(400).json({ success: false, message: 'This order cannot be used for a new installation booking.' });
-    }
-
-    if (selectedOrder.paymentStatus !== 'PAID') {
-      return res.status(400).json({ success: false, message: 'The product order must be paid before installation can be booked.' });
-    }
-
-    if (!selectedOrder.items?.some((item) => item.product?.installationAvailable === true)) {
-      return res.status(400).json({ success: false, message: 'None of the products in this order support installation.' });
+    const normalizedClientRequestId = String(clientRequestId || '').trim().slice(0, 120);
+    if (normalizedClientRequestId) {
+      const existingRequest = await Installation.findOne({ userId, clientRequestId: normalizedClientRequestId }).lean();
+      if (existingRequest) return res.status(200).json({ success: true, data: existingRequest, reused: true, message: 'Installation booking request already processed.' });
     }
 
     const chosenServiceId = String(serviceId || service || '').trim();
     if (!chosenServiceId) {
       return res.status(400).json({ success: false, message: 'Please select an installation service.' });
+    }
+    if (!isSupportedInstallationService(chosenServiceId)) {
+      return res.status(400).json({ success: false, message: 'Unsupported installation service.' });
+    }
+    if (!areSupportedAdditionalServices(additionalServices)) {
+      return res.status(400).json({ success: false, message: 'Unsupported additional installation service.' });
     }
 
     const hasLatitude = customer.latitude !== null && customer.latitude !== undefined && customer.latitude !== '';
@@ -671,31 +765,63 @@ export const customerCreateInstallation = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Please choose a valid date and time slot.' });
     }
 
-    const duplicateBooking = await Installation.findOne({
-      userId,
-      $or: [{ orderId: String(selectedOrder._id) }, { orderId: selectedOrder.orderNumber }],
-      status: { $nin: ['CANCELLED', 'INSTALLATION_COMPLETED', 'FAILED'] },
-    }).lean();
+    const duplicateQuery = selectedOrder
+      ? {
+          userId,
+          $or: [{ orderId: String(selectedOrder._id) }, { orderId: selectedOrder.orderNumber }],
+          serviceId: chosenServiceId,
+          preferredDate,
+          preferredSlot,
+          status: { $nin: ['CANCELLED', 'INSTALLATION_COMPLETED', 'FAILED'] },
+        }
+      : {
+          userId,
+          orderId: null,
+          serviceId: chosenServiceId,
+          preferredDate,
+          preferredSlot,
+          status: { $nin: ['CANCELLED', 'INSTALLATION_COMPLETED', 'FAILED'] },
+        };
+    const pendingBooking = await Installation.findOne({ ...duplicateQuery, paymentStatus: 'PENDING' }).lean();
 
+    if (pendingBooking) {
+      const sameBooking = pendingBooking.serviceId === chosenServiceId
+        && pendingBooking.preferredDate === preferredDate
+        && pendingBooking.preferredSlot === preferredSlot
+        && String(pendingBooking.customer?.phone || '') === String(customer.phone || '')
+        && String(pendingBooking.customer?.address || '').trim() === String(customer.address || '').trim();
+      if (sameBooking) {
+        await Installation.updateOne({ _id: pendingBooking._id }, { $set: { paymentMethod: normalizedPaymentMethod } });
+        const reusableBooking = await Installation.findById(pendingBooking._id);
+        return res.status(200).json({ success: true, data: reusableBooking, reused: true, message: 'Pending installation booking reused.' });
+      }
+    }
+
+    const duplicateBooking = await Installation.findOne({ ...duplicateQuery, paymentStatus: { $ne: 'PENDING' } }).lean();
     if (duplicateBooking) {
       return res.status(409).json({
         success: false,
-        message: 'An active installation booking already exists for this order.',
+        message: selectedOrder
+          ? 'An active installation booking already exists for this order.'
+          : 'An active standalone installation booking already exists.',
         data: duplicateBooking,
       });
     }
 
     const booking = await createInstallationBooking({
       userId,
+      clientRequestId: normalizedClientRequestId,
       service: service || chosenServiceId,
       serviceId: chosenServiceId,
-      orderId: selectedOrder._id,
-      orderNumber: selectedOrder.orderNumber || orderNumber,
+      orderId: selectedOrder ? selectedOrder._id : null,
+      orderNumber: selectedOrder ? selectedOrder.orderNumber || orderNumber : null,
+      productId: linkedProduct?._id || null,
+      productName: linkedProduct?.name || '',
       customer: {
         ...customer,
-        name: customer.name || req.user.name || '',
-        phone: customer.phone || req.user.phone || '',
-        email: customer.email || req.user.email || '',
+        name: accountName,
+        phone: customer.phone || accountPhone,
+        email: accountEmail,
         latitude,
         longitude,
       },
@@ -703,6 +829,7 @@ export const customerCreateInstallation = async (req, res) => {
       preferredSlot,
       notes,
       additionalServices: Array.isArray(additionalServices) ? additionalServices : [],
+      paymentMethod: normalizedPaymentMethod,
     });
 
     res.status(201).json({
@@ -711,6 +838,10 @@ export const customerCreateInstallation = async (req, res) => {
       message: 'Installation booking created successfully',
     });
   } catch (error) {
+    if (error?.code === 11000 && clientRequestId) {
+      const existingRequest = await Installation.findOne({ userId, clientRequestId: String(clientRequestId).trim().slice(0, 120) }).lean();
+      if (existingRequest) return res.status(200).json({ success: true, data: existingRequest, reused: true, message: 'Installation booking request already processed.' });
+    }
     res.status(400).json({
       success: false,
       message: error.message || 'Failed to create installation',
@@ -730,17 +861,43 @@ export const createInstallationPaymentOrder = async (req, res) => {
       return res.status(503).json({ success: false, message: 'Razorpay is not enabled on this server.' });
     }
 
+    const requestedPaymentMethod = String(req.body?.paymentMethod || 'upi').trim().toLowerCase();
+    if (requestedPaymentMethod === 'cod') {
+      return res.status(400).json({ success: false, message: 'Cash on Delivery does not use Razorpay.' });
+    }
+    const paymentMethods = new Set(['upi', 'card', 'netbanking', 'wallet']);
+    if (!paymentMethods.has(requestedPaymentMethod)) {
+      return res.status(400).json({ success: false, message: 'Unsupported installation payment method.' });
+    }
+
     const booking = await findInstallationDocument(req.params.bookingId);
     if (!booking) return res.status(404).json({ success: false, message: 'Installation booking not found.' });
     if (String(booking.userId) !== String(req.user._id)) return res.status(403).json({ success: false, message: 'This booking does not belong to you.' });
     if (booking.paymentStatus === 'PAID') return res.status(409).json({ success: false, message: 'Installation has already been paid.' });
     if (booking.paymentStatus === 'REFUNDED' || booking.status === INSTALLATION_STATUSES.CANCELLED) return res.status(400).json({ success: false, message: 'This installation is not payable.' });
+    booking.paymentMethod = requestedPaymentMethod.toUpperCase();
+
+    if (booking.paymentOrderId) {
+      try {
+        const existingRazorpayOrder = await razorInstance.orders.fetch(booking.paymentOrderId);
+        if (Number(existingRazorpayOrder.amount) === Math.round(Number(booking.total) * 100)
+          && String(existingRazorpayOrder.currency || '').toUpperCase() === 'INR') {
+          booking.paymentAmount = Number(booking.total);
+          booking.paymentProvider = 'razorpay';
+          await booking.save();
+          return res.json({ success: true, data: { installation: booking, razorpayOrder: existingRazorpayOrder, keyId: process.env.RAZORPAY_KEY_ID } });
+        }
+      } catch (error) {
+        console.warn('Existing installation Razorpay order could not be reused:', error.message);
+      }
+    }
 
     const razorpayOrder = await razorInstance.orders.create({
       amount: Math.round(Number(booking.total) * 100),
       currency: booking.paymentCurrency || 'INR',
       receipt: booking.bookingNumber,
       payment_capture: 1,
+      notes: { installationId: booking.bookingNumber, paymentMethod: requestedPaymentMethod },
     });
     booking.paymentOrderId = razorpayOrder.id;
     booking.paymentAmount = Number(booking.total);
@@ -769,47 +926,102 @@ export const verifyInstallationPayment = async (req, res) => {
     if (!valid) return res.status(400).json({ success: false, message: 'Invalid payment signature.' });
 
     const existingPayment = await Payment.findOne({ paymentId: `installation:${razorpay_payment_id}` });
-    if (existingPayment) {
+    if (existingPayment && String(existingPayment.metadata?.installationId || '') !== String(booking._id)) {
+      return res.status(409).json({ success: false, message: 'This payment is already associated with another installation.' });
+    }
+    if (booking.paymentStatus === 'PAID' && existingPayment) {
       return res.json({ success: true, data: { installation: booking, payment: existingPayment }, message: 'Installation payment already verified.' });
     }
 
     if (razorInstance) {
       const razorpayPayment = await razorInstance.payments.fetch(razorpay_payment_id);
-      if (razorpayPayment.order_id !== razorpay_order_id || Number(razorpayPayment.amount) !== Math.round(Number(booking.total) * 100)) {
+      if (razorpayPayment.order_id !== razorpay_order_id
+        || Number(razorpayPayment.amount) !== Math.round(Number(booking.total) * 100)
+        || String(razorpayPayment.currency || '').toUpperCase() !== 'INR'
+        || String(razorpayPayment.status || '').toLowerCase() !== 'captured') {
         return res.status(400).json({ success: false, message: 'Payment amount does not match the installation total.' });
       }
     }
 
-    const payment = await Payment.create({
-      paymentId: `installation:${razorpay_payment_id}`,
-      orderId: booking.bookingNumber,
-      userId: String(req.user._id),
-      amount: booking.total,
-      currency: booking.paymentCurrency || 'INR',
-      status: 'completed',
-      paymentMethod: 'razorpay',
-      paymentProvider: 'razorpay',
-      razorpayOrderId: razorpay_order_id,
-      razorpayPaymentId: razorpay_payment_id,
-      razorpaySignature: razorpay_signature,
-      completedAt: new Date(),
-      description: `Installation payment for ${booking.bookingNumber}`,
-      metadata: { installationId: String(booking._id) },
-    });
+    const payment = await Payment.findOneAndUpdate(
+      { paymentId: `installation:${razorpay_payment_id}` },
+      {
+        $setOnInsert: {
+          paymentId: `installation:${razorpay_payment_id}`,
+          orderId: booking.bookingNumber,
+          userId: String(req.user._id),
+          amount: booking.total,
+          currency: booking.paymentCurrency || 'INR',
+          status: 'completed',
+          paymentMethod: 'razorpay',
+          paymentProvider: 'razorpay',
+          razorpayOrderId: razorpay_order_id,
+          razorpayPaymentId: razorpay_payment_id,
+          razorpaySignature: razorpay_signature,
+          completedAt: new Date(),
+          description: `Installation payment for ${booking.bookingNumber}`,
+          metadata: { installationId: String(booking._id) },
+        },
+      },
+      { upsert: true, new: true, setDefaultsOnInsert: true },
+    );
 
-    booking.paymentStatus = 'PAID';
-    booking.paymentProvider = 'razorpay';
-    booking.paymentTransactionId = razorpay_payment_id;
-    booking.paymentAmount = booking.total;
-    booking.paidAt = new Date();
-    booking.paymentRecordId = payment._id;
-    booking.statusHistory.push({ status: booking.status, previousStatus: booking.status, changedBy: req.user._id, changedByRole: 'customer', changedByName: req.user.name, timestamp: new Date(), note: 'Installation payment confirmed' });
-    await booking.save();
+    const paymentMethod = ['UPI', 'CARD', 'NETBANKING', 'WALLET'].includes(String(booking.paymentMethod || '').toUpperCase())
+      ? String(booking.paymentMethod).toUpperCase()
+      : 'ONLINE';
+    const paymentUpdate = await Installation.updateOne(
+      { _id: booking._id, paymentStatus: { $ne: 'PAID' } },
+      {
+        $set: {
+          paymentStatus: 'PAID',
+          paymentProvider: 'razorpay',
+          paymentTransactionId: razorpay_payment_id,
+          paymentMethod,
+          paymentAmount: booking.total,
+          paidAt: new Date(),
+          paymentRecordId: payment._id,
+        },
+        $push: { statusHistory: { status: booking.status, previousStatus: booking.status, changedBy: req.user._id, changedByRole: 'customer', changedByName: req.user.name, timestamp: new Date(), note: 'Installation payment confirmed' } },
+      },
+    );
+    if (!paymentUpdate.matchedCount) {
+      const paidBooking = await findInstallationDocument(req.params.bookingId);
+      return res.json({ success: true, data: { installation: paidBooking, payment }, message: 'Installation payment already verified.' });
+    }
+    const confirmedBooking = await findInstallationDocument(req.params.bookingId);
 
-    emitInstallationStatusUpdate(String(booking._id), String(booking.userId), '', booking.status, { paymentStatus: booking.paymentStatus, paymentAmount: booking.paymentAmount });
-    return res.json({ success: true, data: { installation: booking, payment }, message: 'Installation payment verified successfully' });
+    emitInstallationStatusUpdate(String(confirmedBooking._id), String(confirmedBooking.userId), '', confirmedBooking.status, { paymentStatus: confirmedBooking.paymentStatus, paymentAmount: confirmedBooking.paymentAmount });
+    return res.json({ success: true, data: { installation: confirmedBooking, payment }, message: 'Installation payment verified successfully' });
   } catch (error) {
     return res.status(400).json({ success: false, message: error.message || 'Installation payment verification failed.' });
+  }
+};
+
+export const markInstallationPaymentFailed = async (req, res) => {
+  try {
+    const booking = await findInstallationDocument(req.params.bookingId);
+    if (!booking) return res.status(404).json({ success: false, message: 'Installation booking not found.' });
+    if (String(booking.userId) !== String(req.user._id)) return res.status(403).json({ success: false, message: 'This booking does not belong to you.' });
+    if (booking.paymentStatus === 'PAID') return res.status(409).json({ success: false, message: 'Installation payment is already confirmed.' });
+    booking.paymentStatus = 'FAILED';
+    await booking.save();
+    return res.json({ success: true, data: booking, message: 'Installation payment marked as failed.' });
+  } catch {
+    return res.status(400).json({ success: false, message: 'Unable to update installation payment status.' });
+  }
+};
+
+export const markInstallationPaymentCancelled = async (req, res) => {
+  try {
+    const booking = await findInstallationDocument(req.params.bookingId);
+    if (!booking) return res.status(404).json({ success: false, message: 'Installation booking not found.' });
+    if (String(booking.userId) !== String(req.user._id)) return res.status(403).json({ success: false, message: 'This booking does not belong to you.' });
+    if (booking.paymentStatus === 'PAID') return res.status(409).json({ success: false, message: 'Installation payment is already confirmed.' });
+    if (booking.paymentStatus === 'FAILED') booking.paymentStatus = 'PENDING';
+    await booking.save();
+    return res.json({ success: true, data: booking, message: 'Installation payment remains pending.' });
+  } catch {
+    return res.status(400).json({ success: false, message: 'Unable to update installation payment status.' });
   }
 };
 
@@ -852,7 +1064,7 @@ export const customerGetInstallation = async (req, res) => {
       });
     }
 
-    if (String(booking.userId) !== String(userId)) {
+    if (String(booking.userId?._id || booking.userId) !== String(userId)) {
       return res.status(403).json({
         success: false,
         message: 'This booking does not belong to you',

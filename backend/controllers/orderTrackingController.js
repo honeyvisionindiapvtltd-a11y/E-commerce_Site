@@ -22,6 +22,7 @@ import { checkDeliveryServiceability } from "../services/deliveryServiceabilityS
 import { canCustomerCancelOrder, getOrderActions } from "../services/orderLifecycleService.js";
 import { confirmedOrderFilter } from "../utils/orderQueries.js";
 import { notifyAdmins, notifyCustomer } from "../services/notificationService.js";
+import inventoryService, { assertInventoryAuthorityReady, isInventoryAuthorityEnabled } from "../services/inventoryService.js";
 
 const escapeRegExp = (value = "") => String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 const canExposeDevelopmentOtp = () => process.env.NODE_ENV === "development"
@@ -75,7 +76,9 @@ const buildOrderNumberQuery = (orderNumber) => {
 
 export const createOrder = async (req, res) => {
   const reservedItems = [];
+  let reservationReferenceId = "";
   try {
+    await assertInventoryAuthorityReady();
     const {
       items,
       shippingAddress,
@@ -83,7 +86,17 @@ export const createOrder = async (req, res) => {
       paymentMethod = "COD",
       deliveryType = "courier",
       customerNote = "",
+      clientRequestId = "",
     } = req.body;
+
+    const normalizedClientRequestId = String(clientRequestId || "").trim().slice(0, 120);
+    if (normalizedClientRequestId && req.user?._id) {
+      const existingRequest = await Order.findOne({ user: req.user._id, clientRequestId: normalizedClientRequestId })
+        .populate("items.product", "name slug thumbnail price");
+      if (existingRequest) {
+        return res.status(200).json({ success: true, message: "Order request already processed", order: existingRequest, idempotent: true });
+      }
+    }
 
     const resolvedShippingAddress = shippingAddress || address;
     const normalizedPaymentMethod = String(paymentMethod || "COD").trim().toUpperCase();
@@ -230,7 +243,7 @@ export const createOrder = async (req, res) => {
         });
       }
 
-      if (product.stock < quantity) {
+      if (!isInventoryAuthorityEnabled() && product.stock < quantity) {
         return res.status(400).json({
           success: false,
           message: `${product.name} does not have enough stock`,
@@ -247,6 +260,10 @@ export const createOrder = async (req, res) => {
         thumbnail: product.thumbnail || item.image || "",
         quantity,
         price: Number(product.price ?? item.price ?? 0),
+        unitPrice: Number(product.price ?? item.price ?? 0),
+        discount: 0,
+        tax: 0,
+        finalPrice: Number(product.price ?? item.price ?? 0) * quantity,
         image: product.thumbnail || item.image || "",
       });
     }
@@ -258,6 +275,7 @@ export const createOrder = async (req, res) => {
 
     const order = await Order.create({
       orderNumber: generateOrderNumber(),
+      ...(normalizedClientRequestId ? { clientRequestId: normalizedClientRequestId } : {}),
       user: user._id,
       items: orderItems,
       subtotal,
@@ -286,6 +304,7 @@ export const createOrder = async (req, res) => {
         deliveryCharge: Number(serviceability.deliveryCharge || 0),
         estimatedDeliveryDays: serviceability.estimatedDeliveryDays || { min: 1, max: 2 },
       },
+      stockReservationStatus: "NONE",
       status: ORDER_STATUSES.ORDER_PLACED,
       trackingEvents: [
         {
@@ -298,6 +317,7 @@ export const createOrder = async (req, res) => {
         },
       ],
     });
+    reservationReferenceId = order.orderNumber;
     console.info(`[ORDER_CREATED] order=${order.orderNumber} lifecycle=${order.orderLifecycleStatus} paymentMethod=${order.paymentMethod}`);
     const notification = isCodOrder
       ? {
@@ -317,27 +337,33 @@ export const createOrder = async (req, res) => {
 
     // Reserve stock with a conditional update so concurrent checkouts cannot oversell.
     for (const item of orderItems) {
-      const reservedProduct = await Product.findOneAndUpdate(
-        { _id: item.product, stock: { $gte: item.quantity } },
-        { $inc: { stock: -item.quantity } },
-        { new: true },
-      );
+      if (isInventoryAuthorityEnabled()) {
+        await inventoryService.reserveInventory(item.product, item.quantity, { type: "ORDER", id: order.orderNumber });
+      } else {
+        const reservedProduct = await Product.findOneAndUpdate(
+          { _id: item.product, stock: { $gte: item.quantity } },
+          { $inc: { stock: -item.quantity } },
+          { new: true },
+        );
 
-      if (!reservedProduct) {
-        throw new Error(`${item.name} is no longer available in the requested quantity`);
+        if (!reservedProduct) {
+          throw new Error(`${item.name} is no longer available in the requested quantity`);
+        }
+
+        const stockStatus = reservedProduct.stock <= 0
+          ? "out_of_stock"
+          : reservedProduct.stock <= reservedProduct.lowStockThreshold
+            ? "low_stock"
+            : "in_stock";
+        await Product.updateOne(
+          { _id: item.product },
+          { $set: { stockStatus } },
+        );
       }
-
       reservedItems.push(item);
-      const stockStatus = reservedProduct.stock <= 0
-        ? "out_of_stock"
-        : reservedProduct.stock <= reservedProduct.lowStockThreshold
-          ? "low_stock"
-          : "in_stock";
-      await Product.updateOne(
-        { _id: item.product },
-        { $set: { stockStatus } },
-      );
     }
+    order.stockReservationStatus = "RESERVED";
+    await order.save();
 
     const populatedOrder = await Order.findById(order._id)
       .populate("items.product", "name slug thumbnail price")
@@ -350,15 +376,37 @@ export const createOrder = async (req, res) => {
     });
   } catch (error) {
     for (const item of reservedItems) {
-      await Product.findByIdAndUpdate(item.product, {
-        $inc: { stock: item.quantity },
-      }).catch((rollbackError) => console.error("Stock rollback failed:", rollbackError));
+      if (isInventoryAuthorityEnabled()) {
+        await inventoryService.releaseInventory(item.product, item.quantity, { type: "ORDER", id: reservationReferenceId || normalizedClientRequestId }).catch((rollbackError) => console.error("Inventory rollback failed:", rollbackError));
+      } else {
+        await Product.findByIdAndUpdate(item.product, {
+          $inc: { stock: item.quantity },
+        }).catch((rollbackError) => console.error("Stock rollback failed:", rollbackError));
+      }
     }
+
+    if (error?.code === 11000 && normalizedClientRequestId && user?._id) {
+      const existingOrder = await Order.findOne({
+        user: user._id,
+        clientRequestId: normalizedClientRequestId,
+      })
+        .populate("items.product", "name slug thumbnail price")
+        .populate("user", "name email phone");
+
+      if (existingOrder) {
+        return res.status(200).json({
+          success: true,
+          message: "Order request already processed",
+          order: existingOrder,
+          idempotent: true,
+        });
+      }
+    }
+
     console.error("createOrder error:", error);
     res.status(500).json({
       success: false,
       message: "Failed to create order",
-      error: error.message,
     });
   }
 };

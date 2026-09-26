@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useCommerce } from "../context/index.js";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 
@@ -31,8 +31,6 @@ import { computeTotals } from "../lib/orderTotals";
 import { productIdOf } from "../lib/products";
 import PaymentExperience from "../components/PaymentExperience.jsx";
 
-const API_BASE = import.meta.env.VITE_API_URL || "/api";
-
 /* ============================================================
    PAYMENT PAGE
 ============================================================ */
@@ -47,7 +45,6 @@ const Payment = () => {
     requestJson,
     placeOrder,
     clearCart,
-    removeFromCart,
     couponApplied,
   } = useCommerce();
 
@@ -55,7 +52,6 @@ const Payment = () => {
   const navigate = useNavigate();
 
   const checkoutState = location.state || {};
-  const isDirectPurchase = Boolean(checkoutState.buyNowItem);
   const orderIdFromState = checkoutState.orderId;
 
   /* ============================================================
@@ -81,7 +77,7 @@ const Payment = () => {
      PAYMENT METHOD
   ============================================================ */
 
-  const validPaymentMethods = ["cod", "razorpay", "phonepe", "googlepay", "paytm"];
+  const validPaymentMethods = ["cod", "razorpay", "upi", "card", "netbanking", "wallet", "phonepe", "googlepay", "paytm"];
 
   const selectedPaymentMethod = validPaymentMethods.includes(
     checkoutState.paymentMethod
@@ -96,6 +92,7 @@ const Payment = () => {
       orderIdFromState ||
       `HV${Date.now().toString().slice(-8)}`
   );
+  const [clientRequestId] = useState(() => window.crypto?.randomUUID?.() || `order-${Date.now()}-${Math.random().toString(36).slice(2)}`);
 
   const [paymentMethod, setPaymentMethod] = useState(
     selectedPaymentMethod
@@ -110,8 +107,6 @@ const Payment = () => {
   const [copied, setCopied] = useState(false);
 
   const [preservedItems, setPreservedItems] = useState(null);
-  const [fetchedCartProducts, setFetchedCartProducts] = useState({});
-  const [cartProductsLoading, setCartProductsLoading] = useState(false);
   const [paymentError, setPaymentError] = useState(null);
   const [paymentErrorType, setPaymentErrorType] = useState(null);
 
@@ -170,94 +165,34 @@ const Payment = () => {
      CART PRODUCTS
   ============================================================ */
 
-  const missingProductIds = cart
-    .filter((item) => {
-      const itemId = productIdOf(item);
-      return !item.product && !products.some((product) => String(productIdOf(product) ?? "") === String(itemId ?? "")) && !fetchedCartProducts[String(itemId)];
-    })
-    .map((item) => String(productIdOf(item)))
-    .filter(Boolean);
-
-  useEffect(() => {
-    if (!missingProductIds.length) return undefined;
-
-    let cancelled = false;
-    setCartProductsLoading(true);
-    Promise.all(
-      missingProductIds.map(async (productId) => {
-        try {
-          const response = await fetch(`${API_BASE}/products/${encodeURIComponent(productId)}`);
-          if (!response.ok) return null;
-          const data = await response.json();
-          return data?.product || data?.data || data;
-        } catch {
-          return null;
-        }
-      })
-    ).then((loadedProducts) => {
-      if (cancelled) return;
-      setFetchedCartProducts((current) => ({
-        ...current,
-        ...Object.fromEntries(
-          loadedProducts.filter(Boolean).map((product) => [String(productIdOf(product)), product])
-        ),
-        ...Object.fromEntries(missingProductIds.map((productId) => [productId, current[productId] || null])),
-      }));
-      setCartProductsLoading(false);
-    });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [missingProductIds.join(",")]);
-
   const currentCheckoutItems = cart
     .map((item) => {
       const product = products.find(
         (product) => String(productIdOf(product) ?? "") === String(productIdOf(item) ?? "")
       );
 
-      const fetchedProduct = fetchedCartProducts[String(productIdOf(item))];
-      return item.product || product || fetchedProduct
+      return product
         ? {
             ...item,
-            product: item.product || product || fetchedProduct,
+            product,
           }
         : null;
     })
     .filter(Boolean);
 
-  const directCheckoutItems = checkoutState.buyNowItem?.product
-    ? [{
-        ...checkoutState.buyNowItem,
-        product: checkoutState.buyNowItem.product,
-      }]
-    : null;
-
   const missingCartItems = cart
     .filter(
       (item) =>
-        !item.product &&
         !products.some(
           (product) => String(productIdOf(product) ?? "") === String(productIdOf(item) ?? "")
-        ) && !fetchedCartProducts[String(productIdOf(item))]
+        )
     )
     .map((item) => item.productId);
 
-  const hasMissingProducts = !cartProductsLoading && missingCartItems.length > 0;
+  const hasMissingProducts = missingCartItems.length > 0;
 
   const checkoutItems =
-    preservedItems || directCheckoutItems || currentCheckoutItems;
-
-  useEffect(() => {
-    if (cartProductsLoading || !missingCartItems.length || directCheckoutItems) return;
-
-    missingCartItems.forEach((productId) => removeFromCart(productId));
-    navigate("/cart", {
-      replace: true,
-      state: { cartMessage: "Unavailable items were removed. Please add an available product to continue." },
-    });
-  }, [cartProductsLoading, missingCartItems.join(","), directCheckoutItems, removeFromCart, navigate]);
+    preservedItems || currentCheckoutItems;
 
   /* ============================================================
      TOTALS
@@ -288,18 +223,7 @@ const Payment = () => {
      EMPTY CART
   ============================================================ */
 
-  if (cartProductsLoading && cart.length && !checkoutItems.length) {
-    return (
-      <main className="min-h-screen bg-[#f6f8fb] px-5 py-20 text-center">
-        <div className="mx-auto max-w-lg rounded-3xl border border-gray-200 bg-white p-10 shadow-sm">
-          <h1 className="text-2xl font-extrabold text-[#071426]">Loading your order...</h1>
-          <p className="mt-3 text-gray-500">We are matching your cart item with the product catalog.</p>
-        </div>
-      </main>
-    );
-  }
-
-  if (!checkoutItems.length && !hasMissingProducts) {
+  if (!checkoutItems.length) {
     return (
       <main className="min-h-screen bg-[#f6f8fb] px-5 py-20 text-center">
         <div className="mx-auto max-w-lg rounded-3xl border border-gray-200 bg-white p-10 shadow-sm">
@@ -455,13 +379,9 @@ const Payment = () => {
       return;
     }
 
-    if (["phonepe", "googlepay", "paytm"].includes(paymentMethod)) {
-      setPaymentErrorType("unavailable");
-      setPaymentError(`${paymentMethod === "phonepe" ? "PhonePe" : paymentMethod === "googlepay" ? "Google Pay" : "Paytm"} is currently unavailable. Please select Razorpay or Cash on Delivery.`);
-      return;
-    }
-
     setIsSubmitting(true);
+    let razorpayModalOpen = false;
+    let attemptFinalized = false;
 
     try {
       /*
@@ -479,7 +399,7 @@ const Payment = () => {
         secureShipping,
         items: checkoutItems,
         orderId,
-        skipCartClear: isDirectPurchase,
+        clientRequestId,
       });
 
       const currentOrderId =
@@ -601,6 +521,7 @@ const Payment = () => {
           order_id: razorOrder.id,
 
           handler: async function (response) {
+            attemptFinalized = true;
             try {
               const verifyData = await requestJson("/payments/razorpay/verify", {
                 method: "POST",
@@ -614,7 +535,7 @@ const Payment = () => {
 
               if (!verifyData.success) throw new Error("Payment verification failed");
 
-              if (!isDirectPurchase) clearCart();
+              clearCart();
               setPaymentErrorType("success");
               setOrderId(currentOrderId);
 
@@ -637,6 +558,16 @@ const Payment = () => {
                   "Payment verification failed"
               );
               setPaymentErrorType("failed");
+              setIsSubmitting(false);
+              navigate('/payment/failure', {
+                state: {
+                  orderId: currentOrderId,
+                  paymentMethod,
+                  amount: total,
+                  itemCount,
+                  reason: 'verification',
+                },
+              });
             }
           },
 
@@ -662,6 +593,8 @@ const Payment = () => {
 
           modal: {
             ondismiss: function () {
+              if (attemptFinalized) return;
+              attemptFinalized = true;
               void requestJson("/payments/razorpay/cancelled", {
                 method: "POST",
                 body: JSON.stringify({ orderId: currentOrderId }),
@@ -687,6 +620,8 @@ const Payment = () => {
         rzp.on(
           "payment.failed",
           function (response) {
+            if (attemptFinalized) return;
+            attemptFinalized = true;
             void requestJson("/payments/razorpay/failed", {
               method: "POST",
               body: JSON.stringify({ orderId: currentOrderId }),
@@ -710,6 +645,7 @@ const Payment = () => {
           }
         );
 
+        razorpayModalOpen = true;
         rzp.open();
 
         return;
@@ -721,7 +657,7 @@ const Payment = () => {
       );
       setPaymentErrorType("failed");
     } finally {
-      setIsSubmitting(false);
+      if (!razorpayModalOpen) setIsSubmitting(false);
     }
   };
 

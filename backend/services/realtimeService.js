@@ -261,10 +261,10 @@ export const emitOrderStatusUpdate = (orderId, userId, status, details) => {
   const title = isCancellation ? 'Order cancelled' : details?.trackingEvent?.title || `Order ${String(status).replaceAll('_', ' ')}`;
   const message = isCancellation ? `Your order #${orderId} has been cancelled.` : details?.trackingEvent?.description || `Your order ${orderId} status is ${String(status).replaceAll('_', ' ')}.`;
   const eventKey = details?.trackingEvent?._id || details?.trackingEvent?.timestamp || details?.updatedAt || Date.now();
-    const category = status.includes('PAYMENT') ? 'payment' : status.includes('DELIVERY') || status === 'OUT_FOR_DELIVERY' ? 'delivery' : 'order';
+    const category = status.includes('PAYMENT') ? 'PAYMENT' : status.includes('DELIVERY') || status === 'OUT_FOR_DELIVERY' ? 'DELIVERY' : 'ORDER';
     const actionUrl = `/orders/${encodeURIComponent(orderId)}/tracking`;
     void notifyCustomer({ recipient: userId, type: `ORDER_${status}`, category, title, message, orderNumber: orderId, actionUrl, eventKey: `order:${orderId}:event:${eventKey}` });
-    void persistAdminNotifications({ type: isCancellation ? 'ORDER_CANCELLED' : 'ORDER_STATUS_UPDATE', category: 'admin', title: isCancellation ? 'Order cancelled' : `Order ${orderId} updated`, message: isCancellation ? `Order #${orderId} was cancelled by the customer.` : `${orderId}: ${title}`, orderNumber: orderId, actionUrl: '/admin/orders', eventKey: `admin:order:${orderId}:event:${eventKey}` });
+    void persistAdminNotifications({ type: isCancellation ? 'ORDER_CANCELLED' : 'ORDER_STATUS_UPDATE', category: 'ORDER', title: isCancellation ? 'Order cancelled' : `Order ${orderId} updated`, message: isCancellation ? `Order #${orderId} was cancelled by the customer.` : `${orderId}: ${title}`, orderNumber: orderId, actionUrl: '/admin/orders', eventKey: `admin:order:${orderId}:event:${eventKey}` });
     if (details?.deliveryAgent?.id) void notifyDeliveryAgent({ recipient: details.deliveryAgent.id, type: `ORDER_${status}`, category: 'delivery', title, message: `${orderId}: ${title}`, orderNumber: orderId, actionUrl: '/delivery-agent', eventKey: `agent:${details.deliveryAgent.id}:order:${orderId}:event:${eventKey}` });
 };
 
@@ -377,8 +377,9 @@ export const emitChatEvent = (event, conversation, message) => {
  */
 export const emitAdminNotification = (message, data, level = 'info') => {
   return persistAdminNotifications({
-    type: 'ADMIN_ALERT',
-    category: 'admin',
+    category: data?.category || 'SYSTEM',
+    type: data?.type || 'ADMIN_ALERT',
+    actionUrl: data?.actionUrl || '',
     title: level === 'error' ? 'Important admin alert' : 'Admin notification',
     message,
     relatedId: data?.conversationId || data?.productId || '',
@@ -461,6 +462,18 @@ export const emitInstallationStatusUpdate = (installationId, customerId, agentId
     update,
   });
 
+  void notifyCustomer({
+    recipient: customerId,
+    type: `INSTALLATION_${status}`,
+    category: 'INSTALLATION',
+    title: details.statusLabel || 'Installation updated',
+    message: details.note || `Your installation ${installationId} is now ${details.statusLabel || status}.`,
+    relatedId: installationId,
+    relatedType: 'Installation',
+    actionUrl: `/installation/history/${encodeURIComponent(installationId)}`,
+    eventKey: `installation:${installationId}:status:${status}:${details.timestamp || details.updatedAt || 'current'}`,
+  });
+
   // Send to assigned agent
   if (agentId) {
     io.to(`user:${agentId}`).emit('notification:installationStatus', {
@@ -490,6 +503,17 @@ export const emitInstallationAssigned = (installationId, customerId, agentId, ag
   io.to(`user:${customerId}`).emit('notification:installationAssigned', {
     message: `Agent ${agentName} has been assigned to your installation`,
     update,
+  });
+  void notifyCustomer({
+    recipient: customerId,
+    type: 'INSTALLATION_ASSIGNED',
+    category: 'INSTALLATION',
+    title: 'Installation technician assigned',
+    message: `${agentName || 'A technician'} has been assigned to your installation.`,
+    relatedId: installationId,
+    relatedType: 'Installation',
+    actionUrl: `/installation/history/${encodeURIComponent(installationId)}`,
+    eventKey: `installation:${installationId}:assigned:${agentId}`,
   });
   io.to(`user:${agentId}`).emit('notification:installationAssigned', {
     message: `You have been assigned a new installation`,

@@ -1,13 +1,13 @@
 import Stripe from 'stripe';
-import { getDB } from '../db.js';
 import Razorpay from 'razorpay';
 import PDFDocument from 'pdfkit';
 import crypto from 'crypto';
 import Order from '../models/Order.js';
-import { updateOrderTracking } from '../services/orderTrackingService.js';
+import Product from '../models/Product.js';
 import { notifyAdmins, notifyCustomer } from '../services/notificationService.js';
 import Payment from '../models/Payment.js';
 import { checkDeliveryServiceability } from '../services/deliveryServiceabilityService.js';
+import inventoryService, { isInventoryAuthorityEnabled } from '../services/inventoryService.js';
 
 const stripe = process.env.STRIPE_SECRET_KEY ? new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: '2022-11-15' }) : null;
 
@@ -156,11 +156,6 @@ export const handleWebhook = async (req, res) => {
           if (!order) throw new Error('Order not found');
           order.paymentStatus = 'PAID';
           await order.save();
-          await updateOrderTracking({
-            orderId: order.orderNumber,
-            status: 'PAYMENT_CONFIRMED',
-            source: 'PAYMENT',
-          });
           void notifyCustomer({ recipient: order.user, type: 'PAYMENT_SUCCESS', category: 'payment', title: 'Payment successful', message: `Payment for order ${order.orderNumber} was successful.`, orderId: order._id, orderNumber: order.orderNumber, actionUrl: `/orders/${encodeURIComponent(order.orderNumber)}/tracking`, eventKey: `payment:${order.orderNumber}:stripe:${session.id}` });
           console.log(`Order ${orderId} marked as paid via webhook.`);
         } catch (err) {
@@ -181,7 +176,7 @@ export const createRazorpayOrder = async (req, res) => {
   try {
     const { orderId, paymentMethod = 'razorpay' } = req.body || {};
     const normalizedPaymentMethod = String(paymentMethod || 'razorpay').trim().toLowerCase();
-    const supportedPaymentMethods = new Set(['razorpay', 'card', 'netbanking']);
+    const supportedPaymentMethods = new Set(['razorpay', 'upi', 'card', 'netbanking', 'wallet', 'phonepe', 'googlepay', 'paytm']);
     if (!supportedPaymentMethods.has(normalizedPaymentMethod)) {
       return res.status(400).json({ success: false, error: 'Unsupported Razorpay payment method' });
     }
@@ -207,14 +202,33 @@ export const createRazorpayOrder = async (req, res) => {
       return res.status(409).json({ success: false, error: 'Order is not available for online payment' });
     }
 
+    if (isInventoryAuthorityEnabled() && localOrder.stockReservationStatus === 'RELEASED') {
+      for (const item of localOrder.items) {
+        await inventoryService.reserveInventory(item.product, item.quantity, { type: 'ORDER', id: localOrder.orderNumber });
+      }
+      localOrder.stockReservationStatus = 'RESERVED';
+    } else if (!isInventoryAuthorityEnabled() && localOrder.stockReservationStatus === 'RELEASED') {
+      for (const item of localOrder.items) {
+        const reservedProduct = await Product.findOneAndUpdate(
+          { _id: item.product, stock: { $gte: item.quantity } },
+          { $inc: { stock: -item.quantity } },
+          { new: true },
+        );
+        if (!reservedProduct) {
+          return res.status(409).json({ success: false, error: 'Some products are no longer available in the requested quantity.' });
+        }
+      }
+      localOrder.stockReservationStatus = 'RESERVED';
+    }
+
     const serverAmount = Number(localOrder.totalAmount || 0);
     if (!Number.isFinite(serverAmount) || serverAmount <= 0) {
       return res.status(400).json({ success: false, error: 'Order amount must be greater than zero.' });
     }
 
     const amountInPaise = Math.round(serverAmount * 100);
-    if (amountInPaise < 100) {
-      return res.status(400).json({ success: false, error: 'Razorpay minimum order amount is ₹1. Please add more items or choose another payment method.' });
+    if (amountInPaise < 10000) {
+      return res.status(400).json({ success: false, error: 'Razorpay minimum order amount is ₹100. Please add more items or choose another payment method.' });
     }
 
     const serviceability = await checkDeliveryServiceability({
@@ -265,7 +279,7 @@ export const createRazorpayOrder = async (req, res) => {
     res.json({ success: true, order, keyId: process.env.RAZORPAY_KEY_ID });
   } catch (error) {
     console.error('createRazorpayOrder error', error);
-    res.status(500).json({ success: false, error: error.message || 'Unable to create razorpay order' });
+    res.status(500).json({ success: false, error: 'Unable to start payment. Please try again.' });
   }
 };
 
@@ -287,7 +301,7 @@ export const verifyRazorpayPayment = async (req, res) => {
     if (!order) {
       return res.status(404).json({ success: false, error: 'Order not found' });
     }
-    if (!['RAZORPAY', 'CARD', 'NETBANKING'].includes(String(order.paymentMethod || '').trim().toUpperCase())) {
+    if (!['RAZORPAY', 'UPI', 'CARD', 'NETBANKING', 'WALLET', 'PHONEPE', 'GOOGLEPAY', 'PAYTM'].includes(String(order.paymentMethod || '').trim().toUpperCase())) {
       return res.status(400).json({ success: false, error: 'This payment provider is not configured for online checkout' });
     }
     if (order.paymentStatus === 'PAID' && order.paymentTransactionId === razorpay_payment_id) {
@@ -309,7 +323,7 @@ export const verifyRazorpayPayment = async (req, res) => {
     }
 
     const existingPayment = await Payment.findOne({ paymentId: razorpay_payment_id }).lean();
-    if (existingPayment && String(existingPayment.userId) === String(req.user._id) && String(existingPayment.orderId) === String(order.orderNumber)) {
+    if (order.paymentStatus === 'PAID' && existingPayment && String(existingPayment.userId) === String(req.user._id) && String(existingPayment.orderId) === String(order.orderNumber)) {
       return res.json({ success: true, order, message: 'Payment already verified' });
     }
 
@@ -350,6 +364,12 @@ export const verifyRazorpayPayment = async (req, res) => {
     order.paymentTransactionId = razorpay_payment_id;
     order.paymentOrderId = razorpay_order_id;
     order.status = 'ORDER_PLACED';
+    if (isInventoryAuthorityEnabled() && order.stockReservationStatus === 'RESERVED') {
+      for (const item of order.items) {
+        await inventoryService.commitInventory(item.product, item.quantity, { type: 'ORDER', id: order.orderNumber });
+      }
+    }
+    order.stockReservationStatus = 'COMMITTED';
     await order.save();
 
     console.info(`[PAYMENT_VERIFIED] order=${order.orderNumber} razorpayPayment=${razorpay_payment_id}`);
@@ -375,19 +395,14 @@ export const verifyRazorpayPayment = async (req, res) => {
       { upsert: true, new: true, setDefaultsOnInsert: true },
     );
 
-    const result = await updateOrderTracking({
-      orderId: order.orderNumber,
-      status: 'PAYMENT_CONFIRMED',
-      source: 'PAYMENT',
-    });
     console.info(`[ORDER_CONFIRMED] order=${order.orderNumber} payment=${razorpay_payment_id}`);
     void notifyCustomer({ recipient: order.user, type: 'PAYMENT_SUCCESS', category: 'payment', title: 'Payment successful', message: `Payment for order ${order.orderNumber} was successful.`, orderId: order._id, orderNumber: order.orderNumber, actionUrl: `/orders/${encodeURIComponent(order.orderNumber)}/tracking`, eventKey: `payment:${order.orderNumber}:razorpay:${razorpay_payment_id}` });
-    void notifyAdmins({ type: 'ORDER_CONFIRMED', category: 'order', title: 'Order confirmed', message: `Order ${order.orderNumber} has been confirmed after payment.`, orderId: order._id, orderNumber: order.orderNumber, eventKey: `order:${order.orderNumber}:confirmed:${razorpay_payment_id}` });
+    void notifyAdmins({ type: 'ORDER_PAYMENT_CONFIRMED', category: 'payment', title: 'Payment confirmed', message: `Payment for order ${order.orderNumber} has been confirmed.`, orderId: order._id, orderNumber: order.orderNumber, eventKey: `order:${order.orderNumber}:payment-confirmed:${razorpay_payment_id}` });
 
-    return res.json({ success: true, order: result.order });
+    return res.json({ success: true, order });
   } catch (error) {
     console.error('verifyRazorpayPayment error', error);
-    res.status(500).json({ success: false, error: error.message || 'Verification failed' });
+    res.status(500).json({ success: false, error: 'Payment verification failed. Your payment was not confirmed.' });
   }
 };
 
@@ -400,6 +415,13 @@ const updateUnsuccessfulRazorpayAttempt = async (req, res, lifecycleStatus, paym
     }
     order.paymentStatus = paymentStatus;
     order.orderLifecycleStatus = lifecycleStatus;
+    if (isInventoryAuthorityEnabled() && order.stockReservationStatus === 'RESERVED') {
+      await Promise.all(order.items.map((item) => inventoryService.releaseInventory(item.product, item.quantity, { type: 'ORDER', id: order.orderNumber })));
+      order.stockReservationStatus = 'RELEASED';
+    } else if (!isInventoryAuthorityEnabled() && order.stockReservationStatus === 'RESERVED') {
+      await Promise.all(order.items.map((item) => Product.findByIdAndUpdate(item.product, { $inc: { stock: item.quantity } })));
+      order.stockReservationStatus = 'RELEASED';
+    }
     await order.save();
     console.info(`[PAYMENT_${paymentStatus}] order=${order.orderNumber}`);
     return res.json({ success: true, order, message });
@@ -425,7 +447,7 @@ export const getOrderDetails = async (req, res) => {
     res.json({ order: ownedOrder });
   } catch (error) {
     console.error('getOrderDetails error', error);
-    res.status(500).json({ error: error.message || 'Unable to load order details' });
+    res.status(500).json({ error: 'Unable to load order details' });
   }
 };
 
@@ -439,17 +461,12 @@ export const downloadOrderInvoice = async (req, res) => {
 
     const ownedOrder = await requireOwnedOrder(orderId, req.user._id);
     if (!ownedOrder) return res.status(404).json({ error: 'Order not found' });
-    const orders = getDB().collection('orders');
-    const order = await orders.findOne({ id: String(orderId) });
-
-    if (!order) {
-      return res.status(404).json({ error: 'Order not found' });
-    }
+    const order = ownedOrder.toObject();
 
     const lines = [];
     lines.push('HoneyVision Invoice');
     lines.push('------------------------------');
-    lines.push(`Order ID: ${order.id}`);
+    lines.push(`Order ID: ${order.orderNumber}`);
     lines.push(`Payment Method: ${order.paymentMethod}`);
     lines.push(`Payment Status: ${order.paymentStatus}`);
     lines.push(`Order Status: ${order.status}`);
@@ -462,7 +479,7 @@ export const downloadOrderInvoice = async (req, res) => {
       lines.push(`${order.shippingAddress.addressLine2}`);
     }
     lines.push(
-      `${order.shippingAddress.city}, ${order.shippingAddress.state} - ${order.shippingAddress.pincode}`
+      `${order.shippingAddress.city}, ${order.shippingAddress.state} - ${order.shippingAddress.postalCode || order.shippingAddress.pincode}`
     );
     lines.push(`${order.shippingAddress.country}`);
     lines.push(`Phone: ${order.shippingAddress.phone}`);
@@ -479,16 +496,16 @@ export const downloadOrderInvoice = async (req, res) => {
 
     lines.push('');
     lines.push(`Subtotal: ₹${Number(order.subtotal || 0).toLocaleString('en-IN')}`);
-    lines.push(`Shipping: ₹${Number(order.shipping || 0).toLocaleString('en-IN')}`);
+    lines.push(`Shipping: ₹${Number(order.shippingCharge || 0).toLocaleString('en-IN')}`);
     lines.push(`Installation: ₹${Number(order.installationFee || 0).toLocaleString('en-IN')}`);
     lines.push(`Insurance: ₹${Number(order.insurance || 0).toLocaleString('en-IN')}`);
     lines.push(`Discount: -₹${Number(order.discount || 0).toLocaleString('en-IN')}`);
     lines.push('');
-    lines.push(`Total: ₹${Number(order.total || 0).toLocaleString('en-IN')}`);
+    lines.push(`Total: ₹${Number(order.totalAmount || 0).toLocaleString('en-IN')}`);
     lines.push('');
     lines.push('Thank you for choosing HoneyVision!');
 
-    const filename = `${order.id}-invoice.pdf`;
+    const filename = `${order.orderNumber}-invoice.pdf`;
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
 
@@ -498,7 +515,7 @@ export const downloadOrderInvoice = async (req, res) => {
     doc.fontSize(24).text('HoneyVision Invoice', { align: 'center' });
     doc.moveDown();
 
-    doc.fontSize(12).text(`Order ID: ${order.id}`);
+    doc.fontSize(12).text(`Order ID: ${order.orderNumber}`);
     doc.text(`Payment Method: ${order.paymentMethod}`);
     doc.text(`Payment Status: ${order.paymentStatus}`);
     doc.text(`Order Status: ${order.status}`);
@@ -511,7 +528,7 @@ export const downloadOrderInvoice = async (req, res) => {
     if (order.shippingAddress.addressLine2) {
       doc.text(`${order.shippingAddress.addressLine2}`);
     }
-    doc.text(`${order.shippingAddress.city}, ${order.shippingAddress.state} - ${order.shippingAddress.pincode}`);
+    doc.text(`${order.shippingAddress.city}, ${order.shippingAddress.state} - ${order.shippingAddress.postalCode || order.shippingAddress.pincode}`);
     doc.text(`${order.shippingAddress.country}`);
     doc.text(`Phone: ${order.shippingAddress.phone}`);
     doc.moveDown();
@@ -529,18 +546,18 @@ export const downloadOrderInvoice = async (req, res) => {
 
     doc.moveDown();
     doc.fontSize(12).text(`Subtotal: ₹${Number(order.subtotal || 0).toLocaleString('en-IN')}`);
-    doc.text(`Shipping: ₹${Number(order.shipping || 0).toLocaleString('en-IN')}`);
+    doc.text(`Shipping: ₹${Number(order.shippingCharge || 0).toLocaleString('en-IN')}`);
     doc.text(`Installation: ₹${Number(order.installationFee || 0).toLocaleString('en-IN')}`);
     doc.text(`Insurance: ₹${Number(order.insurance || 0).toLocaleString('en-IN')}`);
     doc.text(`Discount: -₹${Number(order.discount || 0).toLocaleString('en-IN')}`);
     doc.moveDown();
-    doc.fontSize(14).text(`Total: ₹${Number(order.total || 0).toLocaleString('en-IN')}`, { underline: true });
+    doc.fontSize(14).text(`Total: ₹${Number(order.totalAmount || 0).toLocaleString('en-IN')}`, { underline: true });
     doc.moveDown(2);
     doc.fontSize(10).text('Thank you for choosing HoneyVision!', { align: 'center' });
 
     doc.end();
   } catch (error) {
     console.error('downloadOrderInvoice error', error);
-    res.status(500).json({ error: error.message || 'Unable to download invoice' });
+    res.status(500).json({ error: 'Unable to generate invoice' });
   }
 };

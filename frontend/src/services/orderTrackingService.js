@@ -257,7 +257,6 @@ export const assignDeliveryAgent = async (
 
 export const ORDER_STATUSES = {
   ORDER_PLACED: "ORDER_PLACED",
-  PAYMENT_CONFIRMED: "PAYMENT_CONFIRMED",
   PROCESSING: "PROCESSING",
   PACKED: "PACKED",
   SHIPPED: "SHIPPED",
@@ -271,7 +270,6 @@ export const ORDER_STATUSES = {
 
 export const STATUS_COLORS = {
   ORDER_PLACED: "bg-blue-500",
-  PAYMENT_CONFIRMED: "bg-green-500",
   PROCESSING: "bg-yellow-500",
   PACKED: "bg-purple-500",
   SHIPPED: "bg-indigo-500",
@@ -285,7 +283,6 @@ export const STATUS_COLORS = {
 
 export const STATUS_LABELS = {
   ORDER_PLACED: "Order Placed",
-  PAYMENT_CONFIRMED: "Payment Confirmed",
   PROCESSING: "Processing",
   PACKED: "Packed",
   SHIPPED: "Shipped",

@@ -57,9 +57,12 @@ export default function PaymentSuccess() {
   const [downloading, setDownloading] = useState(false);
   const shippingAddress = order?.shippingAddress || {};
 
+  const isCodOrder = String(order?.paymentMethod || "").toUpperCase() === "COD";
+  const displayOrderNumber = order?.orderNumber || order?._id || order?.id || orderId;
+  const displayTotal = order?.totalAmount ?? order?.total ?? 0;
   const isConfirmedPayment = order && (
     String(order.paymentStatus || "").toUpperCase() === "PAID"
-    || String(order.paymentMethod || "").toUpperCase() === "COD"
+    || isCodOrder
   );
 
   const itemCount = (order && Array.isArray(order.items))
@@ -194,9 +197,9 @@ export default function PaymentSuccess() {
           <div className="flex h-20 w-20 items-center justify-center rounded-full bg-green-100 text-green-700">
             <CheckCircle2 size={40} />
           </div>
-          <h1 className="text-4xl font-extrabold text-slate-900">Payment Successful</h1>
+          <h1 className="text-4xl font-extrabold text-slate-900">{isCodOrder && String(order.paymentStatus || "").toUpperCase() !== "PAID" ? "Order Placed Successfully" : "Payment Successful"}</h1>
           <p className="max-w-2xl text-sm text-slate-600">
-            Thank you for your purchase. Your payment has been verified and your order is now confirmed.
+            {isCodOrder ? "Your order has been placed. Payment will be collected when your order is delivered." : "Thank you for your purchase. Your payment has been verified and your order is now confirmed."}
           </p>
         </div>
 
@@ -207,10 +210,10 @@ export default function PaymentSuccess() {
                 <p className="text-sm uppercase tracking-[0.22em] text-gray-500">
                   Order confirmed
                 </p>
-                <h2 className="mt-3 text-3xl font-black text-slate-900">{order.id}</h2>
+                <h2 className="mt-3 text-3xl font-black text-slate-900">{displayOrderNumber}</h2>
               </div>
               <div className="rounded-3xl bg-white px-5 py-3 text-sm font-bold text-green-700 shadow-sm">
-                {order.paymentStatus || "Paid"}
+                {isCodOrder ? "Payment pending" : order.paymentStatus || "Paid"}
               </div>
             </div>
 
@@ -222,7 +225,8 @@ export default function PaymentSuccess() {
                 </div>
                 <div className="rounded-3xl bg-white p-5 shadow-sm">
                   <p className="text-xs uppercase tracking-[0.2em] text-gray-500">Amount paid</p>
-                  <p className="mt-2 font-bold text-slate-900">{formatPrice(order.total)}</p>
+                  <p className="mt-2 font-bold text-slate-900">{formatPrice(displayTotal)}</p>
+                  {isCodOrder && <p className="mt-1 text-xs text-slate-500">Amount to pay on delivery</p>}
                 </div>
               </div>
 
@@ -261,7 +265,7 @@ export default function PaymentSuccess() {
                 </div>
                 <div className="text-right">
                   <p className="text-xs uppercase tracking-[0.2em] text-gray-500">Total paid</p>
-                  <p className="mt-2 text-xl font-black text-slate-900">{formatPrice(order.total)}</p>
+                  <p className="mt-2 text-xl font-black text-slate-900">{formatPrice(displayTotal)}</p>
                 </div>
               </div>
 
@@ -319,7 +323,7 @@ export default function PaymentSuccess() {
                   <CircleCheck size={18} className="text-green-600" />
                   <span>Order ID verified</span>
                 </div>
-                <p className="mt-3 text-slate-600">{order.id}</p>
+                <p className="mt-3 text-slate-600">{displayOrderNumber}</p>
               </div>
               <div className="rounded-3xl border border-gray-200 bg-[#f8fafc] p-5">
                 <div className="flex items-center gap-3 text-sm text-slate-700">

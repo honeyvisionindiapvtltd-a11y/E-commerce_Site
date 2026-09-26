@@ -410,6 +410,28 @@ export default function DeliveryAgentDashboard() {
     }
   };
 
+  const collectCodPayment = async (order) => {
+    const amount = window.prompt(`Confirm COD amount collected (₹${Number(order.totalAmount || 0).toLocaleString("en-IN")}):`, String(order.totalAmount || 0));
+    if (amount === null) return;
+    setWorkingOrder(order.orderNumber);
+    setError("");
+    try {
+      const response = await fetch(`${API_BASE}/delivery/orders/${encodeURIComponent(order.orderNumber)}/collect-cod`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${authToken}` },
+        body: JSON.stringify({ amount }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload.message || "Unable to collect COD payment");
+      setOrders((current) => current.map((item) => item.orderNumber === order.orderNumber ? payload.order : item));
+      setSuccessMessage("COD payment recorded successfully.");
+    } catch (collectError) {
+      setError(collectError.message);
+    } finally {
+      setWorkingOrder(null);
+    }
+  };
+
   const failDelivery = async (event) => {
     event.preventDefault();
     if (!failureOrder) return;
@@ -494,6 +516,9 @@ export default function DeliveryAgentDashboard() {
                   <p className="flex gap-2"><Package size={17} /> {order.items?.map((item) => `${item.name} x${item.quantity}`).join(", ") || "Order items"}</p>
                   <p className="flex gap-2"><MapPin size={17} /> {order.shippingAddress?.addressLine1}, {order.shippingAddress?.city}, {order.shippingAddress?.state} {order.shippingAddress?.postalCode}</p>
                   <p className="flex gap-2"><Phone size={17} /> {order.user?.phone || order.shippingAddress?.phone || "No contact number"}</p>
+                  {String(order.paymentMethod || "").toUpperCase() === "COD" && (
+                    <p className="font-semibold text-amber-700">COD collection: ₹{Number(order.totalAmount || 0).toLocaleString("en-IN")} · {order.paymentStatus || "PENDING"}</p>
+                  )}
                 </div>
                 {order.status === "OUT_FOR_DELIVERY" && (
                   <div className="mt-4 rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-xs text-sky-800">
@@ -538,6 +563,13 @@ export default function DeliveryAgentDashboard() {
                     <button disabled={busy} onClick={() => updateStatus(order.orderNumber, "start")} className="inline-flex items-center gap-2 rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">
                       <Play size={15} /> Start delivery
                     </button>
+                  )}
+                  {order.status === "OUT_FOR_DELIVERY" && (
+                    String(order.paymentMethod || "").toUpperCase() === "COD" && order.paymentStatus !== "PAID" ? (
+                      <button disabled={busy} onClick={() => collectCodPayment(order)} className="inline-flex items-center gap-2 rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-slate-950 disabled:opacity-50">
+                        Collect COD · ₹{Number(order.totalAmount || 0).toLocaleString("en-IN")}
+                      </button>
+                    ) : null
                   )}
                   {order.status === "OUT_FOR_DELIVERY" && (
                     <button disabled={busy} onClick={() => { setCompletionOrder(order.orderNumber); setCompletionError(""); }} className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">

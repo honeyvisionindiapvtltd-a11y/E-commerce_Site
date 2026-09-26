@@ -13,23 +13,38 @@ const inventorySchema = new mongoose.Schema(
       unique: true,
       index: true,
     },
+    sku: {
+      type: String,
+      default: "",
+      trim: true,
+      index: true,
+    },
     totalStock: {
       type: Number,
       required: true,
       default: 0,
+      min: 0,
     },
     availableStock: {
       type: Number,
       required: true,
       default: 0,
+      min: 0,
     },
     reservedStock: {
       type: Number,
       default: 0,
+      min: 0,
     },
     soldStock: {
       type: Number,
       default: 0,
+      min: 0,
+    },
+    damagedStock: {
+      type: Number,
+      default: 0,
+      min: 0,
     },
     status: {
       type: String,

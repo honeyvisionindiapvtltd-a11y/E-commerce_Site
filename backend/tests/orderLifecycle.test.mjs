@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { canCustomerCancelOrder } from "../services/orderLifecycleService.js";
 
 const statuses = {
-  allowed: ["ORDER_PLACED", "PAYMENT_CONFIRMED", "PROCESSING", "PACKED"],
+  allowed: ["ORDER_PLACED", "PROCESSING", "PACKED"],
   blocked: ["SHIPPED", "OUT_FOR_DELIVERY", "DELIVERED", "CANCELLED", "RETURNED", "FAILED_DELIVERY"],
 };
 

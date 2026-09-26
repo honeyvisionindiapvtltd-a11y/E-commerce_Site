@@ -16,6 +16,7 @@ import chatRoutes from './routes/chatRoutes.js';
 import notificationRoutes from './routes/notificationRoutes.js';
 import newsletterRoutes from './routes/newsletterRoutes.js';
 import installationsRoutes from './routes/installations.js';
+import returnRoutes from './routes/returnRoutes.js';
 import reviewRoutes from './routes/reviewRoutes.js';
 
 dotenv.config();
@@ -42,19 +43,6 @@ app.use(cors({ origin: (origin, callback) => {
 }, credentials: true }));
 app.use(express.json());
 
-app.get('/', (req, res) => {
-  const frontendUrl = (process.env.FRONTEND_URL || '')
-    .split(',')
-    .map((origin) => origin.trim())
-    .filter(Boolean)[0];
-
-  if (frontendUrl) {
-    return res.redirect(frontendUrl);
-  }
-
-  return res.redirect('/health');
-});
-
 app.get('/health', (req, res) => {
   res.json({ status: 'OK', message: 'Backend is running' });
 });
@@ -67,6 +55,7 @@ app.use('/api/payment', paymentRoutes);
 app.use('/api/tracking', trackingRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/inventory', inventoryRoutes);
+app.use('/api/returns', returnRoutes);
 app.use('/api/delivery', deliveryRoutes);
 app.use('/api/support', supportRoutes);
 app.use('/api/chat', chatRoutes);

@@ -119,6 +119,8 @@ export function useCommerce() {
     createInstallationBooking: ordersCtx.createInstallationBooking,
     createInstallationPayment: ordersCtx.createInstallationPayment,
     verifyInstallationPayment: ordersCtx.verifyInstallationPayment,
+    markInstallationPaymentFailed: ordersCtx.markInstallationPaymentFailed,
+    markInstallationPaymentCancelled: ordersCtx.markInstallationPaymentCancelled,
     fetchInstallation: ordersCtx.fetchInstallation,
 
     // Internal helpers

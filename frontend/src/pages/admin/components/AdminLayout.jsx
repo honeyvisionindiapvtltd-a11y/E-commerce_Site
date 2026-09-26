@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useCommerce } from "../../../context/index.js";
 import {
-  Activity, BarChart3, Box, ChevronDown, ClipboardList,
+  Activity, BarChart3, Bell, Box, ChevronDown, ClipboardList,
   CreditCard, FileText, HelpCircle, LayoutDashboard, LogOut, MapPin, Menu,
   Package, Percent, Settings, ShieldCheck, ShoppingCart, Star, Truck,
   User, Users, UserRoundCog, Wrench, X, MessageCircle, Home
@@ -15,12 +15,12 @@ const groups = [
     ["Products","/admin/products",Package],["Product Image Search Index","/admin/product-image-index",Activity],
     ["Categories","/admin/categories",ClipboardList],
     ["Orders","/admin/orders",ShoppingCart],["Customers","/admin/customers",Users],
-    ["Inventory","/admin/inventory",Box], ["Installations","/admin/installations",Wrench]
+    ["Inventory","/admin/inventory",Box], ["Installations","/admin/installations",Wrench], ["AMC Management","/admin/amc",ShieldCheck]
   ]},
   {title:"MARKETING", items:[["Coupons & Offers","/admin/coupons",Percent],["Reviews","/admin/reviews",Star]]},
   {title:"OPERATIONS", items:[["Delivery","/admin/delivery",Truck],["Delivery Agents","/admin/delivery-agents",UserRoundCog],["Delivery Zones","/admin/delivery-zones",MapPin],["Payments","/admin/payments",CreditCard],["Live Chats","/admin/live-chats",MessageCircle],["Support Tickets","/admin/support",HelpCircle]]},
   {title:"CONTENT & REPORTS", items:[["Website & Blogs","/admin/blogs",FileText],["Reports","/admin/reports",BarChart3]]},
-  {title:"ADMINISTRATION", items:[["Admin Users","/admin/admin-users",ShieldCheck],["Settings","/admin/settings",Settings]]}
+  {title:"ADMINISTRATION", items:[["Admin Users","/admin/admin-users",ShieldCheck],["Notifications","/admin/notifications",Bell],["Settings","/admin/settings",Settings]]}
 ];
 
 export default function AdminLayout() {

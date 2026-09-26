@@ -132,7 +132,7 @@ export const useOrderTracking = (orderNumber, token, pollInterval = 15000) => {
         status: update.status,
         actions: {
           ...currentOrder.actions,
-          canCancel: ["ORDER_PLACED", "PAYMENT_CONFIRMED", "PROCESSING", "PACKED"].includes(update.status),
+          canCancel: ["ORDER_PLACED", "PROCESSING", "PACKED"].includes(update.status),
           canReturn: update.status === "DELIVERED" ? currentOrder.actions?.canReturn : false,
         },
         deliveryAgent: update.deliveryAgent || currentOrder.deliveryAgent,

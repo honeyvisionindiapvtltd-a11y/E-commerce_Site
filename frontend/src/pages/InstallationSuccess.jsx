@@ -22,6 +22,7 @@ export default function InstallationSuccess() {
   const { fetchInstallation } = useCommerce();
   const initialBooking = location.state?.booking || readSavedBooking();
   const [booking, setBooking] = useState(initialBooking);
+  const bookingLabel = booking?.bookingNumber || booking?.id || booking?._id || "";
 
   useEffect(() => {
     const bookingId = initialBooking?.id || initialBooking?._id || initialBooking?.bookingNumber;
@@ -51,9 +52,11 @@ export default function InstallationSuccess() {
           <div className="flex h-20 w-20 items-center justify-center rounded-full bg-green-100 text-green-700">
             <CheckCircle2 size={40} />
           </div>
-          <h1 className="text-4xl font-extrabold text-slate-900">Installation Booked Successfully</h1>
+          <h1 className="text-4xl font-extrabold text-slate-900">Installation Booking Confirmed</h1>
           <p className="max-w-2xl text-sm text-slate-600">
-            Your installation request has been received. Our team will contact you shortly to confirm the appointment and complete the service.
+            {String(booking.paymentMethod || '').toUpperCase() === 'COD'
+              ? `Please pay ${formatPrice(booking.total)} to the installation technician when the installation is completed.`
+              : 'Your installation payment was verified. Our team will contact you shortly to confirm the appointment.'}
           </p>
         </div>
 
@@ -61,7 +64,7 @@ export default function InstallationSuccess() {
           <section className="rounded-3xl border border-gray-200 bg-[#f8fafc] p-8">
             <div className="flex items-center justify-between gap-3 text-sm text-slate-500">
               <span>Booking ID</span>
-              <span className="font-semibold">{booking.id}</span>
+              <span className="font-semibold">{bookingLabel}</span>
             </div>
 
             <div className="mt-8 space-y-4 text-slate-700">
@@ -125,14 +128,24 @@ export default function InstallationSuccess() {
                 <p className="text-sm">Total payable</p>
                 <p className="mt-1 text-2xl font-bold">{formatPrice(booking.total)}</p>
               </div>
+                <div className="rounded-2xl border border-gray-200 bg-[#f8fafc] p-4">
+                  <p className="text-sm text-slate-500">Payment</p>
+                  <p className="mt-1 font-semibold">{String(booking.paymentMethod || 'ONLINE').toUpperCase() === 'COD' ? 'Cash on Delivery' : String(booking.paymentMethod || 'ONLINE').toUpperCase()}</p>
+                    <p className="mt-1 text-sm text-slate-500">{String(booking.paymentMethod || '').toUpperCase() === 'COD' ? `Amount due: ${formatPrice(booking.total)}` : `Status: ${String(booking.paymentStatus || 'PENDING').toUpperCase()}`}</p>
+                </div>
             </div>
           </section>
         </div>
 
         <div className="mt-10 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <Link to="/installation/history" className="inline-flex items-center justify-center rounded-full border border-[#061a36] px-6 py-3 text-sm font-semibold text-[#061a36] hover:bg-[#061a36] hover:text-white transition">
-            View Booking History
-          </Link>
+          <div className="flex flex-col gap-3 sm:flex-row">
+            <Link to={`/installation/history/${encodeURIComponent(bookingLabel)}`} className="inline-flex items-center justify-center rounded-full bg-[#061a36] px-6 py-3 text-sm font-semibold text-white hover:bg-[#fbb900] hover:text-[#071426] transition">
+              View Installation Details
+            </Link>
+            <Link to="/installation/history" className="inline-flex items-center justify-center rounded-full border border-[#061a36] px-6 py-3 text-sm font-semibold text-[#061a36] hover:bg-[#061a36] hover:text-white transition">
+              View Installation History
+            </Link>
+          </div>
           <Link to="/installation" className="inline-flex items-center justify-center rounded-full bg-[#061a36] px-6 py-3 text-sm font-semibold text-white hover:bg-[#fbb900] hover:text-[#071426] transition">
             Book Another Installation
           </Link>

@@ -68,7 +68,6 @@ const formatDate = (value) => {
 const getStatusMessage = (status) => {
   const messages = {
     ORDER_PLACED: "Your order has been placed successfully.",
-    PAYMENT_CONFIRMED: "Your payment has been confirmed.",
     PROCESSING: "Your order is being prepared.",
     PACKED: "Your order has been packed and is ready to ship.",
     SHIPPED: "Your order has been shipped and is on its way.",

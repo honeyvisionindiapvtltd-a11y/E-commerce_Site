@@ -20,6 +20,10 @@ import {
   MonitorPlay,
   Phone,
   Mail,
+  Smartphone,
+  CreditCard,
+  Landmark,
+  WalletCards,
   MessageCircle,
   MapPin,
   Star,
@@ -123,6 +127,8 @@ function BookInstallation() {
     createInstallationBooking,
     createInstallationPayment,
     verifyInstallationPayment,
+    markInstallationPaymentFailed,
+    markInstallationPaymentCancelled,
     orders = [],
     selectedDeliveryAddress,
     setDeliveryPin,
@@ -130,6 +136,8 @@ function BookInstallation() {
   const navigate = useNavigate();
   const [selectedService, setSelectedService] = useState("cctv");
   const [selectedOrderId, setSelectedOrderId] = useState("");
+  const [selectedProductId, setSelectedProductId] = useState("");
+  const [clientRequestId] = useState(() => window.crypto?.randomUUID?.() || `installation-${Date.now()}-${Math.random().toString(36).slice(2)}`);
   const [selectedAdditional, setSelectedAdditional] = useState([]);
   const [currentStep, setCurrentStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -137,6 +145,10 @@ function BookInstallation() {
   const [submittedBooking, setSubmittedBooking] = useState(null);
   const [submitError, setSubmitError] = useState("");
   const [errors, setErrors] = useState({});
+  const [showPaymentMethods, setShowPaymentMethods] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState("upi");
+  const [installationId, setInstallationId] = useState("");
+  const [pendingBooking, setPendingBooking] = useState(null);
   const [formData, setFormData] = useState({
     name: profile?.fullName || "",
     phone: profile?.phone || "",
@@ -191,38 +203,17 @@ function BookInstallation() {
     }
   }, [selectedDeliveryAddress, setDeliveryPin]);
 
-  // Helper: Check if order has installation-available products
-  const hasInstallationAvailableProducts = (order) => {
-    return Array.isArray(order.items) && order.items.some((item) => item.product?.installationAvailable === true);
-  };
-
-  const isOrderPaymentConfirmed = (order) => {
-    const paymentStatus = String(order.paymentStatus || "").toUpperCase();
-    return ["PAID", "COMPLETED", "SUCCESS", "SUCCEEDED"].includes(paymentStatus) || Boolean(order.paymentTransactionId);
-  };
-
-  // Filter orders that are not cancelled/returned/refunded
+  // Existing orders are optional links for customers who want to associate a booking.
   const customerOrders = (Array.isArray(orders) ? orders : []).filter((order) => {
-    const orderStatus = String(order.status || "").toUpperCase();
-    return !["CANCELLED", "RETURNED", "REFUNDED"].includes(orderStatus);
+    const orderStatuses = [order.status, order.orderLifecycleStatus].map((value) => String(value || "").toUpperCase());
+    return !orderStatuses.some((status) => ["CANCELLED", "RETURNED", "REFUNDED"].includes(status));
   });
-
-  // Separate order categories
-  const allOrdersCount = customerOrders.length;
-  const paidOrdersCount = customerOrders.filter(isOrderPaymentConfirmed).length;
-  const paidWithInstallationCount = customerOrders.filter((order) => isOrderPaymentConfirmed(order) && hasInstallationAvailableProducts(order)).length;
-
-  // Orders eligible for installation selection
-  const selectableOrders = customerOrders.filter((order) => isOrderPaymentConfirmed(order) && hasInstallationAvailableProducts(order));
+  const selectableOrders = customerOrders;
 
   const selectedOrder = selectableOrders.find(
     (order) => String(order.id || order.orderNumber || order._id) === String(selectedOrderId)
   ) || null;
-
-  // State labels for UI
-  const hasNoOrders = allOrdersCount === 0;
-  const allOrdersUnpaid = allOrdersCount > 0 && paidOrdersCount === 0;
-  const hasSelectableOrders = paidWithInstallationCount > 0;
+  const selectedOrderItems = selectedOrder?.items?.filter((item) => item.product?.installationAvailable !== false) || [];
 
   const today = new Date().toISOString().split("T")[0];
   const slotOptions = [
@@ -267,13 +258,10 @@ function BookInstallation() {
   const validateCurrentStep = () => {
     const nextErrors = {};
 
-    // Step 1: Service and Order Selection
+    // Step 1: Service selection
     if (currentStep === 1) {
       if (!selectedService) {
         nextErrors.service = "Please select an installation service.";
-      }
-      if (!selectedOrderId || !selectedOrder) {
-        nextErrors.orderId = "Please select a paid order for which installation is required.";
       }
     }
 
@@ -306,6 +294,7 @@ function BookInstallation() {
       window.setTimeout(() => document.querySelector("[data-installation-errors]")?.scrollIntoView({ behavior: "smooth", block: "center" }), 0);
       return;
     }
+    setSubmitError("");
     setCurrentStep((step) => Math.min(step + 1, 4));
   };
 
@@ -314,18 +303,32 @@ function BookInstallation() {
   };
 
   const handleSubmit = async (event) => {
-    event.preventDefault();
+    event?.preventDefault?.();
     if (!validateCurrentStep()) return;
 
+    setSubmitError("");
+    setShowPaymentMethods(true);
+  };
+
+  const handlePaymentContinue = async () => {
+    if (!validateCurrentStep()) return;
+
+    setShowPaymentMethods(false);
     setIsSubmitting(true);
     setSubmitError("");
+    let currentBookingId = installationId;
+    let currentBooking = pendingBooking;
 
-    const selectedOrderReference = selectedOrder?.id || selectedOrder?._id || selectedOrderId || null;
+    const normalizedOrderId = selectedOrder?.id || selectedOrder?._id || selectedOrderId || null;
+    const normalizedOrderNumber = selectedOrder?.orderNumber || selectedOrder?.id || selectedOrder?._id || null;
     const booking = {
       service: currentService?.title || "Installation",
       serviceId: selectedService,
-      orderId: selectedOrderReference,
-      orderNumber: selectedOrder?.orderNumber || selectedOrder?.id || selectedOrder?._id || null,
+      orderId: normalizedOrderId,
+      orderNumber: normalizedOrderNumber,
+      productId: selectedProductId || null,
+      clientRequestId,
+        paymentMethod: paymentMethod.toUpperCase(),
       additionalServices: selectedAdditional,
       customer: {
         name: formData.name.trim(),
@@ -347,9 +350,21 @@ function BookInstallation() {
     };
 
     try {
-      const savedBooking = await createInstallationBooking(booking);
-      const bookingId = savedBooking._id || savedBooking.id || savedBooking.bookingNumber;
-      const paymentData = await createInstallationPayment(bookingId);
+      const savedBooking = installationId && pendingBooking && pendingBooking.paymentMethod === paymentMethod.toUpperCase()
+        ? pendingBooking
+        : await createInstallationBooking(booking);
+      currentBooking = savedBooking;
+      const savedBookingId = savedBooking._id || savedBooking.id || savedBooking.bookingNumber;
+      currentBookingId = String(savedBookingId);
+      setInstallationId(String(savedBookingId));
+      setPendingBooking(savedBooking);
+      if (paymentMethod === "cod") {
+        setSubmittedBooking({ ...savedBooking, paymentMethod: "COD", paymentStatus: "PENDING" });
+        navigate("/installation/success", { state: { booking: { ...savedBooking, paymentMethod: "COD", paymentStatus: "PENDING" } } });
+        return;
+      }
+      const bookingId = savedBookingId;
+      const paymentData = await createInstallationPayment(bookingId, paymentMethod);
       const loadRazorpay = () => new Promise((resolve) => {
         if (window.Razorpay) return resolve(true);
         const script = document.createElement("script");
@@ -362,6 +377,7 @@ function BookInstallation() {
 
       const razorpayOrder = paymentData.razorpayOrder;
       const verified = await new Promise((resolve, reject) => {
+        let completed = false;
         const checkout = new window.Razorpay({
           key: paymentData.keyId,
           amount: razorpayOrder.amount,
@@ -370,11 +386,23 @@ function BookInstallation() {
           description: `Installation ${savedBooking.bookingNumber || bookingId}`,
           order_id: razorpayOrder.id,
           prefill: { name: formData.name, email: formData.email, contact: formData.phone },
+          notes: { paymentMethod },
           handler: async (response) => {
+            completed = true;
             try { resolve(await verifyInstallationPayment(bookingId, response)); }
             catch (error) { reject(error); }
           },
-          modal: { ondismiss: () => reject(new Error("Payment was cancelled. You can retry from your installation history.")) },
+          modal: { ondismiss: () => {
+            if (completed) return;
+            void markInstallationPaymentCancelled(bookingId).catch(() => {});
+            reject(new Error("Payment was cancelled. You can retry from your installation history."));
+          } },
+        });
+        checkout.on("payment.failed", () => {
+          if (completed) return;
+          completed = true;
+          void markInstallationPaymentFailed(bookingId).catch(() => {});
+          reject(new Error("Installation payment failed. You can retry this booking."));
         });
         checkout.open();
       });
@@ -382,7 +410,14 @@ function BookInstallation() {
       setSubmittedBooking(confirmedBooking);
       navigate("/installation/success", { state: { booking: confirmedBooking } });
     } catch (error) {
+      const cancelled = String(error?.message || '').toLowerCase().includes('cancel');
+      if (currentBookingId && !cancelled) {
+        void markInstallationPaymentFailed(currentBookingId).catch(() => {});
+      }
       setSubmitError(error?.message || "We couldn’t book the installation. Please try again.");
+      if (currentBookingId) {
+        navigate('/installation/payment-failure', { state: { booking: currentBooking, reason: cancelled ? 'cancelled' : 'failed' } });
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -391,8 +426,14 @@ function BookInstallation() {
   const resetBooking = () => {
     setCurrentStep(1);
     setSelectedService("cctv");
+    setSelectedOrderId("");
+    setSelectedProductId("");
     setSelectedAdditional([]);
     setSubmittedBooking(null);
+    setShowPaymentMethods(false);
+    setPaymentMethod("upi");
+    setInstallationId("");
+    setPendingBooking(null);
     setErrors({});
     setFormData({
       name: profile?.fullName || "",
@@ -682,10 +723,10 @@ function BookInstallation() {
                 </div>
 
                 <div className="mt-7 rounded-2xl border border-gray-200 bg-gray-50 p-5">
-                  <h3 className="text-sm font-bold text-gray-900">Select Product Order</h3>
-                  <p className="mt-1 text-xs text-gray-600">Choose the paid product order for which you want installation.</p>
+                  <h3 className="text-sm font-bold text-gray-900">Have you purchased a product from Honey Vision?</h3>
+                  <p className="mt-1 text-xs text-gray-600">Link an existing order if you want it shown with this installation booking. This is optional.</p>
 
-                  {hasSelectableOrders ? (
+                  {selectableOrders.length > 0 ? (
                     <div className="mt-4 grid gap-3 sm:grid-cols-2">
                       {selectableOrders.map((order) => {
                         const orderId = order.id || order.orderNumber || order._id;
@@ -697,7 +738,7 @@ function BookInstallation() {
                           <button
                             key={orderId}
                             type="button"
-                            onClick={() => setSelectedOrderId(String(orderId))}
+                            onClick={() => { setSelectedOrderId(String(orderId)); setSelectedProductId(""); }}
                             className={`rounded-xl border p-4 text-left transition ${isActive ? "border-[#f5bd22] bg-[#fffdf6]" : "border-gray-200 bg-white hover:border-gray-300"}`}
                           >
                             <div className="flex items-start justify-between">
@@ -719,28 +760,19 @@ function BookInstallation() {
                             </div>
                             
                             <div className="mt-3 flex flex-wrap items-center gap-2">
-                              <span className="inline-block rounded-full bg-green-100 px-2 py-1 text-[10px] font-semibold text-green-700">PAID</span>
-                              <span className="inline-block rounded-full bg-blue-100 px-2 py-1 text-[10px] font-semibold text-blue-700">Installation Available</span>
+                              <span className="inline-block rounded-full bg-gray-100 px-2 py-1 text-[10px] font-semibold text-gray-700">Optional order link</span>
                             </div>
                           </button>
                         );
                       })}
                     </div>
-                  ) : hasNoOrders ? (
-                    <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
-                      <strong>No product orders found.</strong> Please place and pay for a qualifying product order before booking installation.
-                    </div>
-                  ) : allOrdersUnpaid ? (
-                    <div className="mt-4 rounded-lg border border-yellow-200 bg-yellow-50 p-4 text-sm text-yellow-800">
-                      <strong>Product payment pending.</strong> You have product orders, but installation can only be booked after payment is completed.
-                    </div>
                   ) : (
-                    <div className="mt-4 rounded-lg border border-orange-200 bg-orange-50 p-4 text-sm text-orange-800">
-                      <strong>Installation not available.</strong> Your paid orders do not contain products currently eligible for installation service.
+                    <div className="mt-4 rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm text-blue-800">
+                      You can continue with a standalone installation service booking.
                     </div>
                   )}
 
-                  {errors.orderId && <p className="mt-2 text-sm text-red-600">{errors.orderId}</p>}
+                  {selectedOrder && <button type="button" onClick={() => setSelectedOrderId("")} className="mt-3 text-xs font-semibold text-gray-600 underline">Continue without linking an order</button>}
                 </div>
 
                 {selectedOrder && (
@@ -754,6 +786,18 @@ function BookInstallation() {
                         </div>
                       ))}
                     </div>
+                    {selectedOrderItems.length > 0 && (
+                      <label className="mt-4 block text-xs font-semibold text-gray-700">
+                        Product for this installation
+                        <select value={selectedProductId} onChange={(event) => setSelectedProductId(event.target.value)} className="mt-2 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-normal">
+                          <option value="">Let HoneyVision choose an eligible product</option>
+                          {selectedOrderItems.map((item, index) => {
+                            const itemProductId = item.product?._id || item.product?.id || item.productId;
+                            return <option key={`${itemProductId || index}`} value={itemProductId || ""}>{item.product?.name || item.name || "Order item"} × {item.quantity}</option>;
+                          })}
+                        </select>
+                      </label>
+                    )}
                   </div>
                 )}
 
@@ -775,9 +819,9 @@ function BookInstallation() {
                     <button
                       type="button"
                       onClick={handleContinue}
-                      disabled={!selectedService || !selectedOrderId || !selectedOrder}
+                      disabled={!selectedService}
                       className={`flex items-center gap-2 rounded-lg px-5 py-3 text-sm font-semibold transition ${
-                        selectedService && selectedOrderId && selectedOrder
+                        selectedService
                           ? "bg-[#03111f] text-white hover:bg-[#10273d]"
                           : "bg-gray-300 text-gray-500 cursor-not-allowed"
                       }`}
@@ -804,8 +848,7 @@ function BookInstallation() {
                       ))}
                     </div>
                     <div className="mt-3 flex flex-wrap gap-2">
-                      <span className="inline-block rounded-full bg-green-100 px-2 py-1 text-[10px] font-semibold text-green-700">PAID</span>
-                      <span className="inline-block rounded-full bg-blue-100 px-2 py-1 text-[10px] font-semibold text-blue-700">Installation Eligible</span>
+                      <span className="inline-block rounded-full bg-gray-100 px-2 py-1 text-[10px] font-semibold text-gray-700">Optional order link</span>
                     </div>
                   </div>
                 )}
@@ -838,7 +881,7 @@ function BookInstallation() {
                 </div>
 
                 <div className="grid gap-4 md:grid-cols-2">
-                  <FormField label="Full name" value={formData.name} error={errors.name} onChange={(value) => handleInputChange("name", value)} />
+                  <FormField label="Account name" value={formData.name} error={errors.name} onChange={(value) => handleInputChange("name", value)} readOnly />
                   <FormField label="Phone number" value={formData.phone} type="tel" error={errors.phone} onChange={(value) => handleInputChange("phone", value)} />
                   <FormField label="Email" value={formData.email} type="email" error={errors.email} onChange={(value) => handleInputChange("email", value)} />
                   <FormField label="City" value={formData.city} error={errors.city} onChange={(value) => handleInputChange("city", value)} />
@@ -1025,72 +1068,50 @@ function BookInstallation() {
               </div>
             </div>
 
-            {selectedOrder ? (
-              <div className="mt-5 space-y-5">
-                {/* Related Product Order Section */}
+            <div className="mt-5 space-y-5">
+              {selectedOrder && (
                 <div className="rounded-xl border border-green-200 bg-green-50 p-4">
                   <div className="text-xs font-semibold text-gray-600">RELATED PRODUCT ORDER</div>
                   <div className="mt-2 text-sm font-bold text-gray-900">{selectedOrder.orderNumber || selectedOrder.id || selectedOrder._id}</div>
-                  <div className="mt-2 text-xs text-gray-700">
-                    {Array.isArray(selectedOrder.items) && selectedOrder.items.length > 0 ? (
-                      <div className="space-y-1">
-                        {selectedOrder.items.map((item, idx) => (
-                          <div key={idx} className="flex items-center justify-between">
-                            <span>{item.product?.name || item.name}</span>
-                            <span className="text-gray-600">× {item.quantity}</span>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <div>Order details not available</div>
-                    )}
-                  </div>
                 </div>
+              )}
 
-                {/* Installation Service Section */}
-                <div>
-                  <div className="text-xs font-semibold text-gray-600">INSTALLATION SERVICE</div>
-                  <div className="mt-3 flex gap-3 border-b border-gray-200 pb-4">
-                    <div className="flex h-[70px] w-[70px] shrink-0 items-center justify-center overflow-hidden rounded-lg border border-gray-200 bg-[#fffdf6]">
-                      <div className="flex h-11 w-11 items-center justify-center rounded-full bg-[#f5bd22]/15 text-[#03111f]">
-                        {React.createElement(currentService?.icon || ShieldCheck, { size: 24, strokeWidth: 1.7 })}
-                      </div>
-                    </div>
-                    <div className="flex min-w-0 flex-1 flex-col justify-between">
-                      <div className="text-sm font-bold leading-5">{selectedItemLabel}</div>
-                      <span className="text-sm font-bold">{formatPrice(installationPrice)}</span>
+              <div>
+                <div className="text-xs font-semibold text-gray-600">INSTALLATION SERVICE</div>
+                <p className="mt-2 text-xs text-gray-500">Book Honey Vision installation even without a previous product purchase.</p>
+                <div className="mt-3 flex gap-3 border-b border-gray-200 pb-4">
+                  <div className="flex h-[70px] w-[70px] shrink-0 items-center justify-center overflow-hidden rounded-lg border border-gray-200 bg-[#fffdf6]">
+                    <div className="flex h-11 w-11 items-center justify-center rounded-full bg-[#f5bd22]/15 text-[#03111f]">
+                      {React.createElement(currentService?.icon || ShieldCheck, { size: 24, strokeWidth: 1.7 })}
                     </div>
                   </div>
-                </div>
-
-                {/* Pricing Breakdown */}
-                <div className="space-y-3 text-sm">
-                  {selectedAdditional.length > 0 && (
-                    <div>
-                      <div className="text-xs font-semibold text-gray-600 mb-2">ADDITIONAL SERVICES</div>
-                      {selectedAdditional.map((id) => {
-                        const service = additionalServices.find((item) => item.id === id);
-                        return (
-                          <PriceRow key={id} label={service?.title || id} value={formatPrice(service?.price || 0)} />
-                        );
-                      })}
-                    </div>
-                  )}
-                  <div className="border-t border-gray-200 pt-3">
-                    <PriceRow label="Subtotal" value={formatPrice(subtotal)} />
-                  </div>
-                  <PriceRow label="GST (18%)" value={formatPrice(gst)} />
-                  <div className="flex items-center justify-between border-t border-gray-200 pt-3">
-                    <span className="font-bold">Total Amount</span>
-                    <span className="text-lg font-bold text-[#03111f]">{formatPrice(total)}</span>
+                  <div className="flex min-w-0 flex-1 flex-col justify-between">
+                    <div className="text-sm font-bold leading-5">{selectedItemLabel}</div>
+                    <span className="text-sm font-bold">{formatPrice(installationPrice)}</span>
                   </div>
                 </div>
               </div>
-            ) : (
-              <div className="mt-5 rounded-xl bg-gray-50 p-4 text-center text-sm text-gray-600">
-                <strong>Select a paid product order</strong> to see the installation summary
+
+              <div className="space-y-3 text-sm">
+                {selectedAdditional.length > 0 && (
+                  <div>
+                    <div className="mb-2 text-xs font-semibold text-gray-600">ADDITIONAL SERVICES</div>
+                    {selectedAdditional.map((id) => {
+                      const service = additionalServices.find((item) => item.id === id);
+                      return <PriceRow key={id} label={service?.title || id} value={formatPrice(service?.price || 0)} />;
+                    })}
+                  </div>
+                )}
+                <div className="border-t border-gray-200 pt-3">
+                  <PriceRow label="Subtotal" value={formatPrice(subtotal)} />
+                </div>
+                <PriceRow label="GST (18%)" value={formatPrice(gst)} />
+                <div className="flex items-center justify-between border-t border-gray-200 pt-3">
+                  <span className="font-bold">Total Amount</span>
+                  <span className="text-lg font-bold text-[#03111f]">{formatPrice(total)}</span>
+                </div>
               </div>
-            )}
+            </div>
 
             <div className="mt-5 rounded-xl bg-[#eff9f3] p-4">
               <SecurityInfo icon={ShieldCheck} title="Secure Booking" description="Your data is protected and secure" />
@@ -1248,6 +1269,54 @@ function BookInstallation() {
         </section>
 
       </main>
+
+      {showPaymentMethods && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-[#03111f]/60 p-4" role="presentation">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl" role="dialog" aria-modal="true" aria-labelledby="installation-payment-title">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-gray-500">Honey Vision Payment</p>
+                <h2 id="installation-payment-title" className="mt-1 text-xl font-bold text-[#03111f]">Payment Method</h2>
+              </div>
+              <button type="button" onClick={() => setShowPaymentMethods(false)} className="text-sm font-semibold text-gray-500 hover:text-[#03111f]">Close</button>
+            </div>
+
+            <div className="mt-5 space-y-2">
+              {[
+              { id: "upi", title: "UPI", description: "Google Pay / PhonePe / Paytm", icon: Smartphone },
+                { id: "card", title: "Credit / Debit Card", description: "Pay securely by card", icon: CreditCard },
+                { id: "netbanking", title: "Net Banking", description: "All major banks supported", icon: Landmark },
+                { id: "wallet", title: "Wallet", description: "Paytm and other supported wallets", icon: WalletCards },
+                { id: "cod", title: "Cash on Delivery", description: "Pay the installation charges to the technician when the service is completed", icon: WalletCards },
+              ].map(({ id, title, description, icon: Icon }) => (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={() => setPaymentMethod(id)}
+                  className={`flex w-full items-center gap-3 rounded-xl border p-3 text-left transition ${paymentMethod === id ? "border-[#f5bd22] bg-[#fffaf0]" : "border-gray-200 hover:border-gray-300"}`}
+                  aria-pressed={paymentMethod === id}
+                >
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#f5bd22]/15 text-[#03111f]"><Icon size={19} /></span>
+                  <span className="flex-1">
+                    <span className="block text-sm font-semibold text-[#03111f]">{title}</span>
+                    <span className="mt-0.5 block text-xs text-gray-500">{description}</span>
+                  </span>
+                  <span className={`h-4 w-4 rounded-full border ${paymentMethod === id ? "border-[#f5bd22] bg-[#f5bd22]" : "border-gray-300"}`} />
+                </button>
+              ))}
+            </div>
+
+            <div className="mt-5 flex items-center justify-between border-t border-gray-200 pt-4 text-sm">
+              <span className="font-medium text-gray-600">Order Total</span>
+              <span className="text-lg font-bold text-[#03111f]">{formatPrice(total)}</span>
+            </div>
+            <button type="button" onClick={handlePaymentContinue} disabled={isSubmitting} className="mt-5 flex w-full items-center justify-center gap-2 rounded-lg bg-[#f5bd22] px-5 py-3 text-sm font-semibold text-[#03111f] transition hover:bg-[#f0b511] disabled:cursor-not-allowed disabled:opacity-70">
+              {isSubmitting ? "Opening payment..." : "Continue to Payment"}
+              <ArrowRight size={17} />
+            </button>
+          </div>
+        </div>
+      )}
 
       {showLocationSelector && (
         <LocationSelector onClose={() => setShowLocationSelector(false)} />
@@ -1525,7 +1594,7 @@ function TrustItem({
   );
 }
 
-function FormField({ label, value, onChange, type = "text", error = "" }) {
+function FormField({ label, value, onChange, type = "text", error = "", readOnly = false }) {
   return (
     <label className="block text-sm font-semibold text-gray-700">
       {label}
@@ -1533,6 +1602,7 @@ function FormField({ label, value, onChange, type = "text", error = "" }) {
         type={type}
         value={value}
         onChange={(event) => onChange(event.target.value)}
+        readOnly={readOnly}
         className="mt-2 w-full rounded-lg border border-gray-200 px-3 py-3 text-sm outline-none transition focus:border-[#f5bd22]"
       />
       {error ? <p className="mt-1 text-sm text-red-600">{error}</p> : null}

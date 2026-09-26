@@ -13,7 +13,7 @@ function sameProductId(first, second) {
 
 export function OrdersProvider({ children }) {
   const { authToken, user, requestJson } = useAuth();
-  const isCustomer = ["customer", "admin"].includes(user?.role);
+  const isCustomer = user?.role === "customer";
   const { products } = useCatalog();
   const { couponApplied } = useDelivery();
   const { cart, clearCart } = useCart();
@@ -70,19 +70,14 @@ export function OrdersProvider({ children }) {
   }, [authToken, user?.id, user?.role, isCustomer, requestJson]);
 
   const placeOrder = useCallback(
-    async ({ address, paymentMethod, installationSlot, secureShipping = false, items: itemsOverride, orderId, skipCartClear = false }) => {
+    async ({ address, paymentMethod, installationSlot, secureShipping = false, items: itemsOverride, orderId, clientRequestId }) => {
       const sourceItems = Array.isArray(itemsOverride) ? itemsOverride : cart;
       const items = sourceItems
-        .map((item) => ({
-          ...item,
-          product: item.product || products.find((product) => sameProductId(product, item)),
-        }))
+        .map((item) => ({ ...item, product: products.find((product) => sameProductId(product, item)) }))
         .filter((item) => item.product);
 
-      const totals = computeTotals(items, { coupon: couponApplied, secureShipping });
-
       const orderPayload = {
-        userId: user?.id || null,
+        clientRequestId: clientRequestId || window.crypto?.randomUUID?.() || `order-${Date.now()}-${Math.random().toString(36).slice(2)}`,
         orderId,
         items,
         shippingAddress: {
@@ -95,12 +90,6 @@ export function OrdersProvider({ children }) {
         paymentMethod,
         installationSlot,
         couponApplied,
-        subtotal: totals.subtotal,
-        shipping: totals.shipping,
-        installationFee: totals.installationFee,
-        discount: totals.discount,
-        insurance: totals.insurance,
-        total: totals.total,
       };
 
       const data = await requestJson("/orders", {
@@ -112,7 +101,7 @@ export function OrdersProvider({ children }) {
       const isCodOrder = String(paymentMethod || "").trim().toUpperCase() === "COD";
       if (isCodOrder) {
         setOrders((current) => [createdOrder, ...current]);
-        if (!skipCartClear) clearCart();
+        clearCart();
       }
 
       return createdOrder;
@@ -142,9 +131,9 @@ export function OrdersProvider({ children }) {
       return nextInstallations;
     } catch (error) {
       console.error("Failed to fetch installations:", error);
-      return installationBookings;
+      throw error;
     }
-  }, [authToken, user?.id, isCustomer, installationBookings, requestJson]);
+  }, [authToken, user?.id, isCustomer, requestJson]);
 
   const createInstallationBooking = useCallback(
     async (booking) => {
@@ -168,8 +157,8 @@ export function OrdersProvider({ children }) {
     [authToken, user?.id, user?._id, isCustomer, requestJson]
   );
 
-  const createInstallationPayment = useCallback(async (bookingId) => {
-    const data = await requestJson(`/installations/${encodeURIComponent(bookingId)}/payment/create-order`, { method: "POST", body: JSON.stringify({}) });
+  const createInstallationPayment = useCallback(async (bookingId, paymentMethod = "upi") => {
+    const data = await requestJson(`/installations/${encodeURIComponent(bookingId)}/payment/create-order`, { method: "POST", body: JSON.stringify({ paymentMethod }) });
     return data?.data || data;
   }, [requestJson]);
 
@@ -181,6 +170,20 @@ export function OrdersProvider({ children }) {
     const installation = data?.data?.installation || data?.installation;
     if (installation) setInstallationBookings((current) => [installation, ...current.filter((item) => String(item._id || item.id || item.bookingNumber) !== String(installation._id || installation.id || installation.bookingNumber))]);
     return data?.data || data;
+  }, [requestJson]);
+
+  const markInstallationPaymentFailed = useCallback(async (bookingId) => {
+    const data = await requestJson(`/installations/${encodeURIComponent(bookingId)}/payment/failed`, { method: "POST" });
+    const installation = data?.data || data;
+    if (installation) setInstallationBookings((current) => [installation, ...current.filter((item) => String(item._id || item.id || item.bookingNumber) !== String(installation._id || installation.id || installation.bookingNumber))]);
+    return installation;
+  }, [requestJson]);
+
+  const markInstallationPaymentCancelled = useCallback(async (bookingId) => {
+    const data = await requestJson(`/installations/${encodeURIComponent(bookingId)}/payment/cancelled`, { method: "POST" });
+    const installation = data?.data || data;
+    if (installation) setInstallationBookings((current) => [installation, ...current.filter((item) => String(item._id || item.id || item.bookingNumber) !== String(installation._id || installation.id || installation.bookingNumber))]);
+    return installation;
   }, [requestJson]);
 
   const fetchInstallation = useCallback(async (bookingId) => {
@@ -197,6 +200,8 @@ export function OrdersProvider({ children }) {
     createInstallationBooking,
     createInstallationPayment,
     verifyInstallationPayment,
+    markInstallationPaymentFailed,
+    markInstallationPaymentCancelled,
     fetchInstallation,
   };
 

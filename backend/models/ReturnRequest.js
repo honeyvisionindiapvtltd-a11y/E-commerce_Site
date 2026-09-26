@@ -16,6 +16,14 @@ const returnRequestSchema = new mongoose.Schema(
     refundStatus: { type: String, enum: ["NOT_APPLICABLE", "PENDING", "PROCESSED"], default: "NOT_APPLICABLE" },
     refundAmount: { type: Number, min: 0, default: 0 },
     adminNote: { type: String, default: "", trim: true, maxlength: 2000 },
+    inventoryDisposition: {
+      type: String,
+      enum: ["SELLABLE_RETURN", "DAMAGED_RETURN", "REPLACEMENT", "REFUND"],
+      default: null,
+    },
+    inventoryProcessed: { type: Boolean, default: false },
+    inventoryProcessedAt: { type: Date, default: null },
+    inventoryProcessedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
   },
   { timestamps: true },
 );

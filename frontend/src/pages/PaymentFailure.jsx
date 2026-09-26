@@ -5,7 +5,14 @@ export default function PaymentFailure() {
   const navigate = useNavigate();
   const location = useLocation();
   const state = location.state || {};
-  const orderId = state.orderId || "";
+  const query = new URLSearchParams(location.search);
+  const orderId = state.orderId || query.get("orderId") || "";
+  const paymentMethod = state.paymentMethod || "razorpay";
+  const reason = state.reason || "failed";
+  const heading = reason === "cancelled" ? "Payment was cancelled" : "Payment failed";
+  const description = reason === "cancelled"
+    ? "Your payment was not completed. You can retry this order without creating a duplicate order."
+    : "Your payment was not completed. No successful payment has been recorded for this order.";
 
   return (
     <main className="min-h-screen bg-[#f8fafc] p-6 md:p-10">
@@ -16,9 +23,9 @@ export default function PaymentFailure() {
           </div>
         </div>
 
-        <h1 className="mt-6 text-center text-3xl font-extrabold text-slate-900">Payment failed or was cancelled.</h1>
+        <h1 className="mt-6 text-center text-3xl font-extrabold text-slate-900">{heading}</h1>
         <p className="mt-3 text-center text-sm text-slate-600">
-          Your order has not been confirmed and your cart has been kept intact so you can retry payment safely.
+          {description}
         </p>
 
         {orderId && (
@@ -30,7 +37,7 @@ export default function PaymentFailure() {
         <div className="mt-8 grid gap-3 sm:grid-cols-3">
           <button
             type="button"
-            onClick={() => navigate('/payment', { state: { orderId } })}
+            onClick={() => navigate('/payment', { state: { orderId, paymentMethod } })}
             className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#061a36] px-4 py-3 text-sm font-semibold text-white hover:bg-[#fbb900] hover:text-[#071426]"
           >
             <RefreshCcw size={16} />

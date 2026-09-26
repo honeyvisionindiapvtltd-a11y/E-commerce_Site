@@ -175,7 +175,7 @@ export async function adminListOrders() {
 
 export async function adminListServices() { return (await request("/admin/services")).services || []; }
 export async function adminListInstallations() { return (await request("/admin/installations")).installations || []; }
-export async function adminListNotifications() { return (await request("/admin/notifications")).notifications || []; }
+export async function adminListNotifications() { return await request("/admin/notifications"); }
 export async function adminUpdateInstallationStatus(id, status) {
   return request(`/admin/installations/${id}/status`, { method: "PUT", body: JSON.stringify({ status }) });
 }
@@ -230,4 +230,15 @@ export async function adminAcceptChat(id) {
 
 export async function adminUpdateChatStatus(id, status) {
   return request(`/chat/admin/conversations/${encodeURIComponent(id)}/status`, { method: "PATCH", body: JSON.stringify({ status }) });
+}
+
+export async function adminListInventory() {
+  return request("/inventory/list");
+}
+
+export async function adminAdjustInventory(productId, quantity, reason) {
+  return request(`/inventory/${encodeURIComponent(productId)}/adjust`, {
+    method: "POST",
+    body: JSON.stringify({ quantity, reason }),
+  });
 }
