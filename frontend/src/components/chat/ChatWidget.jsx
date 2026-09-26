@@ -136,7 +136,7 @@ export default function ChatWidget() {
   };
 
   return <>
-    <button type="button" onClick={() => setOpen(true)} className="fixed bottom-5 right-5 z-40 grid h-14 w-14 place-items-center rounded-full bg-[#f4b400] text-[#071426] shadow-xl shadow-[#071426]/25 transition hover:scale-105 focus:outline-none focus:ring-4 focus:ring-[#f4b400]/40" aria-label="Open Honey Vision support chat">
+    <button type="button" onClick={() => setOpen(true)} className="fixed bottom-20 right-5 z-40 grid h-14 w-14 place-items-center rounded-full bg-[#f4b400] text-[#071426] shadow-xl shadow-[#071426]/25 transition hover:scale-105 focus:outline-none focus:ring-4 focus:ring-[#f4b400]/40 sm:bottom-5" aria-label="Open Honey Vision support chat">
       <MessageCircle size={25} />{unread > 0 && <span className="absolute -right-1 -top-1 grid h-5 min-w-5 place-items-center rounded-full bg-red-600 px-1 text-[10px] font-black text-white">{unread}</span>}
     </button>
     {open && <section className="fixed inset-0 z-50 flex flex-col bg-white sm:inset-auto sm:bottom-5 sm:right-5 sm:h-[min(680px,calc(100vh-40px))] sm:w-[400px] sm:rounded-3xl sm:shadow-2xl" aria-label="Honey Vision Support chat">

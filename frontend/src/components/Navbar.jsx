@@ -183,7 +183,8 @@ export default function Navbar({ isDarkTheme = false, onToggleTheme }) {
   };
 
   return (
-    <header className="sticky top-0 z-50 w-full bg-[#071426] text-white shadow-lg">
+    <>
+      <header className="sticky top-0 z-50 w-full bg-[#071426] text-white shadow-lg">
       {/* Top header */}
       <div className="border-b border-white/10">
         <div className="flex h-11 w-full items-center justify-between px-3 text-xs sm:px-6 sm:text-sm">
@@ -249,6 +250,18 @@ export default function Navbar({ isDarkTheme = false, onToggleTheme }) {
               }}
               className="min-w-0 flex-1 border-0 bg-transparent px-0 py-1 text-xs text-slate-800 placeholder:text-slate-400 focus:outline-none"
             />
+            <button
+              type="button"
+              onClick={() => {
+                setShowSuggestions(false);
+                navigate('/scan-product');
+              }}
+              className="grid h-full w-9 shrink-0 place-items-center border-l border-slate-200 bg-white text-slate-700 transition hover:bg-slate-50"
+              aria-label="Scan product with camera"
+              title="Scan product"
+            >
+              <Camera size={17} />
+            </button>
             <button type="submit" className="grid h-full w-8 shrink-0 place-items-center bg-yellow-400 text-slate-950" aria-label="Search">
               <Search size={16} />
             </button>
@@ -640,7 +653,22 @@ export default function Navbar({ isDarkTheme = false, onToggleTheme }) {
           )}
         </div>
       </nav>
-    </header>
+      </header>
+
+      <nav aria-label="Mobile primary navigation" className="fixed inset-x-0 bottom-0 z-50 border-t border-slate-200 bg-white pb-[env(safe-area-inset-bottom)] shadow-[0_-4px_16px_rgba(15,23,42,0.12)] lg:hidden">
+        <div className="grid h-16 grid-cols-5">
+          <MobileNavLink to="/" label="Home" icon={House} />
+          <MobileNavLink to="/products" label="Products" icon={Package} />
+          <MobileNavLink to="/categories" label="Categories" icon={Grid2X2} />
+          <MobileNavLink
+            to={isLoggedIn && user?.role === 'admin' ? '/admin/dashboard' : isLoggedIn ? '/profile' : '/login'}
+            label={isLoggedIn ? 'Account' : 'Account'}
+            icon={User}
+          />
+          <MobileNavLink to="/cart" label="Cart" icon={ShoppingCart} count={cartCount} />
+        </div>
+      </nav>
+    </>
   );
 }
 
@@ -659,5 +687,24 @@ function NavIcon({ icon: Icon, label, to, count }) {
         </span>
       )}
     </Link>
+  );
+}
+
+function MobileNavLink({ icon: Icon, label, to, count }) {
+  return (
+    <NavLink
+      to={to}
+      end={to === "/"}
+      className={({ isActive }) => `relative flex min-w-0 flex-col items-center justify-center gap-0.5 text-[10px] font-medium transition ${isActive ? "text-blue-600" : "text-slate-600 hover:text-blue-600"}`}
+      aria-label={label}
+    >
+      {({ isActive }) => (
+        <>
+          <Icon size={22} strokeWidth={isActive ? 2.5 : 1.8} fill={isActive && label === "Home" ? "currentColor" : "none"} />
+          <span>{label}</span>
+          {count > 0 ? <span className="absolute right-[calc(50%-20px)] top-1 grid h-4 min-w-4 place-items-center rounded-full bg-red-500 px-1 text-[9px] font-bold text-white">{count}</span> : null}
+        </>
+      )}
+    </NavLink>
   );
 }

@@ -96,7 +96,7 @@ export default function TrendingProducts() {
             return (
               <article
                 key={product.id}
-                className="group relative w-[185px] shrink-0 rounded-xl border border-slate-200 bg-white p-3 transition hover:-translate-y-1 hover:border-amber-300 hover:shadow-lg sm:w-[240px] sm:p-4"
+                className="group relative w-[165px] shrink-0 rounded-xl border border-slate-200 bg-white p-3 transition hover:-translate-y-1 hover:border-amber-300 hover:shadow-lg sm:w-[220px] sm:p-4"
               >
               <span className="absolute left-2 top-2 rounded bg-red-500 px-1.5 py-0.5 text-[9px] font-bold text-white sm:left-3 sm:top-3 sm:px-2 sm:py-1 sm:text-[10px]">
                 {discount}% OFF

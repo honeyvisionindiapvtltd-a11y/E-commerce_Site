@@ -817,6 +817,135 @@ html.dark-theme .category-page .hover\:bg-slate-50:hover {
   background-color: #1b416d !important;
 }
 
+html.dark-theme .categories-page {
+  background-color: var(--theme-bg) !important;
+  color: var(--theme-text);
+}
+
+html.dark-theme .categories-sticky-bar,
+html.dark-theme .categories-content-panel,
+html.dark-theme .categories-sidebar,
+html.dark-theme .category-brand-card,
+html.dark-theme .category-featured-card {
+  background-color: var(--theme-surface) !important;
+  border-color: var(--theme-border) !important;
+  color: var(--theme-text);
+}
+
+html.dark-theme .categories-page .border-b,
+html.dark-theme .categories-page .border-t {
+  border-color: var(--theme-border) !important;
+}
+
+html.dark-theme .categories-page .text-\[\#123563\],
+html.dark-theme .categories-page .text-\[\#34577f\] {
+  color: #e5edf8 !important;
+}
+
+html.dark-theme .categories-page .text-\[\#6f89a8\],
+html.dark-theme .categories-page .text-\[\#8ba4bd\],
+html.dark-theme .categories-page .text-\[\#87a1bd\] {
+  color: var(--theme-muted) !important;
+}
+
+html.dark-theme .categories-page .border-\[\#dbe7f3\],
+html.dark-theme .categories-page .border-\[\#e1ebf4\],
+html.dark-theme .categories-page .border-\[\#e4edf5\],
+html.dark-theme .categories-page .border-\[\#e2ebf4\] {
+  border-color: var(--theme-border) !important;
+}
+
+html.dark-theme .categories-page .bg-\[\#edf5fc\],
+html.dark-theme .categories-page .bg-\[\#f8fbfe\],
+html.dark-theme .categories-page .bg-\[\#f7fafd\],
+html.dark-theme .categories-page .bg-\[\#eef4f9\] {
+  background-color: var(--theme-surface-raised) !important;
+}
+
+html.dark-theme .categories-page .category-tile {
+  background: var(--theme-surface-raised) !important;
+  border-color: var(--theme-border) !important;
+}
+
+html.dark-theme .categories-page .bg-\[\#fff4cf\] {
+  background-color: #7c5b08 !important;
+  color: #fff7d6 !important;
+}
+
+html.dark-theme .categories-page {
+  background:
+    radial-gradient(circle at 8% 8%, rgba(37, 99, 235, 0.16), transparent 26rem),
+    radial-gradient(circle at 92% 34%, rgba(14, 116, 144, 0.12), transparent 24rem),
+    var(--theme-bg) !important;
+}
+
+html.dark-theme .categories-sticky-bar {
+  border-bottom: 1px solid rgba(148, 163, 184, 0.16);
+  box-shadow: 0 10px 24px rgba(3, 12, 26, 0.24);
+}
+
+html.dark-theme .categories-content-panel,
+html.dark-theme .categories-sidebar {
+  box-shadow: 0 18px 45px rgba(3, 12, 26, 0.22) !important;
+}
+
+html.dark-theme .categories-page .category-tile {
+  box-shadow: 0 8px 18px rgba(3, 12, 26, 0.18);
+}
+
+html.dark-theme .categories-page .category-tile:hover,
+html.dark-theme .categories-page .category-brand-card:hover,
+html.dark-theme .categories-page .category-featured-card:hover {
+  border-color: rgba(245, 158, 11, 0.6) !important;
+  box-shadow: 0 12px 26px rgba(3, 12, 26, 0.3) !important;
+}
+
+html.dark-theme .categories-page .category-tile > div:first-child,
+html.dark-theme .categories-page .category-featured-card > div:first-child {
+  background: rgba(255, 255, 255, 0.035);
+}
+
+html.dark-theme .categories-page .category-featured-card,
+html.dark-theme .categories-page .category-featured-card > div:first-child {
+  background: #ffffff !important;
+}
+
+html.dark-theme .categories-page .category-tile,
+html.dark-theme .categories-page .category-brand-card {
+  background: #ffffff !important;
+  border-color: #d7e1eb !important;
+}
+
+html.dark-theme .categories-page .category-tile .text-\[\#123563\] {
+  color: #123563 !important;
+}
+
+html.dark-theme .categories-page .category-tile .text-\[\#6f89a8\] {
+  color: #5d7188 !important;
+}
+
+html.dark-theme .categories-page .category-name-section {
+  background: #071426 !important;
+  border-color: #19375b !important;
+}
+
+html.dark-theme .categories-page .category-name-section .text-\[\#123563\] {
+  color: #ffffff !important;
+}
+
+html.dark-theme .categories-page .category-name-section .text-\[\#6f89a8\] {
+  color: #a9b6c9 !important;
+}
+
+html.dark-theme .categories-page .category-featured-card .text-\[\#123563\] {
+  color: #123563 !important;
+}
+
+html.dark-theme .categories-page button[aria-pressed="true"] {
+  border-color: rgba(245, 158, 11, 0.7) !important;
+  box-shadow: 0 8px 18px rgba(245, 158, 11, 0.16) !important;
+}
+
 html.dark-theme .product-details-page {
   background: linear-gradient(180deg, #071a33 0%, #0b2342 100%) !important;
 }

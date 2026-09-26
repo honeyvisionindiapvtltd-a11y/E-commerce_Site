@@ -790,25 +790,37 @@ export default function Products() {
 
       {/* HEADER */}
       <section className="products-page-header border-b border-slate-200 bg-white">
-        <div className="mx-auto max-w-[1500px] px-4 py-7 sm:px-6 lg:px-8">
+        <div className="mx-auto max-w-[1500px] px-3 py-3 sm:px-6 sm:py-7 lg:px-8">
 
-          <div className="mb-5 flex items-center gap-2 text-sm text-slate-500">
+          <div className="mb-2 flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-500 sm:mb-5 sm:text-sm">
 
-            <button
-              type="button"
-              onClick={() =>
-                navigate("/")
-              }
-              className="transition hover:text-[#071426]"
-            >
-              Home
-            </button>
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() =>
+                  navigate("/")
+                }
+                className="transition hover:text-[#071426]"
+              >
+                Home
+              </button>
 
-            <span>/</span>
+              <span>/</span>
 
-            <span className="font-medium text-[#071426]">
-              Products
-            </span>
+              <span className="font-medium text-[#071426]">
+                Products
+              </span>
+            </div>
+
+            <div className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-2 shadow-sm sm:gap-3 sm:px-5 sm:py-3">
+              <div className="text-[10px] font-medium text-slate-500 sm:text-xs">
+                Products
+              </div>
+
+              <div className="text-base font-black text-[#071426] sm:text-xl">
+                {totalProducts}
+              </div>
+            </div>
 
             {selectedCategory && (
               <>
@@ -837,7 +849,7 @@ export default function Products() {
 
           <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
 
-            <div className="max-w-3xl">
+            <div className="hidden max-w-3xl sm:block">
 
               <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-amber-50 px-3 py-1.5 text-xs font-bold uppercase tracking-wider text-amber-600">
                 <Sparkles size={14} />
@@ -853,19 +865,7 @@ export default function Products() {
               </p>
             </div>
 
-            <div className="flex items-center gap-3">
-
-              <div className="rounded-2xl border border-slate-200 bg-white px-5 py-3 shadow-sm">
-
-                <div className="text-xs font-medium text-slate-500">
-                  Products
-                </div>
-
-                <div className="mt-0.5 text-xl font-black text-[#071426]">
-                  {totalProducts}
-                </div>
-
-              </div>
+            <div className="hidden items-center gap-3 sm:flex">
 
               <button
                 type="button"
@@ -888,10 +888,10 @@ export default function Products() {
       {/* MAIN */}
       <section className="mx-auto max-w-[1500px] px-4 py-7 sm:px-6 lg:px-8">
 
-        <div className="products-mobile-controls -mx-4 mb-3 border-y border-slate-200 bg-white sm:-mx-6 lg:hidden">
+        <div className="products-mobile-controls -mx-3 mb-2 border-y border-slate-200 bg-white sm:-mx-6 lg:hidden">
           <div className="grid grid-cols-2 divide-x divide-slate-200">
-            <label className="flex h-14 items-center justify-center gap-2 text-sm font-bold text-[#071426]">
-              <span className="text-lg leading-none">☷</span>
+            <label className="flex h-12 items-center justify-center gap-2 text-sm font-bold text-[#071426]">
+              <span className="text-base leading-none">☷</span>
               Sort
               <select
                 value={sort}
@@ -909,7 +909,7 @@ export default function Products() {
             <button
               type="button"
               onClick={() => setMobileSidebarOpen(true)}
-              className="flex h-14 items-center justify-center gap-2 text-sm font-bold text-[#071426]"
+              className="flex h-12 items-center justify-center gap-2 text-sm font-bold text-[#071426]"
             >
               <SlidersHorizontal size={18} strokeWidth={1.8} />
               Filter
@@ -917,17 +917,17 @@ export default function Products() {
           </div>
         </div>
 
-        <div className="products-mobile-quick-filters -mx-4 mb-3 flex gap-2 overflow-x-auto px-4 pb-1 sm:-mx-6 sm:px-6 lg:hidden">
-          <div className="flex min-w-[132px] items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-[#071426]">
-            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-lg text-emerald-600">₹</span>
+        <div className="products-mobile-quick-filters -mx-3 mb-2 flex gap-2 overflow-x-auto px-3 pb-1 sm:-mx-6 sm:px-6 lg:hidden">
+          <div className="flex min-w-[118px] items-center gap-2 rounded-2xl border border-slate-200 bg-white px-2.5 py-2 text-[11px] font-medium text-[#071426] shadow-sm">
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-base text-emerald-600">₹</span>
             <span>Rs. 501 -<br />Rs. 1500</span>
           </div>
-          <div className="flex min-w-[112px] items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-[#071426]">
-            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-amber-50 text-lg text-amber-500">☆</span>
+          <div className="flex min-w-[100px] items-center gap-2 rounded-2xl border border-slate-200 bg-white px-2.5 py-2 text-[11px] font-medium text-[#071426] shadow-sm">
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-amber-50 text-base text-amber-500">☆</span>
             <span>Top<br />Rated</span>
           </div>
-          <div className="flex min-w-[124px] items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-[#071426]">
-            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-lg text-emerald-600">%</span>
+          <div className="flex min-w-[112px] items-center gap-2 rounded-2xl border border-slate-200 bg-white px-2.5 py-2 text-[11px] font-medium text-[#071426] shadow-sm">
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-base text-emerald-600">%</span>
             <span>50% or<br />more</span>
           </div>
         </div>
@@ -1215,7 +1215,7 @@ export default function Products() {
               )}
 
               {/* PRODUCT AREA */}
-              <div className="products-grid-area p-4 sm:p-5">
+              <div className="products-grid-area p-3 sm:p-5">
 
                 {error &&
                   !loading && (

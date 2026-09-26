@@ -1,7 +1,11 @@
 import { useEffect, useState } from 'react'
-import { Routes, Route, useLocation, Navigate } from 'react-router-dom'
+import { Routes, Route, useLocation, useNavigate, Navigate } from 'react-router-dom'
 import { useCommerce } from './context/index.js'
 import { APIProvider } from '@vis.gl/react-google-maps'
+import { Capacitor } from '@capacitor/core'
+import { Camera } from '@capacitor/camera'
+import { Geolocation } from '@capacitor/geolocation'
+import { PushNotifications } from '@capacitor/push-notifications'
 import { NotificationContainer } from './components/Notifications/NotificationComponents.jsx'
 import useNotifications from './hooks/useNotifications.js'
 import { initializeNativeApp } from './services/nativeInit'
@@ -77,12 +81,51 @@ function RoleRoute({ roles, children }) {
   return children;
 }
 
+function NativeWelcome({ onLogin, onSkip }) {
+  return (
+    <div className="fixed inset-0 z-100 flex items-end justify-center bg-[#061a38]/55 p-3 backdrop-blur-sm sm:items-center">
+      <div className="w-full max-w-md rounded-2xl bg-white p-6 text-[#123563] shadow-2xl sm:p-8">
+        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-[#123563] text-xl font-black text-amber-400">HV</div>
+        <h2 className="mt-5 text-center text-2xl font-extrabold">Welcome to HoneyVision</h2>
+        <p className="mt-2 text-center text-sm leading-6 text-slate-500">Sign in for orders, saved products, delivery updates, and a faster shopping experience.</p>
+        <div className="mt-6 grid gap-3">
+          <button type="button" onClick={onLogin} className="h-12 rounded-xl bg-[#123563] text-sm font-bold text-white transition hover:bg-[#0b2a54]">Login or Register</button>
+          <button type="button" onClick={onSkip} className="h-12 rounded-xl border border-slate-200 text-sm font-bold text-[#123563] transition hover:bg-slate-50">Skip for now</button>
+        </div>
+        <p className="mt-4 text-center text-[11px] text-slate-400">You can sign in anytime from the account menu.</p>
+      </div>
+    </div>
+  );
+}
+
+async function requestNativePermissions() {
+  if (!Capacitor.isNativePlatform()) return;
+
+  const permissionRequests = [
+    () => Camera.requestPermissions({ permissions: ['camera', 'photos'] }),
+    () => Geolocation.requestPermissions(),
+    () => PushNotifications.requestPermissions(),
+  ];
+
+  for (const requestPermission of permissionRequests) {
+    try {
+      await requestPermission();
+    } catch (error) {
+      console.warn('Optional native permission was not granted:', error);
+    }
+  }
+}
+
 function App() {
   const location = useLocation();
+  const navigate = useNavigate();
   const { isLoggedIn, user } = useCommerce();
   const { notifications, removeNotification } = useNotifications();
   const [isOffline, setIsOffline] = useState(() => !navigator.onLine);
   const [isDarkTheme, setIsDarkTheme] = useState(() => localStorage.getItem('honey-vision-theme') === 'dark');
+  const [showNativeWelcome, setShowNativeWelcome] = useState(() => (
+    Capacitor.isNativePlatform() && !localStorage.getItem('honey-vision-native-welcome')
+  ));
   const isAdminRoute = location.pathname.startsWith('/admin');
   const isDeliveryAgentRoute = location.pathname.startsWith('/delivery-agent');
   const isCheckoutRoute = ['/checkout', '/payment', '/payment-methods'].includes(location.pathname);
@@ -102,6 +145,19 @@ function App() {
       networkStatus.offStatusChange('app-offline-banner');
     };
   }, []);
+
+  const handleNativeLogin = async () => {
+    localStorage.setItem('honey-vision-native-welcome', 'login');
+    setShowNativeWelcome(false);
+    navigate('/login');
+    await requestNativePermissions();
+  };
+
+  const handleNativeSkip = async () => {
+    localStorage.setItem('honey-vision-native-welcome', 'skipped');
+    setShowNativeWelcome(false);
+    await requestNativePermissions();
+  };
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark-theme', isDarkTheme);
@@ -123,7 +179,7 @@ function App() {
       {!isAdminRoute && !isDeliveryAgentRoute && !isCheckoutRoute && (
         <Navbar isDarkTheme={isDarkTheme} onToggleTheme={() => setIsDarkTheme((value) => !value)} />
       )}
-      <div className="page-content">
+      <div className="page-content pb-16 lg:pb-0">
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/about" element={<About />} />
@@ -229,9 +285,18 @@ function App() {
     </div>
   );
 
+  const content = (
+    <>
+      {showNativeWelcome && !isLoggedIn ? (
+        <NativeWelcome onLogin={handleNativeLogin} onSkip={handleNativeSkip} />
+      ) : null}
+      {appContent}
+    </>
+  );
+
   return GOOGLE_MAPS_API_KEY
-    ? <APIProvider apiKey={GOOGLE_MAPS_API_KEY} libraries={["places", "geocoding", "routes"]}>{appContent}</APIProvider>
-    : appContent;
+    ? <APIProvider apiKey={GOOGLE_MAPS_API_KEY} libraries={["places", "geocoding", "routes"]}>{content}</APIProvider>
+    : content;
 }
 
 export default App

@@ -260,7 +260,7 @@ export default function FeaturedSection() {
                 return (
                   <div
                     key={item.id}
-                    className="home-featured-product group relative w-[180px] shrink-0 overflow-hidden rounded-[22px] border border-sky-100 bg-gradient-to-b from-white via-sky-50 to-slate-50 shadow-[0_10px_28px_rgba(15,23,42,0.08)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_16px_32px_rgba(14,116,144,0.12)] sm:w-[230px]"
+                    className="home-featured-product group relative w-[160px] shrink-0 overflow-hidden rounded-[22px] border border-sky-100 bg-gradient-to-b from-white via-sky-50 to-slate-50 shadow-[0_10px_28px_rgba(15,23,42,0.08)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_16px_32px_rgba(14,116,144,0.12)] sm:w-[220px]"
                   >
                     <div className="absolute left-3 top-3 z-10 rounded bg-emerald-100 px-2 py-1 text-[10px] font-bold text-emerald-700 ring-1 ring-emerald-200">
                       {discount}% OFF
