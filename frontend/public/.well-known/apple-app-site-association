@@ -1,0 +1,23 @@
+{
+  "applinks": {
+    "apps": [],
+    "details": [
+      {
+        "appIDs": ["REPLACE_WITH_APPLE_TEAM_ID.in.honeyvision.app"],
+        "components": [
+          {
+            "/": "/products",
+            "comment": "Product listing and category-filter links"
+          },
+          { "/": "/products/*" },
+          { "/": "/track-order/*" }
+        ]
+      }
+    ]
+  },
+  "webcredentials": {
+    "apps": [
+      "REPLACE_WITH_APPLE_TEAM_ID.in.honeyvision.app"
+    ]
+  }
+}

@@ -12,11 +12,12 @@ import { networkStatus } from './networkStatus';
 import { geolocation } from './geolocation';
 import { pushNotifications } from './pushNotifications';
 import { deepLinks } from './deepLinks';
+import type { NavigateFunction } from 'react-router-dom';
 
 /**
  * Initialize all native services
  */
-export async function initializeNativeApp(): Promise<void> {
+export async function initializeNativeApp(navigate: NavigateFunction): Promise<void> {
   try {
     const platform = nativePlatform.getPlatformInfo();
     console.log('Platform:', platform.platform);
@@ -57,7 +58,7 @@ export async function initializeNativeApp(): Promise<void> {
       console.log('Geolocation service initialized');
 
       // Initialize deep links
-      await deepLinks.init();
+      await deepLinks.init(navigate);
       console.log('Deep link handler initialized');
 
       // Push notifications require Firebase configuration on Android.

@@ -88,7 +88,7 @@ export class NativePlatformService {
     }
 
     if (this.isNativePlatform()) {
-      return 'https://api.honeyvision.in/api';
+      return 'https://e-commerce-site-vlec.onrender.com/api';
     }
 
     return '/api'; // Web or fallback

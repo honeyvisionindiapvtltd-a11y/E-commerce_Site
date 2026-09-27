@@ -12,6 +12,7 @@ import { initializeNativeApp } from './services/nativeInit'
 import { networkStatus } from './services/networkStatus'
 import Navbar from './components/Navbar.jsx'
 import Footer from './components/Footer.jsx'
+import WebLoginPrompt from './components/WebLoginPrompt.jsx'
 import Home from './Home.jsx'
 import About from './pages/About.jsx'
 import Products from './pages/Products.jsx'
@@ -71,6 +72,7 @@ import TrackOrder from "./pages/TrackOrder";
 import ChatWidget from "./components/chat/ChatWidget.jsx";
 import NotificationCenter from "./components/Notifications/NotificationCenter.jsx";
 import './App.css'
+import { getCanonicalUrl, removeJsonLd, SEO_DEFAULTS, setPageMetadata } from './utils/seoMetadata';
 
 const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
 
@@ -125,6 +127,14 @@ function App() {
   const { notifications, removeNotification } = useNotifications();
   const [isOffline, setIsOffline] = useState(() => !navigator.onLine);
   const [isDarkTheme, setIsDarkTheme] = useState(() => localStorage.getItem('honey-vision-theme') === 'dark');
+  const isWebLoginPage = ['/login', '/register', '/forgot-password', '/reset-password'].includes(location.pathname)
+    || location.pathname.startsWith('/reset-password/');
+  const [showWebLoginPrompt, setShowWebLoginPrompt] = useState(() => (
+    !Capacitor.isNativePlatform()
+    && !isLoggedIn
+    && !isWebLoginPage
+    && !sessionStorage.getItem('honey-vision-login-prompt-dismissed')
+  ));
   const [showNativeWelcome, setShowNativeWelcome] = useState(() => (
     Capacitor.isNativePlatform() && !localStorage.getItem('honey-vision-native-welcome')
   ));
@@ -139,14 +149,14 @@ function App() {
     window.addEventListener('online', updateBrowserNetworkStatus);
     window.addEventListener('offline', updateBrowserNetworkStatus);
     networkStatus.onStatusChange('app-offline-banner', updateNativeNetworkStatus);
-    initializeNativeApp();
+    initializeNativeApp(navigate);
 
     return () => {
       window.removeEventListener('online', updateBrowserNetworkStatus);
       window.removeEventListener('offline', updateBrowserNetworkStatus);
       networkStatus.offStatusChange('app-offline-banner');
     };
-  }, []);
+  }, [navigate]);
 
   const handleNativeLogin = async () => {
     localStorage.setItem('honey-vision-native-welcome', 'login');
@@ -161,10 +171,81 @@ function App() {
     await requestNativePermissions();
   };
 
+  const handleDismissWebLoginPrompt = () => {
+    sessionStorage.setItem('honey-vision-login-prompt-dismissed', 'true');
+    setShowWebLoginPrompt(false);
+  };
+
+  useEffect(() => {
+    if (Capacitor.isNativePlatform()) return;
+    if (isLoggedIn || isWebLoginPage) {
+      setShowWebLoginPrompt(false);
+      return;
+    }
+    if (!sessionStorage.getItem('honey-vision-login-prompt-dismissed')) {
+      setShowWebLoginPrompt(true);
+    }
+  }, [isLoggedIn, isWebLoginPage]);
+
   useEffect(() => {
     document.documentElement.classList.toggle('dark-theme', isDarkTheme);
     localStorage.setItem('honey-vision-theme', isDarkTheme ? 'dark' : 'light');
   }, [isDarkTheme]);
+
+  useEffect(() => {
+    const path = location.pathname;
+    const query = new URLSearchParams(location.search);
+    const productMatch = path.match(/^\/products\/([^/]+)\/?$/);
+    const privatePrefixes = [
+      '/admin', '/dashboard', '/cart', '/checkout', '/login', '/register',
+      '/forgot-password', '/reset-password', '/profile', '/edit-profile',
+      '/addresses', '/account-settings', '/orders', '/wishlist', '/payment',
+      '/notifications', '/support', '/delivery-agent', '/my-amc',
+      '/installation/history',
+    ];
+    const trackingPaths = ['/track-order', '/order-tracking', '/tracking'];
+    const isPrivate = privatePrefixes.some((prefix) => path === prefix || path.startsWith(`${prefix}/`));
+    const isTracking = trackingPaths.some((prefix) => path === prefix || path.startsWith(`${prefix}/`))
+      || /^\/orders\/[^/]+\/tracking\/?$/.test(path);
+    const isFilteredProductListing = path === '/products' && (query.has('category') || query.has('subCategory'));
+    const isIndexable = !isPrivate && !isTracking && !path.startsWith('/products/category/');
+    let canonicalPath = path;
+
+    if (path === '/') canonicalPath = '/';
+    else if (productMatch) canonicalPath = `/products/${encodeURIComponent(decodeURIComponent(productMatch[1]))}`;
+    else if (path === '/products/category/:categorySlug') canonicalPath = '/products';
+    else if (isFilteredProductListing) {
+      const canonicalQuery = new URLSearchParams();
+      const category = query.get('category');
+      const subCategory = query.get('subCategory');
+      if (category) canonicalQuery.set('category', category);
+      if (subCategory) canonicalQuery.set('subCategory', subCategory);
+      canonicalPath = `/products?${canonicalQuery.toString()}`;
+    } else if (path === '/products') canonicalPath = '/products';
+    else if (path.startsWith('/products/category/')) {
+      const slug = path.split('/').filter(Boolean).pop();
+      canonicalPath = `/products?category=${encodeURIComponent(slug || '')}`;
+    }
+
+    const title = productMatch
+      ? 'Product | Honey Vision'
+      : path === '/products' || path.startsWith('/products/category/')
+        ? 'Products | Honey Vision'
+        : path === '/'
+          ? SEO_DEFAULTS.title
+          : `${path.split('/').filter(Boolean).pop()?.replaceAll('-', ' ') || 'Honey Vision'} | Honey Vision`;
+    const description = path === '/' ? SEO_DEFAULTS.description : 'Explore products and services from Honey Vision.';
+
+    setPageMetadata({
+      title,
+      description,
+      canonicalUrl: getCanonicalUrl(canonicalPath),
+      robots: isIndexable ? 'index,follow' : 'noindex,follow',
+      type: productMatch ? 'product' : 'website',
+    });
+
+    if (!productMatch) removeJsonLd('honeyvision-product-jsonld', 'honeyvision-breadcrumb-jsonld');
+  }, [location.pathname, location.search]);
 
   useEffect(() => {
     window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
@@ -294,6 +375,9 @@ function App() {
     <>
       {showNativeWelcome && !isLoggedIn ? (
         <NativeWelcome onLogin={handleNativeLogin} onSkip={handleNativeSkip} />
+      ) : null}
+      {showWebLoginPrompt && !isLoggedIn && !isWebLoginPage ? (
+        <WebLoginPrompt onClose={handleDismissWebLoginPrompt} />
       ) : null}
       {appContent}
     </>

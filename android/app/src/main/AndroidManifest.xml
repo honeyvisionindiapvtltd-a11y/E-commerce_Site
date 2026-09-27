@@ -39,6 +39,7 @@
             android:configChanges="orientation|keyboardHidden|keyboard|screenSize|locale|smallestScreenSize|screenLayout|uiMode"
             android:hardwareAccelerated="true"
             android:launchMode="singleTask"
+            android:exported="true"
             android:theme="@style/AppTheme"
             android:windowSoftInputMode="adjustResize">
 
@@ -47,14 +48,13 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
 
-            <!-- Deep Links Configuration -->
-            <!-- App Links for HTTPS URLs -->
             <intent-filter android:autoVerify="true">
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="https" android:host="honeyvision.in" />
-                <data android:scheme="https" android:host="www.honeyvision.in" />
+                <data android:scheme="https" android:host="honeyvision.co.in" android:path="/products" />
+                <data android:scheme="https" android:host="honeyvision.co.in" android:pathPrefix="/products/" />
+                <data android:scheme="https" android:host="honeyvision.co.in" android:pathPrefix="/track-order/" />
             </intent-filter>
 
             <!-- Custom scheme for app links -->

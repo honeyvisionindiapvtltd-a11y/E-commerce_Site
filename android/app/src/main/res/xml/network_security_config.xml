@@ -11,6 +11,9 @@
 
     <!-- Production configuration - HTTPS only for public domains -->
     <domain-config cleartextTrafficPermitted="false">
+        <domain includeSubdomains="true">honeyvision.co.in</domain>
+        <domain includeSubdomains="true">www.honeyvision.co.in</domain>
+        <domain includeSubdomains="true">api.honeyvision.co.in</domain>
         <domain includeSubdomains="true">honeyvision.in</domain>
         <domain includeSubdomains="true">www.honeyvision.in</domain>
         <domain includeSubdomains="true">api.honeyvision.in</domain>

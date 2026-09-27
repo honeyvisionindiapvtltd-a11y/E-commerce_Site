@@ -310,7 +310,7 @@ export const reverseGeocodeCoordinates = async (latitude, longitude) => {
       }
 
       if (status === "REQUEST_DENIED") {
-        reject(new Error("Google Maps access was denied. You can continue by entering the address manually."));
+        reject(new Error("Google Maps Geocoding is unavailable. Enable billing for the Google Cloud project used by this key and make sure the Geocoding API is enabled. You can enter your PIN manually for now."));
         return;
       }
 

@@ -77,7 +77,7 @@ export default function Profile() {
   const wishlistItems = products.filter((product) => wishlist.includes(product.id));
 
   return (
-    <div className="min-h-screen bg-[#F5F7FA]">
+    <div className="min-h-screen bg-[#F5F7FA] overflow-x-hidden">
 
       {/* =====================================================
           PROFILE HEADER
@@ -85,11 +85,11 @@ export default function Profile() {
 
       <section className="bg-gradient-to-r from-[#071426] via-[#0B315A] to-[#123F6B]">
 
-        <div className="max-w-7xl mx-auto px-6 lg:px-8 py-10">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-10">
 
           {/* Breadcrumb */}
 
-          <div className="flex items-center gap-2 text-sm text-gray-300 mb-8">
+          <div className="flex items-center gap-2 text-sm text-gray-300 mb-6 sm:mb-8">
 
             <Link to="/" className="hover:text-white">Home</Link>
 
@@ -101,14 +101,14 @@ export default function Profile() {
 
           </div>
           {/* Profile Information */}
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-8">
-            <div className="flex items-center gap-6">
-              <div className="relative">
-                <div className="w-28 h-28 rounded-full bg-white p-1 shadow-xl">
+          <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
+            <div className="flex flex-col items-start gap-4 sm:flex-row sm:items-center sm:gap-6">
+              <div className="relative shrink-0">
+                <div className="w-20 h-20 sm:w-24 sm:h-24 md:w-28 md:h-28 rounded-full bg-white p-1 shadow-xl">
                   <div className="w-full h-full rounded-full bg-gradient-to-br from-[#E5E7EB] to-[#CBD5E1] flex items-center justify-center overflow-hidden">
                     <User
-                      size={58}
-                      className="text-[#071426]"
+                      size={42}
+                      className="text-[#071426] sm:size-[50px] md:size-[58px]"
                     />
 
                   </div>
@@ -151,33 +151,33 @@ export default function Profile() {
 
               {/* User Details */}
 
-              <div>
+              <div className="min-w-0">
 
-                <div className="flex items-center gap-3">
+                <div className="flex flex-wrap items-center gap-2 sm:gap-3">
 
-                  <h1 className="text-3xl md:text-4xl font-bold text-white">
+                  <h1 className="text-2xl font-bold text-white sm:text-3xl md:text-4xl">
 
                     {displayProfile.fullName}
 
                   </h1>
 
-                  {user?.emailVerified && <span className="bg-[#F4B400] text-[#071426] text-xs font-bold px-3 py-1 rounded-full">VERIFIED</span>}
+                  {user?.emailVerified && <span className="bg-[#F4B400] text-[#071426] text-[10px] font-bold px-2.5 py-1 rounded-full sm:text-xs">VERIFIED</span>}
 
                 </div>
 
-                <p className="text-gray-300 mt-2">
+                <p className="text-sm text-gray-300 mt-2 break-all sm:text-base">
 
                   {displayProfile.email}
 
                 </p>
 
-                <div className="flex flex-wrap items-center gap-5 mt-3 text-sm text-gray-300">
+                <div className="flex flex-wrap items-center gap-3 sm:gap-5 mt-3 text-xs text-gray-300 sm:text-sm">
 
                   <span className="flex items-center gap-2">
 
                     <MapPin size={16} />
 
-                    {displayProfile.location}
+                    <span className="break-all">{displayProfile.location}</span>
 
                   </span>
 
@@ -185,7 +185,7 @@ export default function Profile() {
 
                     <User size={16} />
 
-                    Member since {displayProfile.memberSince || "2026"}
+                    <span>Member since {displayProfile.memberSince || "2026"}</span>
 
                   </span>
 
@@ -208,11 +208,13 @@ export default function Profile() {
                 hover:bg-yellow-400
                 text-[#071426]
                 font-bold
-                px-7
-                py-3.5
+                px-5
+                py-3
                 rounded-xl
                 transition
                 shadow-lg
+                w-full
+                sm:w-auto
               "
             >
 
@@ -233,33 +235,33 @@ export default function Profile() {
           MAIN PROFILE AREA
       ===================================================== */}
 
-      <main className="max-w-7xl mx-auto px-6 lg:px-8 py-10">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-10">
 
         {/* =====================================================
             STATISTICS
         ===================================================== */}
 
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-5 mb-10">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-8 sm:mb-10">
 
           {/* Total Orders */}
 
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 sm:p-6">
 
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between gap-3">
 
               <div>
 
-                <p className="text-gray-500 text-sm">
+                <p className="text-gray-500 text-xs sm:text-sm">
                   Total Orders
                 </p>
 
-                <h2 className="text-3xl font-bold text-[#071426] mt-2">
+                <h2 className="text-2xl font-bold text-[#071426] mt-2 sm:text-3xl">
                   {totalOrders}
                 </h2>
 
               </div>
 
-              <div className="w-14 h-14 rounded-2xl bg-blue-50 flex items-center justify-center">
+              <div className="w-12 h-12 rounded-2xl bg-blue-50 flex items-center justify-center sm:w-14 sm:h-14">
 
                 <ShoppingBag
                   size={28}
@@ -279,23 +281,23 @@ export default function Profile() {
 
           {/* Delivered */}
 
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 sm:p-6">
 
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between gap-3">
 
               <div>
 
-                <p className="text-gray-500 text-sm">
+                <p className="text-gray-500 text-xs sm:text-sm">
                   Delivered
                 </p>
 
-                <h2 className="text-3xl font-bold text-[#071426] mt-2">
+                <h2 className="text-2xl font-bold text-[#071426] mt-2 sm:text-3xl">
                   {deliveredCount}
                 </h2>
 
               </div>
 
-              <div className="w-14 h-14 rounded-2xl bg-green-50 flex items-center justify-center">
+              <div className="w-12 h-12 rounded-2xl bg-green-50 flex items-center justify-center sm:w-14 sm:h-14">
 
                 <CheckCircle
                   size={28}
@@ -315,23 +317,23 @@ export default function Profile() {
 
           {/* Pending */}
 
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 sm:p-6">
 
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between gap-3">
 
               <div>
 
-                <p className="text-gray-500 text-sm">
+                <p className="text-gray-500 text-xs sm:text-sm">
                   Pending Orders
                 </p>
 
-                <h2 className="text-3xl font-bold text-[#071426] mt-2">
+                <h2 className="text-2xl font-bold text-[#071426] mt-2 sm:text-3xl">
                   {pendingCount}
                 </h2>
 
               </div>
 
-              <div className="w-14 h-14 rounded-2xl bg-yellow-50 flex items-center justify-center">
+              <div className="w-12 h-12 rounded-2xl bg-yellow-50 flex items-center justify-center sm:w-14 sm:h-14">
 
                 <Clock
                   size={28}
@@ -351,23 +353,23 @@ export default function Profile() {
 
           {/* Wishlist */}
 
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 sm:p-6">
 
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between gap-3">
 
               <div>
 
-                <p className="text-gray-500 text-sm">
+                <p className="text-gray-500 text-xs sm:text-sm">
                   Wishlist
                 </p>
 
-                <h2 className="text-3xl font-bold text-[#071426] mt-2">
+                <h2 className="text-2xl font-bold text-[#071426] mt-2 sm:text-3xl">
                   {wishlistCount}
                 </h2>
 
               </div>
 
-              <div className="w-14 h-14 rounded-2xl bg-red-50 flex items-center justify-center">
+              <div className="w-12 h-12 rounded-2xl bg-red-50 flex items-center justify-center sm:w-14 sm:h-14">
 
                 <Heart
                   size={28}
@@ -776,7 +778,7 @@ export default function Profile() {
 
           <section className="lg:col-span-9">
 
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-8">
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 sm:p-6 lg:p-8">
 
               <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
 
@@ -901,11 +903,11 @@ export default function Profile() {
                 RECENT ORDERS
             ===================================================== */}
 
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm mt-8 overflow-hidden">
+<div className="bg-white rounded-2xl border border-gray-100 shadow-sm mt-6 sm:mt-8 overflow-hidden">
 
               {/* Header */}
 
-              <div className="p-8 border-b border-gray-100">
+              <div className="p-4 sm:p-6 lg:p-8 border-b border-gray-100">
 
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
 
@@ -970,7 +972,7 @@ export default function Profile() {
                           : "bg-gray-50 text-gray-600";
 
                     return (
-                      <div key={order.orderNumber || order._id || order.id || `order-${index}`} className="p-6 md:p-8">
+                      <div key={order.orderNumber || order._id || order.id || `order-${index}`} className="p-4 sm:p-6 md:p-8">
                         <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-6">
                           <div className="flex items-center gap-5">
                             <div className="w-20 h-20 rounded-xl bg-gray-50 border border-gray-100 flex items-center justify-center">
@@ -1032,7 +1034,7 @@ export default function Profile() {
                 ADDRESS + PAYMENT SECTION
             ===================================================== */}
 
-            <div className="grid md:grid-cols-2 gap-8 mt-8">
+            <div className="grid md:grid-cols-2 gap-4 sm:gap-6 md:gap-8 mt-6 sm:mt-8">
 
               {/* =================================================
                   SAVED ADDRESS
@@ -1310,7 +1312,7 @@ export default function Profile() {
                 ACCOUNT PREFERENCES
             ===================================================== */}
 
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm mt-8 overflow-hidden">
+            <div className="hidden sm:block bg-white rounded-2xl border border-gray-100 shadow-sm mt-8 overflow-hidden">
 
               <div className="p-8 border-b border-gray-100">
 
@@ -1470,9 +1472,9 @@ export default function Profile() {
                 WISHLIST / SAVED PRODUCTS
             ===================================================== */}
 
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm mt-8 overflow-hidden">
+            <div className="hidden sm:block bg-white rounded-2xl border border-gray-100 shadow-sm mt-6 sm:mt-8 overflow-hidden">
 
-              <div className="p-8 border-b border-gray-100">
+              <div className="p-4 sm:p-6 lg:p-8 border-b border-gray-100">
 
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
 
@@ -1516,7 +1518,7 @@ export default function Profile() {
               </div>
 
 
-              <div className="grid md:grid-cols-3 gap-6 p-8">
+              <div className="grid grid-cols-1 gap-4 p-4 sm:grid-cols-2 sm:p-6 lg:grid-cols-3 lg:p-8">
               {wishlistItems.length > 0 ? (
                 wishlistItems.map((product) => (
                   <div key={product.id} className="group border border-gray-100 rounded-2xl overflow-hidden hover:shadow-lg transition">
@@ -1613,7 +1615,7 @@ export default function Profile() {
                 HELP & SUPPORT
             ===================================================== */}
 
-            <div className="mt-8 bg-gradient-to-r from-[#071426] to-[#0B315A] rounded-2xl p-8">
+            <div className="mt-6 hidden sm:block bg-gradient-to-r from-[#071426] to-[#0B315A] rounded-2xl p-5 sm:p-8">
 
               <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
 
@@ -1681,7 +1683,7 @@ export default function Profile() {
                 SECURITY MESSAGE
             ===================================================== */}
 
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-3 text-center py-8">
+            <div className="hidden sm:flex flex-col sm:flex-row items-center justify-center gap-3 text-center py-6 sm:py-8">
 
               <ShieldCheck
                 size={20}

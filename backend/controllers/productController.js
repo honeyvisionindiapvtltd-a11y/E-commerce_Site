@@ -4,6 +4,8 @@ import inventoryService, { isInventoryAuthorityEnabled } from "../services/inven
 import {
   indexProductImageCatalog,
   getProductImageIndexSummary as getProductImageIndexStats,
+  markProductImageIndexOutdated,
+  removeProductImageIndex,
   searchProductsByImage,
 } from "../services/productImageSearchService.js";
 import {
@@ -925,6 +927,12 @@ const updateProduct = async (req, res) => {
 
     await product.save();
 
+    try {
+      await markProductImageIndexOutdated(product._id);
+    } catch (indexError) {
+      console.warn('Could not mark product image index as outdated:', indexError.message);
+    }
+
     const updatedProduct = await Product.findById(product._id)
       .populate("category", "name slug parentCategory")
       .populate("subCategory", "name slug parentCategory");
@@ -967,6 +975,12 @@ const deleteProduct = async (req, res) => {
     await Product.findByIdAndDelete(
       req.params.id
     );
+
+    try {
+      await removeProductImageIndex(product._id);
+    } catch (indexError) {
+      console.warn('Could not remove deleted product image index:', indexError.message);
+    }
 
     res.status(200).json({
       success: true,

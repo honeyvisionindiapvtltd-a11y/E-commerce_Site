@@ -24,3 +24,8 @@ dist-ssr
 *.sw?
 backend/.env
 frontend/.env
+
+# Android release signing material
+*.jks
+*.keystore
+key.properties

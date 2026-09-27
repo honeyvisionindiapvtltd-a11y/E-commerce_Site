@@ -4,6 +4,7 @@ import { useCommerce } from "../context/index.js";
 import DeliveryAvailability from "../components/DeliveryAvailability";
 import ReviewCard from "../components/ReviewCard";
 import { getProductGallery, money, normalizeProduct } from "../lib/products";
+import { getCanonicalUrl, removeJsonLd, setJsonLd, setPageMetadata } from "../utils/seoMetadata";
 import {
   Heart,
   Share2,
@@ -22,7 +23,6 @@ import {
   PackageCheck,
   Headphones,
   Zap,
-  MapPin,
 } from "lucide-react";
 
 const API_BASE = import.meta.env.VITE_API_URL || "/api";
@@ -124,6 +124,107 @@ export default function ProductDetails() {
   const [recentlyViewed, setRecentlyViewed] = useState([]);
   const [reviews, setReviews] = useState([]);
   const [reviewsLoading, setReviewsLoading] = useState(false);
+
+  useEffect(() => {
+    if (product && String(product.id) !== String(productId)) return;
+
+    if (!product) {
+      if (!loading) {
+        setPageMetadata({
+          title: "Product not found | Honey Vision",
+          description: "This product may have been removed or is no longer available.",
+          canonicalUrl: getCanonicalUrl(`/products/${encodeURIComponent(productId || "")}`),
+          robots: "noindex,follow",
+        });
+        removeJsonLd("honeyvision-product-jsonld", "honeyvision-breadcrumb-jsonld");
+      }
+      return;
+    }
+
+    const canonicalPath = `/products/${encodeURIComponent(productId)}`;
+    const canonicalUrl = getCanonicalUrl(canonicalPath);
+    const description = String(product.metaDescription || product.description || "").trim()
+      || `${product.name} from Honey Vision.`;
+    const title = String(product.metaTitle || "").trim()
+      || `${product.name} | Honey Vision`;
+    const imageUrls = (product.seoImages || [])
+      .map((image) => {
+        try {
+          const url = new URL(image, "https://honeyvision.co.in");
+          return ["http:", "https:"].includes(url.protocol) ? url.toString() : null;
+        } catch {
+          return null;
+        }
+      })
+      .filter(Boolean);
+
+    setPageMetadata({
+      title,
+      description,
+      canonicalUrl,
+      image: imageUrls[0],
+      type: "product",
+    });
+
+    const productStructuredData = {
+      "@context": "https://schema.org",
+      "@type": "Product",
+      name: product.name,
+      description,
+      url: canonicalUrl,
+      ...(imageUrls.length ? { image: imageUrls } : {}),
+      ...(product.sku ? { sku: String(product.sku) } : {}),
+      ...(product.brand ? { brand: { "@type": "Brand", name: String(product.brand) } } : {}),
+    };
+    const productPrice = Number(product.price);
+    if (Number.isFinite(productPrice) && productPrice >= 0) {
+      productStructuredData.offers = {
+        "@type": "Offer",
+        url: canonicalUrl,
+        priceCurrency: "INR",
+        price: productPrice,
+        availability: Number(product.stock) > 0
+          ? "https://schema.org/InStock"
+          : "https://schema.org/OutOfStock",
+        itemCondition: "https://schema.org/NewCondition",
+      };
+    }
+    setJsonLd("honeyvision-product-jsonld", productStructuredData);
+
+    const breadcrumbItems = [
+      { name: "Home", url: getCanonicalUrl("/") },
+      { name: "Products", url: getCanonicalUrl("/products") },
+    ];
+    if (product.categorySlug) {
+      breadcrumbItems.push({
+        name: product.category,
+        url: getCanonicalUrl(`/products?category=${encodeURIComponent(product.categorySlug)}`),
+      });
+    }
+    if (product.subCategorySlug) {
+      const subcategoryQuery = new URLSearchParams({
+        ...(product.categorySlug ? { category: product.categorySlug } : {}),
+        subCategory: product.subCategorySlug,
+      });
+      breadcrumbItems.push({
+        name: product.subCategory,
+        url: getCanonicalUrl(`/products?${subcategoryQuery.toString()}`),
+      });
+    }
+    breadcrumbItems.push({ name: product.name, url: canonicalUrl });
+    setJsonLd("honeyvision-breadcrumb-jsonld", {
+      "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      itemListElement: breadcrumbItems.map((item, index) => ({
+        "@type": "ListItem",
+        position: index + 1,
+        name: item.name,
+        item: item.url,
+      })),
+    });
+
+    return () => removeJsonLd("honeyvision-product-jsonld", "honeyvision-breadcrumb-jsonld");
+  }, [loading, product, productId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -464,6 +565,31 @@ export default function ProductDetails() {
           >
             Products
           </Link>
+          {product.categorySlug && (
+            <>
+              <ChevronRight size={13} className="shrink-0 text-slate-400" />
+              <Link
+                to={`/products?category=${encodeURIComponent(product.categorySlug)}`}
+                className="shrink-0 text-slate-500 transition hover:text-[#d59f00]"
+              >
+                {product.category}
+              </Link>
+            </>
+          )}
+          {product.subCategorySlug && (
+            <>
+              <ChevronRight size={13} className="shrink-0 text-slate-400" />
+              <Link
+                to={`/products?${new URLSearchParams({
+                  ...(product.categorySlug ? { category: product.categorySlug } : {}),
+                  subCategory: product.subCategorySlug,
+                }).toString()}`}
+                className="shrink-0 text-slate-500 transition hover:text-[#d59f00]"
+              >
+                {product.subCategory}
+              </Link>
+            </>
+          )}
           <ChevronRight size={13} className="shrink-0 text-slate-400" />
           <span className="truncate font-bold text-slate-700">
             {product.name}

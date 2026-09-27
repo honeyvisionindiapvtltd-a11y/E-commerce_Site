@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "in.honeyvision.app",
+      "sha256_cert_fingerprints": [
+        "70:E2:1A:8F:52:91:48:FB:1E:0B:69:01:D6:45:EE:E8:5B:B1:40:62:4C:AE:98:5A:FC:81:1C:C9:EB:4B:70:EB"
+      ]
+    }
+  }
+]

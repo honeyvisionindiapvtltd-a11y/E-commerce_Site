@@ -34,6 +34,7 @@ import newsletterRoutes from './routes/newsletterRoutes.js';
 import installationsRoutes from './routes/installations.js';
 import inventoryRoutes from './routes/inventory.js';
 import amcRoutes from './routes/amcRoutes.js';
+import seoRoutes from './routes/seoRoutes.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -48,6 +49,8 @@ const localFrontendOrigins = [
   'capacitor://localhost',
   'http://localhost',
   'https://localhost',
+  'https://honeyvision.co.in',
+  'https://www.honeyvision.co.in',
   'https://honeyvision.in',
   'https://www.honeyvision.in',
   'http://localhost:5173',
@@ -94,6 +97,7 @@ app.post('/api/payments/webhook', express.raw({ type: 'application/json' }), han
 app.use('/api/webhooks', webhookRoutes);
 
 app.use(express.json());
+app.use(seoRoutes);
 
 app.get('/', (req, res) => {
   const frontendUrl = (process.env.FRONTEND_URL || '')

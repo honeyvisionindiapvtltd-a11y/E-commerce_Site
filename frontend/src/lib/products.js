@@ -189,12 +189,23 @@ export const normalizeProduct = (product) => {
   const category = product.category && typeof product.category === "object"
     ? product.category.name
     : product.category || "General";
+  const categorySlug = product.category && typeof product.category === "object"
+    ? product.category.slug
+    : product.categorySlug || "";
 
   const subCategory = product.subCategory && typeof product.subCategory === "object"
     ? product.subCategory.name
     : product.subCategory || "";
+  const subCategorySlug = product.subCategory && typeof product.subCategory === "object"
+    ? product.subCategory.slug
+    : product.subCategorySlug || "";
 
   const gallery = getProductGallery(product);
+  const seoImages = [
+    product.thumbnail,
+    product.image,
+    ...(Array.isArray(product.images) ? product.images : []),
+  ].filter((value) => typeof value === "string" && value.trim());
   const fallbackImage = "https://res.cloudinary.com/vhrkwyzs/image/upload/v1786010029/laptop_ktvxcs.png";
   const primaryImage = gallery[0] || product.thumbnail || product.image || fallbackImage;
 
@@ -203,7 +214,9 @@ export const normalizeProduct = (product) => {
     id: product._id || product.id || product.slug || `${category}-${product.name}`,
     name: product.name || "Product",
     category,
+    categorySlug,
     subCategory,
+    subCategorySlug,
     brand: product.brand || "HoneyVision",
     price: Number(product.price ?? product.salePrice ?? 0),
     mrp: Number(product.mrp ?? product.originalPrice ?? product.price ?? 0),
@@ -214,6 +227,7 @@ export const normalizeProduct = (product) => {
     thumbnail: primaryImage,
     image: primaryImage,
     images: gallery.length ? gallery : [primaryImage],
+    seoImages: [...new Set(seoImages.map((value) => value.trim()))],
     description: product.shortDescription || product.description || "",
     features: Array.isArray(product.features) ? product.features :
               Array.isArray(product.specifications?.features) ? product.specifications.features : [],

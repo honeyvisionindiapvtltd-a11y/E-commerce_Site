@@ -1,6 +1,7 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Camera, Image as ImageIcon, Sparkles, Upload, AlertTriangle, CheckCircle2, LoaderCircle, ArrowRight, ShoppingCart } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
+import { Capacitor } from '@capacitor/core';
 import { useCommerce } from '../context/index.js';
 import { cameraAndUpload } from '../services/cameraAndUpload.ts';
 
@@ -12,7 +13,7 @@ const statusLabels = {
   analyzing: 'Analyzing image...',
   matching: 'Finding matching products...',
   checking: 'Checking HoneyVision catalog...',
-  complete: 'Match complete',
+  complete: 'Search complete',
   error: 'Unable to process image',
 };
 
@@ -31,22 +32,28 @@ export default function ScanProduct() {
   const [error, setError] = useState('');
   const [uploading, setUploading] = useState(false);
   const [selectedPreview, setSelectedPreview] = useState('');
-  const [selectedFile, setSelectedFile] = useState(null);
   const [result, setResult] = useState(null);
   const [possibleMatches, setPossibleMatches] = useState([]);
+  const [capturing, setCapturing] = useState(false);
 
   const currentStatusLabel = statusLabels[status] || statusLabels.idle;
 
-  const triggerFilePicker = () => inputRef.current?.click();
+  const triggerFilePicker = () => {
+    if (!uploading && !capturing) inputRef.current?.click();
+  };
+
+  useEffect(() => () => {
+    if (selectedPreview) URL.revokeObjectURL(selectedPreview);
+  }, [selectedPreview]);
 
   const toFileFromDataUrl = async (dataUrl, mimeType) => {
     const response = await fetch(dataUrl);
     const blob = await response.blob();
     const extension = mimeType === 'image/png' ? 'png' : mimeType === 'image/webp' ? 'webp' : 'jpg';
-    return new File([blob], `scan-product-${Date.now()}.${extension}`, { type: mimeType });
+    return new File([blob], `scan-product.${extension}`, { type: mimeType });
   };
 
-  const processImageInput = async (imageData) => {
+  const processImageInput = async (imageData, source) => {
     const validation = cameraAndUpload.validateImage(imageData, 10);
     if (!validation.valid) {
       setError(validation.error || 'Invalid image file.');
@@ -58,7 +65,7 @@ export default function ScanProduct() {
     if (typeof imageData.data === 'string' && imageData.data.startsWith('data:')) {
       file = await toFileFromDataUrl(imageData.data, imageData.mimeType);
     } else if (imageData.data instanceof Blob) {
-      file = new File([imageData.data], imageData.fileName || `scan-product-${Date.now()}.jpg`, { type: imageData.mimeType });
+      file = new File([imageData.data], imageData.fileName || 'scan-product.jpg', { type: imageData.mimeType });
     }
 
     if (!file) {
@@ -67,46 +74,54 @@ export default function ScanProduct() {
       return;
     }
 
-    await handleImageFile(file);
+    await handleImageFile(file, source);
   };
 
   const handleCameraCapture = async () => {
+    if (uploading || capturing) return;
     try {
+      setCapturing(true);
       const imageData = await cameraAndUpload.takeCameraPhoto({ quality: 90 });
-      await processImageInput(imageData);
+      await processImageInput(imageData, 'camera');
     } catch (cameraError) {
       const message = cameraError?.message || 'Camera is unavailable right now.';
       if (!message.toLowerCase().includes('cancel')) {
         setError(message);
         setStatus('error');
       }
+    } finally {
+      setCapturing(false);
     }
   };
 
   const handleGalleryPick = async () => {
+    if (uploading || capturing) return;
     try {
+      setCapturing(true);
       const imageData = await cameraAndUpload.pickFromGallery({ quality: 90 });
-      await processImageInput(imageData);
+      await processImageInput(imageData, 'upload');
     } catch (galleryError) {
       const message = galleryError?.message || 'Gallery access failed.';
       if (!message.toLowerCase().includes('cancel')) {
         setError(message);
         setStatus('error');
       }
+    } finally {
+      setCapturing(false);
     }
   };
 
   const resetState = () => {
     setSelectedPreview('');
-    setSelectedFile(null);
     setResult(null);
     setPossibleMatches([]);
     setError('');
     setStatus('idle');
   };
 
-  const handleImageFile = async (file) => {
+  const handleImageFile = async (file, source = 'upload') => {
     if (!file) return;
+    if (uploading) return;
 
     const supported = ['image/jpeg', 'image/png', 'image/webp'];
     if (!supported.includes(file.type)) {
@@ -119,7 +134,6 @@ export default function ScanProduct() {
       return;
     }
 
-    setSelectedFile(file);
     setSelectedPreview(URL.createObjectURL(file));
     setError('');
     setResult(null);
@@ -130,8 +144,8 @@ export default function ScanProduct() {
     try {
       const formData = new FormData();
       formData.append('image', file);
-      formData.append('source', 'upload');
-      formData.append('device', 'web');
+      formData.append('source', source);
+      formData.append('device', Capacitor.isNativePlatform() ? 'native' : 'web');
 
       setStatus('analyzing');
       const response = await fetch(`${API_BASE}/products/search-by-image`, {
@@ -139,9 +153,9 @@ export default function ScanProduct() {
         body: formData,
       });
 
-      const payload = await response.json();
+      const payload = await response.json().catch(() => null);
       if (!response.ok || !payload?.success) {
-        throw new Error(payload?.message || 'Image search failed.');
+        throw new Error(payload?.message || `Image search failed (HTTP ${response.status}). Please try again.`);
       }
 
       setStatus('matching');
@@ -156,9 +170,11 @@ export default function ScanProduct() {
     }
   };
 
-  const handleSubmit = (event) => {
-    const file = event.target.files?.[0];
-    if (file) handleImageFile(file);
+  const handleSubmit = async (event) => {
+    const input = event.target;
+    const file = input.files?.[0];
+    input.value = '';
+    if (file) await handleImageFile(file);
   };
 
   const addDetectedToCart = () => {
@@ -178,8 +194,8 @@ export default function ScanProduct() {
             <p className="text-xs font-bold uppercase tracking-[0.2em] text-amber-600">HoneyVision</p>
             <h1 className="mt-2 text-3xl font-black text-[#071426]">Scan Product</h1>
           </div>
-          <button type="button" onClick={triggerFilePicker} className="inline-flex items-center gap-2 rounded-xl bg-[#071426] px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#132b47]">
-            <Upload size={16} /> Upload Image
+          <button type="button" onClick={triggerFilePicker} disabled={uploading || capturing} className="inline-flex items-center gap-2 rounded-xl bg-[#071426] px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#132b47] disabled:cursor-wait disabled:opacity-60">
+            <Upload size={16} /> {capturing ? 'Opening camera...' : uploading ? 'Searching...' : 'Upload Image'}
           </button>
         </div>
 
@@ -187,7 +203,6 @@ export default function ScanProduct() {
           ref={inputRef}
           type="file"
           accept="image/jpeg,image/png,image/webp"
-          capture="environment"
           className="hidden"
           onChange={handleSubmit}
         />
@@ -202,13 +217,13 @@ export default function ScanProduct() {
             </div>
 
             <div className="mt-5 grid gap-4 sm:grid-cols-2">
-              <button type="button" onClick={handleCameraCapture} className="flex min-h-[180px] flex-col items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-5 text-center transition hover:border-amber-400 hover:bg-amber-50">
+              <button type="button" onClick={handleCameraCapture} disabled={uploading || capturing} className="flex min-h-[180px] flex-col items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-5 text-center transition hover:border-amber-400 hover:bg-amber-50 disabled:cursor-wait disabled:opacity-60">
                 <Camera className="h-10 w-10 text-amber-600" />
-                <span className="mt-4 text-lg font-bold text-[#071426]">Use Camera</span>
+                <span className="mt-4 text-lg font-bold text-[#071426]">{capturing ? 'Opening camera...' : 'Use Camera'}</span>
                 <span className="mt-1 text-sm text-slate-500">Capture a product image</span>
               </button>
 
-              <button type="button" onClick={handleGalleryPick} className="flex min-h-[180px] flex-col items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-5 text-center transition hover:border-amber-400 hover:bg-amber-50">
+              <button type="button" onClick={handleGalleryPick} disabled={uploading || capturing} className="flex min-h-[180px] flex-col items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-5 text-center transition hover:border-amber-400 hover:bg-amber-50 disabled:cursor-wait disabled:opacity-60">
                 <ImageIcon className="h-10 w-10 text-amber-600" />
                 <span className="mt-4 text-lg font-bold text-[#071426]">Upload Photo</span>
                 <span className="mt-1 text-sm text-slate-500">From gallery or desktop</span>
@@ -224,7 +239,10 @@ export default function ScanProduct() {
             {error && (
               <div className="mt-5 flex items-start gap-3 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">
                 <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-                <span>{error}</span>
+                <div className="min-w-0 flex-1">
+                  <p>{error}</p>
+                  <button type="button" onClick={resetState} className="mt-2 font-semibold underline underline-offset-2">Try another image</button>
+                </div>
               </div>
             )}
           </section>
@@ -240,7 +258,7 @@ export default function ScanProduct() {
               </div>
             )}
 
-            {result && (
+            {result?.product && (
               <div className="space-y-5">
                 <div className="flex items-center gap-2 text-emerald-700">
                   {isHighConfidence ? <CheckCircle2 className="h-5 w-5" /> : <AlertTriangle className="h-5 w-5" />}
@@ -285,6 +303,15 @@ export default function ScanProduct() {
                     </button>
                   )}
                 </div>
+              </div>
+            )}
+
+            {result && !result.product && (
+              <div className="flex min-h-[300px] flex-col items-center justify-center text-center">
+                <AlertTriangle className="h-10 w-10 text-amber-500" />
+                <h2 className="mt-4 text-xl font-black text-[#071426]">No confident product match</h2>
+                <p className="mt-2 max-w-md text-sm leading-6 text-slate-600">{result.message || 'Try a closer, well-lit photo of the product label or model number.'}</p>
+                <button type="button" onClick={resetState} className="mt-5 rounded-xl bg-[#071426] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#132b47]">Scan another product</button>
               </div>
             )}
 
