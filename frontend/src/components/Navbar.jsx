@@ -10,6 +10,7 @@ import {
   House,
   Info,
   LayoutDashboard,
+  LogOut,
   Mail,
   MapPin,
   Menu,
@@ -71,6 +72,7 @@ export default function Navbar({ isDarkTheme = false, onToggleTheme }) {
     deliveryPin,
     selectedDeliveryAddress,
     isLoggedIn,
+    logout,
     user,
     products = [],
   } = useCommerce();
@@ -630,25 +632,23 @@ export default function Navbar({ isDarkTheme = false, onToggleTheme }) {
                 ))}
               </div>
 
-              <div className="mt-4 grid grid-cols-3 gap-2 border-t border-white/10 pt-4">
-                <Link to="/wishlist" className="flex min-h-16 flex-col items-center justify-center gap-1 rounded-xl bg-white/5 text-[11px] text-slate-300 transition hover:bg-white/10 hover:text-yellow-300">
-                  <Heart size={17} />
-                  <span>Wishlist</span>
-                </Link>
-
-                <Link to="/cart" className="flex min-h-16 flex-col items-center justify-center gap-1 rounded-xl bg-white/5 text-[11px] text-slate-300 transition hover:bg-white/10 hover:text-yellow-300">
-                  <ShoppingCart size={17} />
-                  <span>Cart</span>
-                </Link>
-
-                <Link
-                  to={isLoggedIn && user?.role === 'admin' ? '/admin/dashboard' : isLoggedIn ? '/profile' : '/login'}
-                  className="flex min-h-16 flex-col items-center justify-center gap-1 rounded-xl bg-white/5 text-[11px] text-slate-300 transition hover:bg-white/10 hover:text-yellow-300"
+              {isLoggedIn && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    logout();
+                    setMenuOpen(false);
+                    navigate("/login", { replace: true });
+                  }}
+                  className="mt-3 flex min-h-11 w-full items-center gap-3 rounded-xl border-t border-white/10 px-3 pt-3 text-sm font-semibold text-red-300 transition hover:bg-red-400/10 hover:text-red-200"
                 >
-                  {isLoggedIn && user?.role === 'admin' ? <LayoutDashboard size={17} /> : <User size={17} />}
-                  {isLoggedIn && user?.role === 'admin' ? 'Admin' : isLoggedIn ? 'Profile' : 'Login'}
-                </Link>
-              </div>
+                  <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-white/10">
+                    <LogOut size={17} />
+                  </span>
+                  Logout
+                </button>
+              )}
+
             </div>
           )}
         </div>

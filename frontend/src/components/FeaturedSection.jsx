@@ -2,13 +2,12 @@ import {
   Clock3,
   ChevronRight,
   Heart,
-  Eye,
   Star,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { useCommerce } from "../context/index.js";
-import { money, normalizeProduct } from "../lib/products";
+import { isCameraOnlyProduct, money, normalizeProduct } from "../lib/products";
 
 const brandLogos = {
   Honeywell: "https://res.cloudinary.com/vhrkwyzs/image/upload/v1787377703/Honeywell-Logo_cdkjfy.svg",
@@ -86,35 +85,55 @@ export default function FeaturedSection() {
     saleSeconds % 60,
   ];
   const saleLabels = ["Days", "Hours", "Minutes", "Seconds"];
-  const isCameraOnlyProduct = (product) => {
-    const haystack = `${product?.name || ""} ${product?.category || ""} ${product?.subCategory || ""}`.toLowerCase();
-
-    const hasCameraSignal = /(cctv|camera|surveillance|bullet|dome|ptz|ip camera|wifi camera|wireless camera|security camera|fisheye|anpr|thermal camera|outdoor camera|indoor camera|analog camera|network camera|smart camera|video door)/.test(haystack);
-    const hasNonCameraSignal = /(printer|thermal printer|laptop|desktop|monitor|keyboard|mouse|router|switch|nvr|dvr|ups|smps|battery|adapter|mount|bracket|stand|holder|connector|cable|server|storage|drive|module|accessory|junction box|power supply|power adapter|display|housing|trim)/.test(haystack);
-
-    return hasCameraSignal && !hasNonCameraSignal;
-  };
-
   const normalizedProducts = (Array.isArray(products) ? products : []).map(normalizeProduct).filter(Boolean);
 
-  const selectMixedBrandProducts = (items, limit = 18) => {
+  const selectMixedCategoryProducts = (items, limit = 24) => {
     if (!items.length) return [];
 
-    const grouped = new Map();
-    items.forEach((item) => {
-      const brand = (item.brand || "CCTV").toString().trim() || "CCTV";
-      if (!grouped.has(brand)) grouped.set(brand, []);
-      grouped.get(brand).push(item);
+    const priorityPatterns = [
+      /\bled\b|digital signage|video wall/i,
+      /\bnvr\b|\bdvr\b|recording/i,
+      /\bracks?\b/i,
+      /\bcabinets?\b/i,
+    ];
+    const priorityProducts = [];
+    const priorityIds = new Set();
+
+    priorityPatterns.forEach((pattern) => {
+      const product = items.find((item) => pattern.test([
+        item.name,
+        item.category,
+        item.subCategory,
+        item.categorySlug,
+        item.subCategorySlug,
+        ...(Array.isArray(item.tags) ? item.tags : []),
+      ].join(" ")));
+
+      if (product && !priorityIds.has(String(product.id))) {
+        priorityProducts.push(product);
+        priorityIds.add(String(product.id));
+      }
     });
 
-    const brandOrder = [...grouped.keys()];
+    const orderedItems = [
+      ...priorityProducts,
+      ...items.filter((item) => !priorityIds.has(String(item.id))),
+    ];
+    const productsByCategory = new Map();
+    orderedItems.forEach((item) => {
+      const category = (item.category || item.subCategory || "Other").toString().trim() || "Other";
+      if (!productsByCategory.has(category)) productsByCategory.set(category, []);
+      productsByCategory.get(category).push(item);
+    });
+
+    const categoryOrder = [...productsByCategory.keys()];
     const selected = [];
     const usedIds = new Set();
-    const maxRounds = Math.max(1, Math.ceil(limit / Math.max(brandOrder.length, 1)));
+    const maxRounds = Math.max(1, Math.ceil(limit / Math.max(categoryOrder.length, 1)));
 
     for (let round = 0; round < maxRounds && selected.length < limit; round += 1) {
-      for (const brand of brandOrder) {
-        const bucket = grouped.get(brand) || [];
+      for (const category of categoryOrder) {
+        const bucket = productsByCategory.get(category) || [];
         const nextItem = bucket.find((item) => !usedIds.has(String(item.id)));
         if (nextItem && selected.length < limit) {
           selected.push(nextItem);
@@ -125,15 +144,16 @@ export default function FeaturedSection() {
 
     if (selected.length >= limit) return selected.slice(0, limit);
 
-    const fallback = items.filter((item) => !usedIds.has(String(item.id)));
+    const fallback = orderedItems.filter((item) => !usedIds.has(String(item.id)));
     return [...selected, ...fallback].slice(0, limit);
   };
 
-  const finalProductsToShow = selectMixedBrandProducts(normalizedProducts, 18);
+  const featuredCandidates = normalizedProducts.filter((product) => !isCameraOnlyProduct(product));
+  const finalProductsToShow = selectMixedCategoryProducts(featuredCandidates, 24);
 
   return (
     <section className="home-brand-section bg-gray-50 py-12 sm:py-16 lg:py-20">
-      <div className="mx-auto max-w-7xl px-4 sm:px-6">
+      <div className="mx-auto max-w-7xl px-2 sm:px-6">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-yellow-500 sm:text-sm">

@@ -35,9 +35,9 @@ const services = [
 
 export default function InstallationSection() {
   return (
-    <section className="home-installation-section bg-white py-6 sm:py-10 lg:py-14">
+    <section className="home-installation-section bg-white py-4 sm:py-10 lg:py-14">
       <div className="mx-auto max-w-6xl px-3 sm:px-6">
-        <div className="grid items-start gap-6 lg:grid-cols-2 lg:gap-10">
+        <div className="grid items-start gap-4 sm:gap-6 lg:grid-cols-2 lg:gap-10">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-yellow-500 sm:text-sm sm:tracking-widest">
               Installation & AMC
@@ -49,7 +49,7 @@ export default function InstallationSection() {
               From CCTV cameras and drones to networking, servers and complete IT infrastructure,
               our certified engineers provide end-to-end installation and maintenance services.
             </p>
-            <div className="mt-4 grid gap-2 sm:mt-6 sm:grid-cols-2 sm:gap-y-3">
+            <div className="mt-4 grid grid-cols-2 gap-x-3 gap-y-2 sm:mt-6 sm:gap-y-3">
               <div className="flex items-center gap-2 text-xs sm:gap-3 sm:text-sm">
                 <CheckCircle size={16} className="shrink-0 text-green-500 sm:h-5 sm:w-5" />
                 Certified Engineers
@@ -88,11 +88,11 @@ export default function InstallationSection() {
           </div>
 
           <div>
-            <div className="grid gap-2.5 sm:gap-3 md:grid-cols-2">
+            <div className="grid grid-cols-2 gap-2 sm:gap-3">
               {services.map((item, index) => (
                 <div
                   key={index}
-                  className="home-service-card rounded-xl border border-slate-100 bg-gray-50 p-3 transition hover:shadow-lg sm:rounded-2xl sm:p-4"
+                  className="home-service-card rounded-xl border border-slate-100 bg-gray-50 p-2.5 transition hover:shadow-lg sm:rounded-2xl sm:p-4"
                 >
                   <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-yellow-100 text-yellow-600 sm:h-10 sm:w-10 sm:rounded-xl">
                     {item.icon}

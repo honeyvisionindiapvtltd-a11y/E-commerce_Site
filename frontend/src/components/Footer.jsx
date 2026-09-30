@@ -121,7 +121,7 @@ export default function Footer() {
 
           {/* Categories */}
 
-          <div>
+          <div className="hidden md:block">
 
             <h3 className="mb-3 text-sm font-semibold text-white sm:mb-5 sm:text-lg">
               Categories
@@ -198,7 +198,7 @@ export default function Footer() {
               <input
                 type="email"
                 placeholder="Enter email"
-                className="w-full min-w-0 rounded-l-lg px-3 py-2.5 text-sm text-black outline-none"
+                className="w-full min-w-0 rounded-l-lg bg-white px-3 py-2.5 text-sm text-slate-900 placeholder:text-slate-500 outline-none focus:ring-2 focus:ring-yellow-400"
               />
 
               <button type="button" onClick={handleSubscribe} aria-label="Subscribe" className="rounded-r-lg bg-yellow-500 px-4 hover:bg-yellow-600">

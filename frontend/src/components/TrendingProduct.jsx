@@ -2,16 +2,7 @@ import { Heart, Star, ChevronRight } from "lucide-react";
 import { useRef } from "react";
 import { Link } from "react-router-dom";
 import { useCommerce } from "../context/index.js";
-import { money, normalizeProduct } from "../lib/products";
-
-const isCameraOnlyProduct = (product) => {
-  const haystack = `${product?.name || ""} ${product?.category || ""} ${product?.subCategory || ""}`.toLowerCase();
-
-  const hasCameraSignal = /(cctv|camera|surveillance|bullet|dome|ptz|ip camera|wifi camera|wireless camera|security camera|fisheye|anpr|thermal camera|outdoor camera|indoor camera|analog camera|network camera|smart camera|video door)/.test(haystack);
-  const hasNonCameraSignal = /(printer|thermal printer|laptop|desktop|monitor|keyboard|mouse|router|switch|nvr|dvr|ups|smps|battery|adapter|mount|bracket|stand|holder|connector|cable|server|storage|drive|module|accessory|junction box|power supply|power adapter|display|housing|trim)/.test(haystack);
-
-  return hasCameraSignal && !hasNonCameraSignal;
-};
+import { isCameraOnlyProduct, money, normalizeProduct } from "../lib/products";
 
 const selectMixedBrandProducts = (items, limit = 18) => {
   if (!items.length) return [];
@@ -57,7 +48,7 @@ export default function TrendingProducts() {
   };
 
   return (
-    <section className="w-full px-3 py-4 sm:px-6 sm:py-6">
+    <section className="w-full px-0 py-4 sm:px-6 sm:py-6">
       <div className="mb-3 flex items-center justify-between gap-2 sm:mb-5">
         <h2 className="text-lg font-bold leading-tight text-slate-900 sm:text-xl">CCTV & Security Products</h2>
 
@@ -87,7 +78,7 @@ export default function TrendingProducts() {
           <ChevronRight size={18} />
         </button>
 
-        <div ref={productRailRef} className="overflow-x-auto pb-1.5 pl-9 pr-9 sm:pb-2 sm:pl-10 sm:pr-10 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <div ref={productRailRef} className="overflow-x-auto pb-1.5 pl-8 pr-9 sm:pb-2 sm:pl-10 sm:pr-10 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           <div className="flex min-w-max gap-2.5 sm:gap-4">
           {trendingProducts.map((product) => {
             const isWishlisted = wishlist.includes(product.id);

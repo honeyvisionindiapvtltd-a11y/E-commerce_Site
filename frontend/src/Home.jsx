@@ -30,7 +30,7 @@ export default function Home() {
           <BenefitsStrip />
         </div>
 
-        <div className="home-section-shell home-section-trending bg-white/55 px-3 pb-8 sm:px-6">
+        <div className="home-section-shell home-section-trending bg-white/55 px-0 pb-8 sm:px-6">
           <TrendingProduct />
         </div>
 
@@ -38,7 +38,7 @@ export default function Home() {
           <PromotionalBanners />
         </div>
 
-        <div className="home-section-shell home-section-featured px-3 pb-8 sm:px-6">
+        <div className="home-section-shell home-section-featured px-0 pb-8 sm:px-6">
           <FeaturedSection />
         </div>
 

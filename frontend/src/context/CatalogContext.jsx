@@ -46,7 +46,7 @@ export function CatalogProvider({ children }) {
 
     const loadProducts = async () => {
       try {
-        const response = await fetch(`${API_BASE}/products?page=1&limit=24`);
+        const response = await fetch(`${API_BASE}/products?page=1&limit=100`);
         if (!response.ok) throw new Error("Failed to fetch products");
 
         const data = await response.json();

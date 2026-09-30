@@ -179,6 +179,15 @@ export const getProductGallery = (product = {}) => {
   return [...new Set(gallery.map((value) => value.trim()))];
 };
 
+export const isCameraOnlyProduct = (product) => {
+  const haystack = `${product?.name || ""} ${product?.category || ""} ${product?.subCategory || ""}`.toLowerCase();
+
+  const hasCameraSignal = /(cctv|camera|surveillance|bullet|dome|ptz|ip camera|wifi camera|wireless camera|security camera|fisheye|anpr|thermal camera|outdoor camera|indoor camera|analog camera|network camera|smart camera|video door)/.test(haystack);
+  const hasNonCameraSignal = /(printer|thermal printer|laptop|desktop|monitor|keyboard|mouse|router|switch|nvr|dvr|ups|smps|battery|adapter|mount|bracket|stand|holder|connector|cable|server|storage|drive|module|accessory|junction box|power supply|power adapter|display|housing|trim)/.test(haystack);
+
+  return hasCameraSignal && !hasNonCameraSignal;
+};
+
 /**
  * Normalizes product data from API responses to a consistent internal format
  * Used across all product pages (Products, ProductDetails, Category, etc.)
