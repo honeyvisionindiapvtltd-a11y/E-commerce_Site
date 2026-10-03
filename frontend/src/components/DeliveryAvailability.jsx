@@ -35,22 +35,22 @@ export default function DeliveryAvailability({ initialCity = "", initialState = 
   };
 
   return (
-    <section className="rounded-[26px] border border-slate-200 bg-white p-4 shadow-[0_12px_30px_rgba(7,20,38,0.05)] sm:p-5">
-      <div className="flex items-center gap-3">
+    <section className="product-delivery-availability rounded-[26px] border border-slate-200 bg-white p-4 shadow-[0_12px_30px_rgba(7,20,38,0.05)] sm:p-5">
+      <div className="product-delivery-header flex items-center gap-3">
         <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#f3d76d]/20 text-[#071426]">
           <MapPin size={20} />
         </div>
         <div>
-          <h3 className="text-[19px] font-extrabold tracking-tight text-[#071426] sm:text-[22px]">
+          <h3 className="product-delivery-title text-[19px] font-extrabold tracking-tight text-[#071426] sm:text-[22px]">
             Check delivery availability
           </h3>
-          <p className="mt-1 text-sm text-slate-500">
+          <p className="product-delivery-helper mt-1 text-sm text-slate-500">
             Enter your PIN code to check delivery availability.
           </p>
         </div>
       </div>
 
-      <form onSubmit={check} className="mt-5 grid grid-cols-1 gap-3 md:grid-cols-4">
+      <form onSubmit={check} className="product-delivery-form mt-5 grid grid-cols-1 gap-3 md:grid-cols-4">
         <input
           aria-label="Country"
           value={country}

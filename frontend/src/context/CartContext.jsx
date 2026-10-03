@@ -4,11 +4,26 @@ import { useAuth } from "./useAuth";
 const CartContext = createContext(null);
 const CART_STORAGE_KEY = "hv-cart";
 
-function sameProductId(first, second) {
+function sameCartLine(first, second) {
+  const firstIsBundle = first?.type === "bundle" || Boolean(first?.bundleId);
+  const secondIsBundle = second?.type === "bundle" || Boolean(second?.bundleId);
+  if (firstIsBundle || secondIsBundle) {
+    return firstIsBundle && secondIsBundle
+      && String(first?.bundleId || first?.id || "") === String(second?.bundleId || second?.id || "");
+  }
   return String(first?.id || first?.productId || first) === String(second?.id || second?.productId || second);
 }
 
 function normalizeCartItem(item) {
+  if ((item?.type === "bundle" || item?.bundleId) && item?.bundleId) {
+    return {
+      ...item,
+      id: `bundle:${item.bundleId}`,
+      productId: `bundle:${item.bundleId}`,
+      type: "bundle",
+      quantity: Math.max(1, Number(item.quantity || 1)),
+    };
+  }
   const productId = item?.productId || item?.id;
   return productId
     ? { ...item, id: productId, productId, quantity: Number(item.quantity || 0) }
@@ -75,7 +90,7 @@ export function CartProvider({ children }) {
     const userCart = current.users[String(userId)] || [];
     const merged = [...userCart];
     current.guest.forEach((guestItem) => {
-      const existing = merged.find((item) => sameProductId(item, guestItem));
+      const existing = merged.find((item) => sameCartLine(item, guestItem));
       if (existing) existing.quantity += guestItem.quantity;
       else merged.push(guestItem);
     });
@@ -87,10 +102,11 @@ export function CartProvider({ children }) {
 
   const addToCart = (productId, quantity = 1, installation = false, product = null) => {
     setCart((current) => {
-      const existing = current.find((item) => sameProductId(item, productId));
+      const productRef = { id: productId, type: "product" };
+      const existing = current.find((item) => sameCartLine(item, productRef));
       if (existing) {
         return current.map((item) =>
-          sameProductId(item, productId)
+          sameCartLine(item, productRef)
             ? { ...item, id: productId, productId, product: product || item.product, quantity: Number(item.quantity || 0) + quantity, installation: item.installation || installation }
             : item
         );
@@ -99,16 +115,31 @@ export function CartProvider({ children }) {
     });
   };
 
+  const addBundleToCart = (bundleId, bundle) => {
+    const bundleRef = { type: "bundle", bundleId: String(bundleId) };
+    setCart((current) => {
+      const existing = current.find((item) => sameCartLine(item, bundleRef));
+      if (existing) {
+        return current.map((item) => sameCartLine(item, bundleRef)
+          ? { ...item, bundle, quantity: Number(item.quantity || 1) + 1 }
+          : item);
+      }
+      return [...current, normalizeCartItem({ ...bundleRef, bundle, quantity: 1 })];
+    });
+  };
+
   const setQuantity = (productId, quantity) => {
+    const target = typeof productId === "object" ? productId : { id: productId, type: "product" };
     setCart((current) =>
       quantity < 1
-        ? current.filter((item) => !sameProductId(item, productId))
-        : current.map((item) => (sameProductId(item, productId) ? { ...item, quantity } : item))
+        ? current.filter((item) => !sameCartLine(item, target))
+        : current.map((item) => (sameCartLine(item, target) ? { ...item, quantity } : item))
     );
   };
 
   const removeFromCart = (productId) => {
-    setCart((current) => current.filter((item) => !sameProductId(item, productId)));
+    const target = typeof productId === "object" ? productId : { id: productId, type: "product" };
+    setCart((current) => current.filter((item) => !sameCartLine(item, target)));
   };
 
   const clearCart = () => {
@@ -118,6 +149,7 @@ export function CartProvider({ children }) {
   const value = {
     cart,
     addToCart,
+    addBundleToCart,
     setQuantity,
     removeFromCart,
     clearCart,

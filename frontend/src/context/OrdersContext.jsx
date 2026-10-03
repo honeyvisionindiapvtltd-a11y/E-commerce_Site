@@ -72,7 +72,11 @@ export function OrdersProvider({ children }) {
   const placeOrder = useCallback(
     async ({ address, paymentMethod, installationSlot, secureShipping = false, items: itemsOverride, orderId, clientRequestId }) => {
       const sourceItems = Array.isArray(itemsOverride) ? itemsOverride : cart;
+      const bundleItems = sourceItems
+        .filter((item) => item.type === "bundle" && item.bundleId)
+        .map((item) => ({ bundleId: String(item.bundleId), quantity: Number(item.quantity || 1) }));
       const items = sourceItems
+        .filter((item) => item.type !== "bundle")
         .map((item) => ({ ...item, product: products.find((product) => sameProductId(product, item)) }))
         .filter((item) => item.product);
 
@@ -80,6 +84,7 @@ export function OrdersProvider({ children }) {
         clientRequestId: clientRequestId || window.crypto?.randomUUID?.() || `order-${Date.now()}-${Math.random().toString(36).slice(2)}`,
         orderId,
         items,
+        bundles: bundleItems,
         shippingAddress: {
           ...address,
           name: address.name || address.fullName,

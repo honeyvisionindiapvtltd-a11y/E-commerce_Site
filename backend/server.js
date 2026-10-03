@@ -18,6 +18,7 @@ import newsletterRoutes from './routes/newsletterRoutes.js';
 import installationsRoutes from './routes/installations.js';
 import returnRoutes from './routes/returnRoutes.js';
 import reviewRoutes from './routes/reviewRoutes.js';
+import bundleRoutes from './routes/bundleRoutes.js';
 
 dotenv.config();
 
@@ -50,6 +51,7 @@ app.get('/health', (req, res) => {
 // API Routes
 app.use('/api/categories', categoryRoutes);
 app.use('/api/products', productRoutes);
+app.use('/api', bundleRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/payment', paymentRoutes);
 app.use('/api/tracking', trackingRoutes);

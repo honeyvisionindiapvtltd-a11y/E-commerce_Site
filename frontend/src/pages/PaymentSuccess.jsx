@@ -270,7 +270,14 @@ export default function PaymentSuccess() {
               </div>
 
               <div className="mt-6 space-y-4">
-                {order.items.map((item, index) => (
+                {(order.bundles || []).map((bundle, bundleIndex) => (
+                  <section key={`${bundle.bundleId}-${bundleIndex}`} className="rounded-3xl border border-amber-200 bg-amber-50/60 p-4">
+                    <div className="flex items-start justify-between gap-4"><div><p className="text-[10px] font-bold uppercase tracking-wide text-amber-700">Bundle</p><h3 className="mt-1 font-bold text-slate-900">{bundle.bundleName}</h3></div><span className="font-extrabold text-slate-900">{formatPrice(bundle.finalTotal)}</span></div>
+                    <div className="mt-3 space-y-1">{(bundle.items || []).map((item, itemIndex) => <p key={`${item.product}-${itemIndex}`} className="text-sm text-slate-600">{item.name} × {item.quantity}</p>)}</div>
+                    <div className="mt-3 border-t border-amber-200 pt-2 text-xs"><div className="flex justify-between text-slate-600"><span>Individual total</span><span>{formatPrice(bundle.originalTotal)}</span></div><div className="mt-1 flex justify-between font-semibold text-emerald-700"><span>Bundle discount</span><span>-{formatPrice(bundle.bundleDiscount)}</span></div><div className="mt-1 flex justify-between font-bold text-slate-900"><span>Bundle total</span><span>{formatPrice(bundle.finalTotal)}</span></div></div>
+                  </section>
+                ))}
+                {order.items.filter((item) => !item.bundleId).map((item, index) => (
                   <div key={`${item.productId}-${index}`} className="rounded-3xl border border-gray-200 bg-[#f8fafc] p-4">
                     <div className="flex items-start justify-between gap-4">
                       <div>

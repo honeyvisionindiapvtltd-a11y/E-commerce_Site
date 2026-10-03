@@ -35,6 +35,7 @@ import installationsRoutes from './routes/installations.js';
 import inventoryRoutes from './routes/inventory.js';
 import amcRoutes from './routes/amcRoutes.js';
 import seoRoutes from './routes/seoRoutes.js';
+import bundleRoutes from './routes/bundleRoutes.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -67,6 +68,21 @@ const allowedOrigins = new Set([...localFrontendOrigins, ...configuredFrontendOr
 const isAllowedDevelopmentOrigin = (origin) => /^https?:\/\/(localhost|127\.0\.0\.1|192\.168\.31\.5):\d+$/.test(origin);
 let databaseAvailable = false;
 let httpServer;
+
+mongoose.connection.on('connected', () => {
+  databaseAvailable = true;
+});
+mongoose.connection.on('reconnected', () => {
+  databaseAvailable = true;
+  console.log('MongoDB reconnected');
+});
+mongoose.connection.on('disconnected', () => {
+  databaseAvailable = false;
+  console.warn('MongoDB disconnected; database-backed API requests are temporarily unavailable.');
+});
+mongoose.connection.on('close', () => {
+  databaseAvailable = false;
+});
 
 const wait = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
 
@@ -125,6 +141,7 @@ app.use('/api/notifications', notificationRoutes);
 app.use('/api/newsletter', newsletterRoutes);
 app.use('/api/categories', categoryRoutes);
 app.use('/api/products', productRoutes);
+app.use('/api', bundleRoutes);
 app.use(
   "/api/orders",
   orderRoutes

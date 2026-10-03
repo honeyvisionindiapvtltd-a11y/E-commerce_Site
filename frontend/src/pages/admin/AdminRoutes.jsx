@@ -23,6 +23,7 @@ import AdminInstallations from "./AdminInstallations";
 import AdminNotifications from "./pages/Notifications";
 import AMCManagement from "./AMCManagement.jsx";
 import ProductImageIndex from "./pages/ProductImageIndex";
+import Bundles from "./pages/Bundles.jsx";
 
 export default function AdminRoutes() {
   return (
@@ -31,6 +32,7 @@ export default function AdminRoutes() {
         <Route index element={<DashboardPage />} />
         <Route path="dashboard" element={<DashboardPage />} />
         <Route path="products" element={<Products />} />
+        <Route path="bundles" element={<Bundles />} />
         <Route path="product-image-index" element={<ProductImageIndex />} />
         <Route path="categories" element={<Categories />} />
         <Route path="orders" element={<Orders />} />

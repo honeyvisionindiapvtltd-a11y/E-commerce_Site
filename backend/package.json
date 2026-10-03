@@ -9,6 +9,7 @@
     "test:delivery-zones": "node test-delivery-zones.js",
     "seed:delivery-zones": "node scripts/seedDeliveryZones.js",
     "seed:amc-plans": "node scripts/seedAmcPlans.js",
+    "seed:bundles": "node scripts/seedBundles.js",
     "seed:cctv-categories": "node scripts/ensureCctvCategories.js",
     "seed:cctv-starter": "node scripts/seedCctvStarterCatalog.js",
     "seed-admin": "node scripts/seedAdmin.js",

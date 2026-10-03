@@ -55,9 +55,18 @@ export default function Checkout() {
     ? [directItem]
     : cart.map((item) => ({
     ...item,
-    product: item.product || products.find((product) => String(productIdOf(product) ?? "") === String(productIdOf(item) ?? "")),
+    product: item.type === "bundle"
+      ? {
+          id: item.productId,
+          name: item.bundle?.name || "Bundle",
+          price: Number(item.bundle?.finalTotal || 0),
+          mrp: Number(item.bundle?.originalTotal || 0),
+        }
+      : item.product || products.find((product) => String(productIdOf(product) ?? "") === String(productIdOf(item) ?? "")),
   })).filter((item) => item.product);
   const { subtotal, installationFee, shipping, discount, total } = computeTotals(items, { coupon: couponApplied, secureShipping: false });
+  const bundleDiscount = items.filter((item) => item.type === "bundle").reduce((sum, item) => sum + Number(item.bundle?.discountAmount || 0) * item.quantity, 0);
+  const originalSubtotal = subtotal + bundleDiscount;
   const valid = address.name && address.phone.length >= 10 && address.line1 && address.city && address.state && address.pin.length === 6;
 
   useEffect(() => {
@@ -227,8 +236,9 @@ return (
               </div>
             ))}
             <div className="mt-5 border-t pt-4 text-sm">
-              <Line label="Subtotal" value={money(subtotal)} />
-              {discount > 0 && <Line label="Discount" value={`- ${money(discount)}`} />}
+              <Line label="Products total" value={money(originalSubtotal)} />
+              {bundleDiscount > 0 && <Line label="Bundle discount" value={`- ${money(bundleDiscount)}`} />}
+              {discount > 0 && <Line label="Coupon discount" value={`- ${money(discount)}`} />}
               <Line label="Shipping" value={shipping ? money(shipping) : "FREE"} />
               <Line label="Installation" value={money(installationFee)} />
             </div>

@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { useCommerce } from "../context/index.js";
 import DeliveryAvailability from "../components/DeliveryAvailability";
 import ReviewCard from "../components/ReviewCard";
+import ShopByCategory from "../components/ShopByCategory";
 import { getProductGallery, money, normalizeProduct } from "../lib/products";
 import { getCanonicalUrl, removeJsonLd, setJsonLd, setPageMetadata } from "../utils/seoMetadata";
 import {
@@ -112,18 +113,53 @@ export default function ProductDetails() {
   const { productId } = useParams();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { products, addToCart, toggleWishlist, wishlist } = useCommerce();
+  const { products, addToCart, addBundleToCart, toggleWishlist, wishlist } = useCommerce();
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
+  const purchaseBoxRef = useRef(null);
+  const [showMobilePurchaseBar, setShowMobilePurchaseBar] = useState(false);
   const [selectedImage, setSelectedImage] = useState("");
   const [imageIndex, setImageIndex] = useState(0);
   const [quantity, setQuantity] = useState(1);
   const [activeTab, setActiveTab] = useState("overview");
+  const [descriptionExpanded, setDescriptionExpanded] = useState(false);
+  const [specificationsExpanded, setSpecificationsExpanded] = useState(false);
   const [shareStatus, setShareStatus] = useState("");
   const [cartStatus, setCartStatus] = useState("");
   const [recentlyViewed, setRecentlyViewed] = useState([]);
+  const [relatedCatalogProducts, setRelatedCatalogProducts] = useState([]);
+  const [relatedProductsLoading, setRelatedProductsLoading] = useState(false);
+  const [bundleResponse, setBundleResponse] = useState({ productId: "", status: "idle", bundles: [] });
+  const [addingBundleId, setAddingBundleId] = useState("");
+  const [bundleCartMessage, setBundleCartMessage] = useState("");
   const [reviews, setReviews] = useState([]);
   const [reviewsLoading, setReviewsLoading] = useState(false);
+
+  useEffect(() => {
+    const purchaseBox = purchaseBoxRef.current;
+    if (!purchaseBox) return undefined;
+
+    const updateVisibility = () => {
+      setShowMobilePurchaseBar(purchaseBox.getBoundingClientRect().bottom < 0);
+    };
+
+    updateVisibility();
+    window.addEventListener("scroll", updateVisibility, { passive: true });
+    window.addEventListener("resize", updateVisibility);
+
+    return () => {
+      window.removeEventListener("scroll", updateVisibility);
+      window.removeEventListener("resize", updateVisibility);
+    };
+  }, [product?.id]);
+
+  useEffect(() => {
+    document.documentElement.classList.toggle(
+      "mobile-purchase-bar-visible",
+      showMobilePurchaseBar
+    );
+    return () => document.documentElement.classList.remove("mobile-purchase-bar-visible");
+  }, [showMobilePurchaseBar]);
 
   useEffect(() => {
     if (product && String(product.id) !== String(productId)) return;
@@ -290,6 +326,98 @@ export default function ProductDetails() {
     };
   }, [productId, products]);
 
+  useEffect(() => {
+    if (!product?.id) {
+      setRelatedCatalogProducts([]);
+      setRelatedProductsLoading(false);
+      return undefined;
+    }
+
+    const params = [];
+    if (product.categorySlug) params.push(`category=${encodeURIComponent(product.categorySlug)}`);
+    if (product.subCategorySlug) params.push(`subCategory=${encodeURIComponent(product.subCategorySlug)}`);
+
+    if (!params.length) {
+      setRelatedCatalogProducts([]);
+      setRelatedProductsLoading(false);
+      return undefined;
+    }
+
+    let cancelled = false;
+    setRelatedProductsLoading(true);
+
+    Promise.all(params.map(async (param) => {
+      try {
+        const response = await fetch(`${API_BASE}/products?${param}&limit=100`);
+        if (!response.ok) return [];
+        const data = await response.json();
+        const items = Array.isArray(data?.products) ? data.products : [];
+        return items.map(normalizeProduct).filter(Boolean);
+      } catch {
+        return [];
+      }
+    })).then((results) => {
+      if (!cancelled) {
+        setRelatedCatalogProducts(results.flat());
+        setRelatedProductsLoading(false);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [product?.id, product?.categorySlug, product?.subCategorySlug]);
+
+  useEffect(() => {
+    if (!product?.id) return undefined;
+
+    let active = true;
+    fetch(`${API_BASE}/bundles/product/${encodeURIComponent(product.id)}`)
+      .then((response) => {
+        if (!response.ok) throw new Error("Bundle request failed");
+        return response.json();
+      })
+      .then((data) => {
+        if (!active) return;
+        setBundleResponse({
+          productId: String(product.id),
+          status: "loaded",
+          bundles: Array.isArray(data?.bundles) ? data.bundles : [],
+        });
+      })
+      .catch(() => {
+        if (!active) return;
+        setBundleResponse({ productId: String(product.id), status: "failed", bundles: [] });
+      });
+
+    return () => { active = false; };
+  }, [product?.id]);
+
+  const bundleStateIsCurrent = Boolean(product?.id)
+    && String(bundleResponse.productId) === String(product.id);
+  const bundleLoadStatus = bundleStateIsCurrent ? bundleResponse.status : product?.id ? "loading" : "idle";
+  const bundles = bundleStateIsCurrent ? bundleResponse.bundles : [];
+
+  const handleAddBundleToCart = async (bundleId) => {
+    setAddingBundleId(bundleId);
+    setBundleCartMessage("");
+    try {
+      const response = await fetch(`${API_BASE}/cart/bundle`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ bundleId, quantity: 1 }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || !data.bundle) throw new Error(data.message || "This bundle is unavailable.");
+      addBundleToCart(bundleId, data.bundle);
+      setBundleCartMessage("Bundle added to cart.");
+    } catch (error) {
+      setBundleCartMessage(error.message || "This bundle is unavailable.");
+    } finally {
+      setAddingBundleId("");
+    }
+  };
+
   const images = useMemo(() => {
     const gallery = getProductGallery(product || {});
     const validImages = Array.isArray(gallery)
@@ -307,7 +435,7 @@ export default function ProductDetails() {
     return [FALLBACK_IMAGE];
   }, [product]);
 
-  const visibleThumbs = useMemo(() => images.slice(0, 5), [images]);
+  const visibleThumbs = images;
 
   useEffect(() => {
     if (!images.length) {
@@ -379,11 +507,42 @@ export default function ProductDetails() {
   const relatedProducts = useMemo(() => {
     if (!product?.id) return [];
 
-    return products
-      .filter((item) => String(item.id) !== String(product.id))
-      .slice(0, 25)
-      .map((item) => normalizeProduct(item));
-  }, [products, product?.id]);
+    const normalizedCatalog = [...products, ...relatedCatalogProducts].map(normalizeProduct).filter(Boolean);
+    const catalogById = new Map(normalizedCatalog.map((item) => [String(item.id), item]));
+    const explicitRelated = (Array.isArray(product.relatedProducts) ? product.relatedProducts : [])
+      .map((item) => {
+        if (item && typeof item === "object") return normalizeProduct(item);
+        return catalogById.get(String(item));
+      })
+      .filter((item) => item && String(item.id) !== String(product.id));
+    const explicitRelatedIds = new Set(explicitRelated.map((item) => String(item.id)));
+    const relationKeys = (...values) => new Set(values
+      .filter(Boolean)
+      .flatMap((value) => {
+        const normalized = String(value).trim().toLowerCase();
+        const slug = normalized.replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+        return [normalized, slug, slug.replaceAll("-and-", "-")];
+      }));
+    const sharesKey = (left, right) => [...left].some((key) => right.has(key));
+    const productSubCategoryKeys = relationKeys(product.subCategorySlug, product.subCategory);
+    const productCategoryKeys = relationKeys(product.categorySlug, product.category);
+    const categoryRelated = normalizedCatalog.filter((item) =>
+      {
+        const itemSubCategoryKeys = relationKeys(item.subCategorySlug, item.subCategory);
+        const itemCategoryKeys = relationKeys(item.categorySlug, item.category);
+        return String(item.id) !== String(product.id)
+          && !explicitRelatedIds.has(String(item.id))
+          && (
+            sharesKey(productSubCategoryKeys, itemSubCategoryKeys)
+            || sharesKey(productCategoryKeys, itemCategoryKeys)
+          );
+      }
+    );
+
+    return [...explicitRelated, ...categoryRelated]
+      .filter((item, index, items) => items.findIndex((candidate) => String(candidate.id) === String(item.id)) === index)
+      .slice(0, 25);
+  }, [products, product, relatedCatalogProducts]);
 
   const price = safeNumber(product?.price);
   const mrp = safeNumber(product?.mrp);
@@ -601,11 +760,11 @@ export default function ProductDetails() {
             Mobile: flex with reordering (gallery, price, specs, delivery)
             Desktop: 2-column grid (left: gallery, specs, delivery | right: price)
            ========================================================= */}
-        <div className="flex flex-col gap-4 lg:grid lg:grid-cols-2 lg:auto-rows-max lg:gap-4">
+        <div className="product-main-layout flex flex-col gap-4 lg:grid lg:grid-cols-2 lg:auto-rows-max lg:gap-4">
           {/* =========================
               LEFT CARD - Gallery
              ========================= */}
-          <div className="order-1 flex min-w-0 flex-col rounded-[24px] border border-slate-200 bg-white p-3 shadow-[0_12px_38px_rgba(7,20,38,.07)] sm:p-4 lg:order-none lg:col-start-1 lg:row-start-1">
+          <div className="product-gallery-card order-1 flex min-w-0 flex-col rounded-[24px] border border-slate-200 bg-white p-3 shadow-[0_12px_38px_rgba(7,20,38,.07)] sm:p-4 lg:order-none lg:col-start-1 lg:row-start-1">
             {/* Gallery */}
             <div className="flex min-w-0 gap-3">
               {/* Thumbnails */}
@@ -636,7 +795,7 @@ export default function ProductDetails() {
 
               {/* Main image panel */}
               <div className="min-w-0 flex-1">
-                <div className="product-image-surface relative flex min-h-[330px] items-center justify-center overflow-hidden rounded-[20px] border border-slate-200 bg-[radial-gradient(circle_at_center,#ffffff_0%,#f7f9fc_75%)] sm:min-h-[395px] lg:min-h-[420px]">
+                <div className="product-main-image product-image-surface relative flex min-h-[330px] items-center justify-center overflow-hidden rounded-[20px] border border-slate-200 bg-[radial-gradient(circle_at_center,#ffffff_0%,#f7f9fc_75%)] sm:min-h-[395px] lg:min-h-[420px]">
                   {stock <= 0 && (
                     <span className="absolute bottom-4 left-4 z-10 rounded-full bg-red-600 px-3 py-1.5 text-[10px] font-extrabold uppercase tracking-wide text-white shadow-md sm:bottom-5 sm:left-5 sm:text-xs">
                       Out of stock
@@ -724,7 +883,7 @@ export default function ProductDetails() {
                 </div>
 
                 {/* Mobile thumbnails */}
-                <div className="mt-2 flex gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:hidden">
+                <div className="mobile-product-thumbnails mt-2 flex gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:hidden">
                   {visibleThumbs.map((image, index) => (
                     <button
                       key={`mobile-${image}-${index}`}
@@ -748,7 +907,7 @@ export default function ProductDetails() {
             </div>
 
             {/* Trust strip */}
-            <div className="mt-3 grid grid-cols-3 divide-x divide-slate-200 rounded-xl border border-slate-200 bg-slate-50">
+            <div className="product-trust-strip mt-3 grid grid-cols-3 divide-x divide-slate-200 rounded-xl border border-slate-200 bg-slate-50">
               <TrustItem
                 icon={ShieldCheck}
                 title="Genuine Product"
@@ -775,9 +934,9 @@ export default function ProductDetails() {
           {/* =========================
               RIGHT CARD - Price + Purchase
              ========================= */}
-          <div className="order-2 flex min-w-0 flex-col rounded-[24px] border border-slate-200 bg-white p-4 shadow-[0_12px_38px_rgba(7,20,38,.07)] sm:p-5 lg:order-none lg:col-start-2 lg:row-start-1 lg:row-span-3">
+          <div className="product-info-card order-2 flex min-w-0 flex-col rounded-[24px] border border-slate-200 bg-white p-4 shadow-[0_12px_38px_rgba(7,20,38,.07)] sm:p-5 lg:order-none lg:col-start-2 lg:row-start-1 lg:row-span-3">
             {/* Header */}
-            <div className="flex items-center justify-between gap-3">
+            <div className="product-info-header flex items-center justify-between gap-3">
               <span className="rounded-full bg-blue-50 px-3 py-1.5 text-[10px] font-extrabold text-blue-700 ring-1 ring-blue-100">
                 {product.brand || "Honey Vision"}
               </span>
@@ -811,17 +970,26 @@ export default function ProductDetails() {
             </div>
 
             {/* Product title */}
-            <h1 className="mt-4 text-[25px] font-extrabold leading-[1.18] tracking-[-0.025em] text-[#071426] sm:text-[30px]">
+            <h1 className="product-info-title mt-4 text-[25px] font-extrabold leading-[1.18] tracking-[-0.025em] text-[#071426] sm:text-[30px]">
               {product.name}
             </h1>
 
-            <p className="mt-2 text-xs leading-5 text-slate-500 sm:text-sm">
-              {product.description ||
-                "Professional security product designed for reliable performance and easy installation."}
+            <p className="product-info-description mt-2 text-xs leading-5 text-slate-500 sm:text-sm">
+              <span className={`product-info-description-copy ${descriptionExpanded ? "is-expanded" : ""}`}>
+                {product.description ||
+                  "Professional security product designed for reliable performance and easy installation."}
+              </span>
+              <button
+                type="button"
+                onClick={() => setDescriptionExpanded((expanded) => !expanded)}
+                className="mobile-description-toggle"
+              >
+                {descriptionExpanded ? "Read Less" : "Read More"}
+              </button>
             </p>
 
             {/* Rating / stock */}
-            <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs">
+            <div className="product-info-rating mt-3 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs">
               <span className="inline-flex items-center gap-1 font-extrabold text-amber-500">
                 <Star size={14} fill="currentColor" />
                 {product.rating || "0"}
@@ -841,10 +1009,10 @@ export default function ProductDetails() {
               </span>
             </div>
 
-            <div className="my-3 h-px bg-slate-100" />
+            <div className="product-info-divider my-3 h-px bg-slate-100" />
 
             {/* Price */}
-            <div className="flex flex-wrap items-end gap-x-3 gap-y-1">
+            <div className="product-info-price flex flex-wrap items-end gap-x-3 gap-y-1">
               <span className="text-[35px] font-extrabold tracking-tight text-[#071426] sm:text-[40px]">
                 {money(price)}
               </span>
@@ -862,12 +1030,12 @@ export default function ProductDetails() {
               )}
             </div>
 
-            <p className="mt-0.5 text-[10px] font-extrabold text-emerald-600">
+            <p className="product-info-tax mt-0.5 text-[10px] font-extrabold text-emerald-600">
               Inclusive of all taxes
             </p>
 
             {/* Highlights */}
-            <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50/80 p-3.5">
+            <div className="product-info-highlights mt-4 rounded-xl border border-slate-200 bg-slate-50/80 p-3.5">
               <h2 className="text-xs font-extrabold text-slate-800 sm:text-sm">
                 Key highlights
               </h2>
@@ -891,7 +1059,7 @@ export default function ProductDetails() {
             </div>
 
             {/* Purchase box */}
-            <div className="mt-3 rounded-xl border border-slate-200 p-3.5">
+            <div ref={purchaseBoxRef} className="product-purchase-box mt-3 rounded-xl border border-slate-200 p-3.5">
               <div className="flex items-center justify-between gap-4">
                 <div>
                   <p className="text-[9px] font-extrabold uppercase tracking-wider text-slate-400">
@@ -968,7 +1136,7 @@ export default function ProductDetails() {
             </div>
 
             {/* Benefits */}
-            <div className="mt-3 grid grid-cols-2 gap-2">
+            <div className="product-info-benefits mt-3 grid grid-cols-2 gap-2">
               <MiniBenefit
                 icon={Truck}
                 title="Free Delivery"
@@ -996,7 +1164,7 @@ export default function ProductDetails() {
             </div>
 
             {/* Enquiry */}
-            <div className="mt-3 rounded-xl border border-amber-200 bg-[#fffaf0] p-3.5">
+            <div className="product-info-enquiry mt-3 rounded-xl border border-amber-200 bg-[#fffaf0] p-3.5">
               <p className="text-xs font-extrabold text-slate-800">
                 Need a different model or custom requirement?
               </p>
@@ -1026,10 +1194,26 @@ export default function ProductDetails() {
             )}
           </div>
 
+          <div
+            className={`mobile-purchase-bar ${showMobilePurchaseBar ? "is-visible" : ""}`}
+            aria-label="Quick purchase"
+            aria-hidden={!showMobilePurchaseBar}
+          >
+            <span className="mobile-purchase-price">{money(price)}</span>
+            <button type="button" onClick={handleAddToCart} disabled={stock <= 0}>
+              <ShoppingCart size={15} />
+              {stock > 0 ? "Add to Cart" : "Sold out"}
+            </button>
+            <button type="button" onClick={handleBuyNow} disabled={stock <= 0}>
+              <Zap size={15} />
+              {stock > 0 ? "Buy Now" : "Sold out"}
+            </button>
+          </div>
+
           {/* =========================
               QUICK SPECIFICATIONS - Below price on mobile, right column on desktop
              ========================= */}
-          <div className="order-3 rounded-xl border border-slate-200 bg-white p-3.5 shadow-[0_12px_38px_rgba(7,20,38,.07)] lg:order-none lg:col-start-1 lg:row-start-2">
+          <div className="product-quick-specifications order-3 rounded-xl border border-slate-200 bg-white p-3.5 shadow-[0_12px_38px_rgba(7,20,38,.07)] lg:order-none lg:col-start-1 lg:row-start-2">
             <div className="flex items-center justify-between gap-3">
               <h2 className="text-xs font-extrabold text-slate-800 sm:text-sm">
                 Quick specifications
@@ -1076,7 +1260,7 @@ export default function ProductDetails() {
         </div>
 
         {/* Service benefits */}
-        <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="product-service-benefits mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           {[
             {
               icon: Truck,
@@ -1119,8 +1303,9 @@ export default function ProductDetails() {
           ))}
         </div>
 
+        <div className="product-secondary-sections flex flex-col">
         {/* Product tabs */}
-        <div className="mt-4 overflow-hidden rounded-[24px] border border-slate-200 bg-white shadow-[0_10px_35px_rgba(7,20,38,.05)]">
+        <div className="product-detail-tabs order-2 mt-4 overflow-hidden rounded-[24px] border border-slate-200 bg-white shadow-[0_10px_35px_rgba(7,20,38,.05)]">
           <div className="flex overflow-x-auto border-b border-slate-200 px-2 sm:px-5">
             {[
               ["overview", "Overview"],
@@ -1146,7 +1331,7 @@ export default function ProductDetails() {
             ))}
           </div>
 
-          <div className="p-5 sm:p-7">
+          <div className="product-tabs-content p-5 sm:p-7">
             {activeTab === "overview" && (
               <div className="grid gap-6 lg:grid-cols-[1.35fr_1fr]">
                 <div>
@@ -1154,12 +1339,12 @@ export default function ProductDetails() {
                     Product Overview
                   </h2>
 
-                  <p className="mt-3 text-sm leading-6 text-slate-600">
+                    <p className="product-overview-copy mt-3 text-sm leading-6 text-slate-600">
                     {product.description ||
                       "This product is designed for dependable performance, simple installation and professional security applications."}
                   </p>
 
-                  <div className="mt-5 grid gap-2 sm:grid-cols-2">
+                  <div className="product-overview-highlights mt-5 grid gap-2 sm:grid-cols-2">
                     {features.slice(0, 6).map((feature, index) => (
                       <div
                         key={`${feature}-overview-${index}`}
@@ -1175,7 +1360,7 @@ export default function ProductDetails() {
                   </div>
                 </div>
 
-                <div>
+                <div className="product-overview-specs">
                   <h3 className="text-sm font-extrabold text-slate-800">
                     Main specifications
                   </h3>
@@ -1214,26 +1399,37 @@ export default function ProductDetails() {
                 </h2>
 
                 {specificationRows.length > 0 ? (
-                  <div className="mt-4 overflow-hidden rounded-xl border border-slate-200">
-                    <div className="grid sm:grid-cols-2">
-                      {specificationRows.map(([label, value], index) => (
-                        <div
-                          key={`full-spec-${label}`}
-                          className={`flex min-h-[50px] items-center justify-between gap-5 border-b border-slate-100 px-4 py-2.5 ${
-                            index % 2 === 0
-                              ? "bg-slate-50/70"
-                              : "bg-white"
-                          }`}
-                        >
-                          <span className="text-xs text-slate-500">
-                            {label}
-                          </span>
-                          <span className="max-w-[60%] text-right text-xs font-bold text-slate-800">
-                            {String(value)}
-                          </span>
-                        </div>
-                      ))}
+                  <div>
+                    <div className="mt-4 overflow-hidden rounded-xl border border-slate-200">
+                      <div className={`mobile-specification-list grid sm:grid-cols-2 ${specificationsExpanded ? "is-expanded" : ""}`}>
+                        {specificationRows.map(([label, value], index) => (
+                          <div
+                            key={`full-spec-${label}`}
+                            className={`flex min-h-[50px] items-center justify-between gap-5 border-b border-slate-100 px-4 py-2.5 ${
+                              index % 2 === 0
+                                ? "bg-slate-50/70"
+                                : "bg-white"
+                            }`}
+                          >
+                            <span className="text-xs text-slate-500">
+                              {label}
+                            </span>
+                            <span className="max-w-[60%] text-right text-xs font-bold text-slate-800">
+                              {String(value)}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
                     </div>
+                    {specificationRows.length > 6 && (
+                      <button
+                        type="button"
+                        onClick={() => setSpecificationsExpanded((expanded) => !expanded)}
+                        className="mobile-specification-toggle"
+                      >
+                        {specificationsExpanded ? "Show Fewer Specifications" : "View All Specifications"}
+                      </button>
+                    )}
                   </div>
                 ) : (
                   <div className="mt-4 rounded-xl border border-dashed border-slate-300 bg-slate-50 p-8 text-center text-sm text-slate-500">
@@ -1292,7 +1488,7 @@ export default function ProductDetails() {
 
         {/* Recently viewed */}
         {recentlyViewed.length > 0 && (
-          <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4">
+          <div className="product-recently-viewed order-3 mt-4 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4">
             <div className="mb-3 flex items-center justify-between gap-3">
               <div>
                 <h2 className="text-base font-extrabold">
@@ -1343,7 +1539,7 @@ export default function ProductDetails() {
         )}
 
         {/* Final CTA */}
-        <div className="mt-4 overflow-hidden rounded-[24px] bg-[#071426] p-5 text-white shadow-[0_15px_40px_rgba(7,20,38,.14)] sm:p-7">
+        <div className="product-mobile-cta order-4 mt-4 overflow-hidden rounded-[24px] bg-[#071426] p-5 text-white shadow-[0_15px_40px_rgba(7,20,38,.14)] sm:p-7">
           <div className="flex flex-col justify-between gap-5 lg:flex-row lg:items-center">
             <div className="flex items-center gap-4">
               <div className="hidden h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-white/10 text-[#f2b900] sm:flex">
@@ -1375,9 +1571,57 @@ export default function ProductDetails() {
           </div>
         </div>        
 
+        {product && bundleLoadStatus !== "idle" && bundleLoadStatus !== "failed" && (
+          <section className="bundle-section order-1 mt-4 rounded-2xl border border-amber-200 bg-white p-3 shadow-sm sm:p-4">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h2 className="text-base font-extrabold">Bundle &amp; Save More</h2>
+                <p className="mt-0.5 text-[11px] text-slate-500">Complete your setup and save when you buy together.</p>
+              </div>
+            </div>
+
+            {bundleLoadStatus === "loading" && <p className="mt-3 text-xs text-slate-500">Checking available bundles…</p>}
+            {bundleLoadStatus === "loaded" && bundles.length === 0 && <p className="mt-3 text-xs text-slate-500">No active bundles are available for this product yet.</p>}
+
+            {bundles.length > 0 && <div className="bundle-list mt-3 grid gap-3">
+              {bundles.map((bundle) => (
+                <article key={bundle.id} className="bundle-card rounded-xl border border-slate-200 p-3">
+                  <h3 className="text-sm font-bold text-slate-900">{bundle.name}</h3>
+                  {bundle.description && <p className="mt-1 text-[11px] text-slate-500">{bundle.description}</p>}
+                  <div className="bundle-products mt-3 flex gap-2 overflow-x-auto pb-1">
+                    {bundle.products.map((item, index) => (
+                      <div key={item.productId} className="flex shrink-0 items-center gap-2">
+                        {index > 0 && <span className="text-lg font-bold text-amber-500">+</span>}
+                        <Link to={`/products/${encodeURIComponent(item.productId)}`} className="bundle-product-card w-28 rounded-lg border border-slate-200 p-2 transition hover:border-amber-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500" aria-label={`View ${item.name}`}>
+                          <img src={item.image || FALLBACK_IMAGE} alt={item.name} className="bundle-product-image h-16 w-full object-contain" />
+                          <p className="mt-1 line-clamp-2 min-h-8 text-[10px] font-semibold text-slate-700">{item.name}</p>
+                          <p className="mt-1 text-[10px] font-bold text-slate-900">{money(item.unitPrice)}</p>
+                          <p className="text-[9px] text-emerald-700">Included × {item.quantity}</p>
+                        </Link>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="bundle-summary mt-3 flex flex-wrap items-end justify-between gap-3 border-t border-slate-100 pt-3">
+                    <div className="bundle-totals space-y-1 text-xs">
+                      <p className="text-slate-500">Individual total: <span className="font-semibold text-slate-800">{money(bundle.originalTotal)}</span></p>
+                      <p className="text-emerald-700">Bundle savings: <b>-{money(bundle.discountAmount)}</b></p>
+                      <p className="text-sm font-extrabold text-slate-900">Bundle price: {money(bundle.finalTotal)}</p>
+                    </div>
+                    <button type="button" onClick={() => handleAddBundleToCart(bundle.id)} disabled={addingBundleId === bundle.id} className="bundle-add-button rounded-lg bg-[#071426] px-4 py-2.5 text-xs font-bold text-white disabled:opacity-60">
+                      {addingBundleId === bundle.id ? "Adding…" : "Add bundle to cart"}
+                    </button>
+                  </div>
+                </article>
+              ))}
+            </div>}
+            {bundleCartMessage && <p role="status" className="mt-2 text-xs text-slate-600">{bundleCartMessage}</p>}
+          </section>
+        )}
+        </div>
+
         {/* Related products */}
-        {relatedProducts.length > 0 && (
-          <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4">
+        {product && (
+          <div className="related-products-section mt-4 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4">
             <div className="mb-3 flex items-center justify-between gap-3">
               <div>
                 <h2 className="text-base font-extrabold">
@@ -1393,7 +1637,7 @@ export default function ProductDetails() {
             </div>
 
             <div className="flex gap-2.5 overflow-x-auto pb-1 [scrollbar-width:thin]">
-              {relatedProducts.map((item) => (
+              {relatedProducts.length > 0 ? relatedProducts.map((item) => (
                 <div
                   key={item.id}
                   className="related-product-card group min-w-[175px] flex-[0_0_175px] overflow-hidden rounded-lg border border-slate-200 bg-white transition hover:-translate-y-1 hover:border-[#f2b900] hover:shadow-lg sm:min-w-[200px] sm:flex-[0_0_200px]"
@@ -1444,9 +1688,20 @@ export default function ProductDetails() {
                     </div>
                   </div>
                 </div>
-              ))}
+              )) : (
+                <p className="py-4 text-xs text-slate-500">
+                  {relatedProductsLoading ? "Finding related products..." : "No related products are available for this item yet."}
+                </p>
+              )}
             </div>
           </div>
+        )}
+
+        {product && (
+          <ShopByCategory
+            className="product-details-shop-categories"
+            title="Shop by Categories"
+          />
         )}
 
       </div>

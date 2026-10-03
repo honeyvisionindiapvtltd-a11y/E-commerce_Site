@@ -59,6 +59,12 @@ const orderItemSchema = new mongoose.Schema(
       required: true,
     },
 
+    bundleId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Bundle",
+      default: null,
+    },
+
     name: {
       type: String,
       required: true,
@@ -90,6 +96,31 @@ const orderItemSchema = new mongoose.Schema(
   {
     _id: true,
   }
+);
+
+const orderBundleItemSchema = new mongoose.Schema(
+  {
+    product: { type: mongoose.Schema.Types.ObjectId, ref: "Product", required: true },
+    name: { type: String, required: true },
+    sku: { type: String, default: "" },
+    quantity: { type: Number, required: true, min: 1 },
+    unitPrice: { type: Number, required: true, min: 0 },
+    image: { type: String, default: "" },
+  },
+  { _id: false }
+);
+
+const orderBundleSchema = new mongoose.Schema(
+  {
+    bundleId: { type: mongoose.Schema.Types.ObjectId, ref: "Bundle", required: true },
+    bundleName: { type: String, required: true },
+    quantity: { type: Number, required: true, min: 1 },
+    items: { type: [orderBundleItemSchema], required: true },
+    originalTotal: { type: Number, required: true, min: 0 },
+    bundleDiscount: { type: Number, required: true, min: 0 },
+    finalTotal: { type: Number, required: true, min: 0 },
+  },
+  { _id: false }
 );
 
 const addressSchema = new mongoose.Schema(
@@ -238,6 +269,9 @@ const orderSchema = new mongoose.Schema(
       type: [orderItemSchema],
       required: true,
     },
+
+    bundles: { type: [orderBundleSchema], default: [] },
+    bundleDiscount: { type: Number, default: 0, min: 0 },
 
     shippingAddress: {
       type: addressSchema,

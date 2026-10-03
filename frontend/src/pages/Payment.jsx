@@ -167,6 +167,17 @@ const Payment = () => {
 
   const currentCheckoutItems = cart
     .map((item) => {
+      if (item.type === "bundle") {
+        return {
+          ...item,
+          product: {
+            id: item.productId,
+            name: item.bundle?.name || "Bundle",
+            price: Number(item.bundle?.finalTotal || 0),
+            mrp: Number(item.bundle?.originalTotal || 0),
+          },
+        };
+      }
       const product = products.find(
         (product) => String(productIdOf(product) ?? "") === String(productIdOf(item) ?? "")
       );
@@ -183,6 +194,7 @@ const Payment = () => {
   const missingCartItems = cart
     .filter(
       (item) =>
+        item.type !== "bundle" &&
         !products.some(
           (product) => String(productIdOf(product) ?? "") === String(productIdOf(item) ?? "")
         )
@@ -408,6 +420,7 @@ const Payment = () => {
         createdOrder.id ||
         orderId ||
         `HV${Date.now().toString().slice(-8)}`;
+      const authoritativeTotal = Number(createdOrder.totalAmount ?? total);
 
       setOrderId(currentOrderId);
 
@@ -424,7 +437,7 @@ const Payment = () => {
               orderId: currentOrderId,
               order: createdOrder,
               paymentMethod,
-              amount: total,
+              amount: authoritativeTotal,
                     itemCount,
             },
           }
@@ -452,7 +465,7 @@ const Payment = () => {
           "netbanking",
         ].includes(paymentMethod)
       ) {
-        const razorpayAmount = Math.round(total * 100);
+        const razorpayAmount = Math.round(authoritativeTotal * 100);
 
         if (razorpayAmount < 10000) {
           setPaymentError(
@@ -547,7 +560,7 @@ const Payment = () => {
                   state: {
                     orderId: currentOrderId,
                     paymentMethod,
-                    amount: total,
+                    amount: authoritativeTotal,
                     itemCount,
                   },
                 }
@@ -563,7 +576,7 @@ const Payment = () => {
                 state: {
                   orderId: currentOrderId,
                   paymentMethod,
-                  amount: total,
+                  amount: authoritativeTotal,
                   itemCount,
                   reason: 'verification',
                 },
@@ -606,7 +619,7 @@ const Payment = () => {
                 state: {
                   orderId: currentOrderId,
                   paymentMethod,
-                  amount: total,
+                  amount: authoritativeTotal,
                   itemCount,
                   reason: 'cancelled',
                 },
@@ -636,7 +649,7 @@ const Payment = () => {
               state: {
                 orderId: currentOrderId,
                 paymentMethod,
-                amount: total,
+                amount: authoritativeTotal,
                 itemCount,
                 reason: 'failed',
               },

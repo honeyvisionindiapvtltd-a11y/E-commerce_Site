@@ -63,6 +63,7 @@ export function useCommerce() {
     // Cart
     cart: Array.isArray(cartCtx.cart) ? cartCtx.cart : [],
     addToCart: cartCtx.addToCart,
+    addBundleToCart: cartCtx.addBundleToCart,
     removeFromCart: cartCtx.removeFromCart,
     setQuantity: cartCtx.setQuantity,
     clearCart: cartCtx.clearCart,

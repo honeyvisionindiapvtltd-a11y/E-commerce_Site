@@ -1,0 +1,1542 @@
+[
+  {
+    "_id": {
+      "$oid": "5c354a032700416a98ae39ae"
+    },
+    "name": "4MP Analog CCTV Starter Bundle",
+    "slug": "4mp-analog-cctv-starter-bundle",
+    "mainProduct": {
+      "$oid": "6a894a875e4c87493eb0e396"
+    },
+    "products": [
+      {
+        "productId": {
+          "$oid": "6a894a875e4c87493eb0e396"
+        },
+        "sku": "HV-0001",
+        "quantity": 1
+      },
+      {
+        "productId": {
+          "$oid": "6a894a875e4c87493eb0e397"
+        },
+        "sku": "HV-0002",
+        "quantity": 1
+      },
+      {
+        "productId": {
+          "$oid": "6a894aad5e4c87493eb0e417"
+        },
+        "sku": "HV-0130",
+        "quantity": 1
+      },
+      {
+        "productId": {
+          "$oid": "6a894aaf5e4c87493eb0e41d"
+        },
+        "sku": "HV-0136",
+        "quantity": 1
+      },
+      {
+        "productId": {
+          "$oid": "6a894aaf5e4c87493eb0e41e"
+        },
+        "sku": "HV-0137",
+        "quantity": 1
+      }
+    ],
+    "discountType": "percentage",
+    "discountValue": 8,
+    "individualTotal": 10645,
+    "bundlePrice": 9793.4,
+    "savings": 851.6,
+    "status": "active",
+    "isActive": true,
+    "startDate": null,
+    "endDate": null
+  },
+  {
+    "_id": {
+      "$oid": "62a49704c0b845909424a14a"
+    },
+    "name": "4MP Analog 4-Camera Installation Bundle",
+    "slug": "4mp-analog-4-camera-installation-bundle",
+    "mainProduct": {
+      "$oid": "6a894a875e4c87493eb0e396"
+    },
+    "products": [
+      {
+        "productId": {
+          "$oid": "6a894a875e4c87493eb0e396"
+        },
+        "sku": "HV-0001",
+        "quantity": 2
+      },
+      {
+        "productId": {
+          "$oid": "6a894a875e4c87493eb0e397"
+        },
+        "sku": "HV-0002",
+        "quantity": 2
+      },
+      {
+        "productId": {
+          "$oid": "6a894a895e4c87493eb0e3a1"
+        },
+        "sku": "HV-0012",
+        "quantity": 1
+      },
+      {
+        "productId": {
+          "$oid": "6a894aa55e4c87493eb0e3f1"
+        },
+        "sku": "HV-0092",
+        "quantity": 1
+      },
+      {
+        "productId": {
+          "$oid": "6a894ab05e4c87493eb0e425"
+        },
+        "sku": "HV-0144",
+        "quantity": 1
+      },
+      {
+        "productId": {
+          "$oid": "6a894aaf5e4c87493eb0e41d"
+        },
+        "sku": "HV-0136",
+        "quantity": 1
+      },
+      {
+        "productId": {
+          "$oid": "6a894aaf5e4c87493eb0e41e"
+        },
+        "sku": "HV-0137",
+        "quantity": 1
+      }
+    ],
+    "discountType": "percentage",
+    "discountValue": 9,
+    "individualTotal": 21791,
+    "bundlePrice": 19829.81,
+    "savings": 1961.19,
+    "status": "active",
+    "isActive": true,
+    "startDate": null,
+    "endDate": null
+  },
+  {
+    "_id": {
+      "$oid": "730354f322fa43148a8b10c9"
+    },
+    "name": "8-Channel DVR Security Bundle",
+    "slug": "8-channel-dvr-security-bundle",
+    "mainProduct": {
+      "$oid": "6a894a895e4c87493eb0e3a1"
+    },
+    "products": [
+      {
+        "productId": {
+          "$oid": "6a894a895e4c87493eb0e3a1"
+        },
+        "sku": "HV-0012",
+        "quantity": 1
+      },
+      {
+        "productId": {
+          "$oid": "6a894a875e4c87493eb0e396"
+        },
+        "sku": "HV-0001",
+        "quantity": 2
+      },
+      {
+        "productId": {
+          "$oid": "6a894a875e4c87493eb0e397"
+        },
+        "sku": "HV-0002",
+        "quantity": 2
+      },
+      {
+        "productId": {
+          "$oid": "6a894aa55e4c87493eb0e3f1"
+        },
+        "sku": "HV-0092",
+        "quantity": 1
+      },
+      {
+        "productId": {
+          "$oid": "6a894aad5e4c87493eb0e417"
+        },
+        "sku": "HV-0130",
+        "quantity": 1
+      },
+      {
+        "productId": {
+          "$oid": "6a894aaf5e4c87493eb0e41d"
+        },
+        "sku": "HV-0136",
+        "quantity": 1
+      }
+    ],
+    "discountType": "percentage",
+    "discountValue": 8,
+    "individualTotal": 20792,
+    "bundlePrice": 19128.64,
+    "savings": 1663.36,
+    "status": "active",
+    "isActive": true,
+    "startDate": null,
+    "endDate": null
+  },
+  {
+    "_id": {
+      "$oid": "0b68613181c34cdf89e8d5f4"
+    },
+    "name": "Dahua 8-Channel XVR Security Bundle",
+    "slug": "dahua-8-channel-xvr-security-bundle",
+    "mainProduct": {
+      "$oid": "6a894a8a5e4c87493eb0e3a2"
+    },
+    "products": [
+      {
+        "productId": {
+          "$oid": "6a894a8a5e4c87493eb0e3a2"
+        },
+        "sku": "HV-0013",
+        "quantity": 1
+      },
+      {
+        "productId": {
+          "$oid": "6a894a875e4c87493eb0e397"
+        },
+        "sku": "HV-0002",
+        "quantity": 2
+      },
+      {
+        "productId": {
+          "$oid": "6a894aa55e4c87493eb0e3f1"
+        },
+        "sku": "HV-0092",
+        "quantity": 1
+      },
+      {
+        "productId": {
+          "$oid": "6a894aad5e4c87493eb0e417"
+        },
+        "sku": "HV-0130",
+        "quantity": 1
+      },
+      {
+        "productId": {
+          "$oid": "6a894aaf5e4c87493eb0e41d"
+        },
+        "sku": "HV-0136",
+        "quantity": 1
+      }
+    ],
+    "discountType": "percentage",
+    "discountValue": 8,
+    "individualTotal": 17094,
+    "bundlePrice": 15726.48,
+    "savings": 1367.52,
+    "status": "active",
+    "isActive": true,
+    "startDate": null,
+    "endDate": null
+  },
+  {
+    "_id": {
+      "$oid": "a2a69c5f1c314dda8510b94a"
+    },
+    "name": "8-Channel Network NVR Bundle",
+    "slug": "8-channel-network-nvr-bundle",
+    "mainProduct": {
+      "$oid": "6a894a8a5e4c87493eb0e3a3"
+    },
+    "products": [
+      {
+        "productId": {
+          "$oid": "6a894a8a5e4c87493eb0e3a3"
+        },
+        "sku": "HV-0014",
+        "quantity": 1
+      },
+      {
+        "productId": {
+          "$oid": "6a894a895e4c87493eb0e39e"
+        },
+        "sku": "HV-0009",
+        "quantity": 2
+      },
+      {
+        "productId": {
+          "$oid": "6a894aad5e4c87493eb0e414"
+        },
+        "sku": "HV-0127",
+        "quantity": 1
+      },
+      {
+        "productId": {
+          "$oid": "6a894aae5e4c87493eb0e41c"
+        },
+        "sku": "HV-0135",
+        "quantity": 1
+      },
+      {
+        "productId": {
+          "$oid": "6a894aa55e4c87493eb0e3f1"
+        },
+        "sku": "HV-0092",
+        "quantity": 1
+      }
+    ],
+    "discountType": "percentage",
+    "discountValue": 8,
+    "individualTotal": 16494,
+    "bundlePrice": 15174.48,
+    "savings": 1319.52,
+    "status": "active",
+    "isActive": true,
+    "startDate": null,
+    "endDate": null
+  },
+  {
+    "_id": {
+      "$oid": "3349e4ed876a4b4c87196032"
+    },
+    "name": "Dahua Outdoor CCTV Bundle",
+    "slug": "dahua-outdoor-cctv-bundle",
+    "mainProduct": {
+      "$oid": "6a894a895e4c87493eb0e39f"
+    },
+    "products": [
+      {
+        "productId": {
+          "$oid": "6a894a895e4c87493eb0e39f"
+        },
+        "sku": "HV-0010",
+        "quantity": 1
+      },
+      {
+        "productId": {
+          "$oid": "6a894aa55e4c87493eb0e3f1"
+        },
+        "sku": "HV-0092",
+        "quantity": 1
+      },
+      {
+        "productId": {
+          "$oid": "6a894aad5e4c87493eb0e417"
+        },
+        "sku": "HV-0130",
+        "quantity": 1
+      },
+      {
+        "productId": {
+          "$oid": "6a894aaf5e4c87493eb0e41e"
+        },
+        "sku": "HV-0137",
+        "quantity": 1
+      },
+      {
+        "productId": {
+          "$oid": "6a894a995e4c87493eb0e3cb"
+        },
+        "sku": "HV-0054",
+        "quantity": 1
+      }
+    ],
+    "discountType": "percentage",
+    "discountValue": 7,
+    "individualTotal": 16995,
+    "bundlePrice": 15805.35,
+    "savings": 1189.65,
+    "status": "active",
+    "isActive": true,
+    "startDate": null,
+    "endDate": null
+  },
+  {
+    "_id": {
+      "$oid": "b13218b282b24fe6949cd7d5"
+    },
+    "name": "Wi-Fi Camera Home Security Bundle",
+    "slug": "wi-fi-camera-home-security-bundle",
+    "mainProduct": {
+      "$oid": "6a894a885e4c87493eb0e399"
+    },
+    "products": [
+      {
+        "productId": {
+          "$oid": "6a894a885e4c87493eb0e399"
+        },
+        "sku": "HV-0004",
+        "quantity": 1
+      },
+      {
+        "productId": {
+          "$oid": "6a894aa65e4c87493eb0e3f8"
+        },
+        "sku": "HV-0099",
+        "quantity": 1
+      },
+      {
+        "productId": {
+          "$oid": "6a894aab5e4c87493eb0e40e"
+        },
+        "sku": "HV-0121",
+        "quantity": 1
+      }
+    ],
+    "discountType": "percentage",
+    "discountValue": 6,
+    "individualTotal": 5397,
+    "bundlePrice": 5073.18,
+    "savings": 323.82,
+    "status": "active",
+    "isActive": true,
+    "startDate": null,
+    "endDate": null
+  },
+  {
+    "_id": {
+      "$oid": "16013f13aaa443aa99c04b19"
+    },
+    "name": "4G Camera Remote Monitoring Bundle",
+    "slug": "4g-camera-remote-monitoring-bundle",
+    "mainProduct": {
+      "$oid": "6a894a885e4c87493eb0e39a"
+    },
+    "products": [
+      {
+        "productId": {
+          "$oid": "6a894a885e4c87493eb0e39a"
+        },
+        "sku": "HV-0005",
+        "quantity": 1
+      },
+      {
+        "productId": {
+          "$oid": "6a894aa65e4c87493eb0e3f8"
+        },
+        "sku": "HV-0099",
+        "quantity": 1
+      },
+      {
+        "productId": {
+          "$oid": "6a894aab5e4c87493eb0e40e"
+        },
+        "sku": "HV-0121",
+        "quantity": 1
+      }
+    ],
+    "discountType": "percentage",
+    "discountValue": 6,
+    "individualTotal": 5547,
+    "bundlePrice": 5214.18,
+    "savings": 332.82,
+    "status": "active",
+    "isActive": true,
+    "startDate": null,
+    "endDate": null
+  },
+  {
+    "_id": {
+      "$oid": "a84863451e9945768c2db053"
+    },
+    "name": "PTZ Camera Mounting Bundle",
+    "slug": "ptz-camera-mounting-bundle",
+    "mainProduct": {
+      "$oid": "6a894a875e4c87493eb0e398"
+    },
+    "products": [
+      {
+        "productId": {
+          "$oid": "6a894a875e4c87493eb0e398"
+        },
+        "sku": "HV-0003",
+        "quantity": 1
+      },
+      {
+        "productId": {
+          "$oid": "6a894a9b5e4c87493eb0e3cf"
+        },
+        "sku": "HV-0058",
+        "quantity": 1
+      },
+      {
+        "productId": {
+          "$oid": "6a894a9b5e4c87493eb0e3d0"
+        },
+        "sku": "HV-0059",
+        "quantity": 1
+      },
+      {
+        "productId": {
+          "$oid": "6a894aaf5e4c87493eb0e41e"
+        },
+        "sku": "HV-0137",
+        "quantity": 1
+      }
+    ],
+    "discountType": "percentage",
+    "discountValue": 7,
+    "individualTotal": 23446,
+    "bundlePrice": 21804.78,
+    "savings": 1641.22,
+    "status": "active",
+    "isActive": true,
+    "startDate": null,
+    "endDate": null
+  },
+  {
+    "_id": {
+      "$oid": "1be7f69381b742198cfbf42c"
+    },
+    "name": "AI Surveillance Bundle",
+    "slug": "ai-surveillance-bundle",
+    "mainProduct": {
+      "$oid": "6a894a895e4c87493eb0e3a0"
+    },
+    "products": [
+      {
+        "productId": {
+          "$oid": "6a894a895e4c87493eb0e3a0"
+        },
+        "sku": "HV-0011",
+        "quantity": 1
+      },
+      {
+        "productId": {
+          "$oid": "6a894a8a5e4c87493eb0e3a3"
+        },
+        "sku": "HV-0014",
+        "quantity": 1
+      },
+      {
+        "productId": {
+          "$oid": "6a894aa55e4c87493eb0e3f1"
+        },
+        "sku": "HV-0092",
+        "quantity": 1
+      },
+      {
+        "productId": {
+          "$oid": "6a894aad5e4c87493eb0e414"
+        },
+        "sku": "HV-0127",
+        "quantity": 1
+      }
+    ],
+    "discountType": "percentage",
+    "discountValue": 8,
+    "individualTotal": 15944,
+    "bundlePrice": 14668.48,
+    "savings": 1275.52,
+    "status": "active",
+    "isActive": true,
+    "startDate": null,
+    "endDate": null
+  },
+  {
+    "_id": {
+      "$oid": "18d5212b56364526ad6fed80"
+    },
+    "name": "CCTV Backup Power Bundle",
+    "slug": "cctv-backup-power-bundle",
+    "mainProduct": {
+      "$oid": "6a894aa95e4c87493eb0e404"
+    },
+    "products": [
+      {
+        "productId": {
+          "$oid": "6a894aa95e4c87493eb0e404"
+        },
+        "sku": "HV-0111",
+        "quantity": 1
+      },
+      {
+        "productId": {
+          "$oid": "6a894aa95e4c87493eb0e406"
+        },
+        "sku": "HV-0113",
+        "quantity": 1
+      },
+      {
+        "productId": {
+          "$oid": "6a894aaa5e4c87493eb0e408"
+        },
+        "sku": "HV-0115",
+        "quantity": 1
+      },
+      {
+        "productId": {
+          "$oid": "6a894aaf5e4c87493eb0e41e"
+        },
+        "sku": "HV-0137",
+        "quantity": 1
+      }
+    ],
+    "discountType": "percentage",
+    "discountValue": 6,
+    "individualTotal": 30996,
+    "bundlePrice": 29136.24,
+    "savings": 1859.76,
+    "status": "active",
+    "isActive": true,
+    "startDate": null,
+    "endDate": null
+  },
+  {
+    "_id": {
+      "$oid": "c359fbc01ee54e719f6a43bb"
+    },
+    "name": "CCTV Power Protection Bundle",
+    "slug": "cctv-power-protection-bundle",
+    "mainProduct": {
+      "$oid": "6a894aaa5e4c87493eb0e408"
+    },
+    "products": [
+      {
+        "productId": {
+          "$oid": "6a894aaa5e4c87493eb0e408"
+        },
+        "sku": "HV-0115",
+        "quantity": 1
+      },
+      {
+        "productId": {
+          "$oid": "6a894aaa5e4c87493eb0e40a"
+        },
+        "sku": "HV-0117",
+        "quantity": 1
+      },
+      {
+        "productId": {
+          "$oid": "6a894aab5e4c87493eb0e40b"
+        },
+        "sku": "HV-0118",
+        "quantity": 1
+      },
+      {
+        "productId": {
+          "$oid": "6a894aaf5e4c87493eb0e41e"
+        },
+        "sku": "HV-0137",
+        "quantity": 1
+      }
+    ],
+    "discountType": "percentage",
+    "discountValue": 7,
+    "individualTotal": 22996,
+    "bundlePrice": 21386.28,
+    "savings": 1609.72,
+    "status": "active",
+    "isActive": true,
+    "startDate": null,
+    "endDate": null
+  },
+  {
+    "_id": {
+      "$oid": "9720128014584efd8940e6b2"
+    },
+    "name": "IP CCTV Network Cabling Bundle",
+    "slug": "ip-cctv-network-cabling-bundle",
+    "mainProduct": {
+      "$oid": "6a894aad5e4c87493eb0e414"
+    },
+    "products": [
+      {
+        "productId": {
+          "$oid": "6a894aad5e4c87493eb0e414"
+        },
+        "sku": "HV-0127",
+        "quantity": 2
+      },
+      {
+        "productId": {
+          "$oid": "6a894aae5e4c87493eb0e41c"
+        },
+        "sku": "HV-0135",
+        "quantity": 1
+      },
+      {
+        "productId": {
+          "$oid": "6a894ab15e4c87493eb0e426"
+        },
+        "sku": "HV-0145",
+        "quantity": 1
+      },
+      {
+        "productId": {
+          "$oid": "6a894ab45e4c87493eb0e434"
+        },
+        "sku": "HV-0159",
+        "quantity": 1
+      }
+    ],
+    "discountType": "percentage",
+    "discountValue": 7,
+    "individualTotal": 11495,
+    "bundlePrice": 10690.35,
+    "savings": 804.65,
+    "status": "active",
+    "isActive": true,
+    "startDate": null,
+    "endDate": null
+  },
+  {
+    "_id": {
+      "$oid": "2772fb0af8954c18a7358251"
+    },
+    "name": "CCTV Analog Cabling & Connector Bundle",
+    "slug": "cctv-analog-cabling-connector-bundle",
+    "mainProduct": {
+      "$oid": "6a894aad5e4c87493eb0e417"
+    },
+    "products": [
+      {
+        "productId": {
+          "$oid": "6a894aad5e4c87493eb0e417"
+        },
+        "sku": "HV-0130",
+        "quantity": 2
+      },
+      {
+        "productId": {
+          "$oid": "6a894aaf5e4c87493eb0e41d"
+        },
+        "sku": "HV-0136",
+        "quantity": 2
+      },
+      {
+        "productId": {
+          "$oid": "6a894aaf5e4c87493eb0e41e"
+        },
+        "sku": "HV-0137",
+        "quantity": 1
+      },
+      {
+        "productId": {
+          "$oid": "6a894ab05e4c87493eb0e425"
+        },
+        "sku": "HV-0144",
+        "quantity": 1
+      }
+    ],
+    "discountType": "percentage",
+    "discountValue": 8,
+    "individualTotal": 13994,
+    "bundlePrice": 12874.48,
+    "savings": 1119.52,
+    "status": "active",
+    "isActive": true,
+    "startDate": null,
+    "endDate": null
+  },
+  {
+    "_id": {
+      "$oid": "f326e1fd544441388bbff68e"
+    },
+    "name": "CCTV Mounting Essentials Bundle",
+    "slug": "cctv-mounting-essentials-bundle",
+    "mainProduct": {
+      "$oid": "6a894a995e4c87493eb0e3cb"
+    },
+    "products": [
+      {
+        "productId": {
+          "$oid": "6a894a995e4c87493eb0e3cb"
+        },
+        "sku": "HV-0054",
+        "quantity": 1
+      },
+      {
+        "productId": {
+          "$oid": "6a894a9b5e4c87493eb0e3d0"
+        },
+        "sku": "HV-0059",
+        "quantity": 2
+      },
+      {
+        "productId": {
+          "$oid": "6a894a9c5e4c87493eb0e3d4"
+        },
+        "sku": "HV-0063",
+        "quantity": 1
+      },
+      {
+        "productId": {
+          "$oid": "6a894aaf5e4c87493eb0e41e"
+        },
+        "sku": "HV-0137",
+        "quantity": 1
+      }
+    ],
+    "discountType": "percentage",
+    "discountValue": 7,
+    "individualTotal": 17495,
+    "bundlePrice": 16270.35,
+    "savings": 1224.65,
+    "status": "active",
+    "isActive": true,
+    "startDate": null,
+    "endDate": null
+  },
+  {
+    "_id": {
+      "$oid": "280b8d92991d4618ae13aeda"
+    },
+    "name": "Fingerprint Access Control Starter Bundle",
+    "slug": "fingerprint-access-control-starter-bundle",
+    "mainProduct": {
+      "$oid": "6a894a9c5e4c87493eb0e3d5"
+    },
+    "products": [
+      {
+        "productId": {
+          "$oid": "6a894a9c5e4c87493eb0e3d5"
+        },
+        "sku": "HV-0064",
+        "quantity": 1
+      },
+      {
+        "productId": {
+          "$oid": "6a894a9d5e4c87493eb0e3d8"
+        },
+        "sku": "HV-0067",
+        "quantity": 1
+      },
+      {
+        "productId": {
+          "$oid": "6a894a9d5e4c87493eb0e3d9"
+        },
+        "sku": "HV-0068",
+        "quantity": 1
+      },
+      {
+        "productId": {
+          "$oid": "6a894a9e5e4c87493eb0e3dd"
+        },
+        "sku": "HV-0072",
+        "quantity": 1
+      }
+    ],
+    "discountType": "percentage",
+    "discountValue": 7,
+    "individualTotal": 13496,
+    "bundlePrice": 12551.28,
+    "savings": 944.72,
+    "status": "active",
+    "isActive": true,
+    "startDate": null,
+    "endDate": null
+  },
+  {
+    "_id": {
+      "$oid": "640e303a18f44b84bcc8e6fb"
+    },
+    "name": "Face Recognition Access Bundle",
+    "slug": "face-recognition-access-bundle",
+    "mainProduct": {
+      "$oid": "6a894a9c5e4c87493eb0e3d6"
+    },
+    "products": [
+      {
+        "productId": {
+          "$oid": "6a894a9c5e4c87493eb0e3d6"
+        },
+        "sku": "HV-0065",
+        "quantity": 1
+      },
+      {
+        "productId": {
+          "$oid": "6a894a9d5e4c87493eb0e3d8"
+        },
+        "sku": "HV-0067",
+        "quantity": 1
+      },
+      {
+        "productId": {
+          "$oid": "6a894a9e5e4c87493eb0e3db"
+        },
+        "sku": "HV-0070",
+        "quantity": 1
+      },
+      {
+        "productId": {
+          "$oid": "6a894a9e5e4c87493eb0e3dd"
+        },
+        "sku": "HV-0072",
+        "quantity": 1
+      }
+    ],
+    "discountType": "percentage",
+    "discountValue": 7,
+    "individualTotal": 28496,
+    "bundlePrice": 26501.28,
+    "savings": 1994.72,
+    "status": "active",
+    "isActive": true,
+    "startDate": null,
+    "endDate": null
+  },
+  {
+    "_id": {
+      "$oid": "1f9f606c98b04f5e8016f0d3"
+    },
+    "name": "RFID Door Access Bundle",
+    "slug": "rfid-door-access-bundle",
+    "mainProduct": {
+      "$oid": "6a894a9d5e4c87493eb0e3d7"
+    },
+    "products": [
+      {
+        "productId": {
+          "$oid": "6a894a9d5e4c87493eb0e3d7"
+        },
+        "sku": "HV-0066",
+        "quantity": 1
+      },
+      {
+        "productId": {
+          "$oid": "6a894a9d5e4c87493eb0e3d8"
+        },
+        "sku": "HV-0067",
+        "quantity": 1
+      },
+      {
+        "productId": {
+          "$oid": "6a894a9e5e4c87493eb0e3db"
+        },
+        "sku": "HV-0070",
+        "quantity": 1
+      },
+      {
+        "productId": {
+          "$oid": "6a894a9e5e4c87493eb0e3dd"
+        },
+        "sku": "HV-0072",
+        "quantity": 1
+      }
+    ],
+    "discountType": "percentage",
+    "discountValue": 7,
+    "individualTotal": 21496,
+    "bundlePrice": 19991.28,
+    "savings": 1504.72,
+    "status": "active",
+    "isActive": true,
+    "startDate": null,
+    "endDate": null
+  },
+  {
+    "_id": {
+      "$oid": "3c091a19b03c48bfbf84e3cb"
+    },
+    "name": "Smart Door Lock Bundle",
+    "slug": "smart-door-lock-bundle",
+    "mainProduct": {
+      "$oid": "6a894a9d5e4c87493eb0e3da"
+    },
+    "products": [
+      {
+        "productId": {
+          "$oid": "6a894a9d5e4c87493eb0e3da"
+        },
+        "sku": "HV-0069",
+        "quantity": 1
+      },
+      {
+        "productId": {
+          "$oid": "6a894a9e5e4c87493eb0e3dc"
+        },
+        "sku": "HV-0071",
+        "quantity": 1
+      },
+      {
+        "productId": {
+          "$oid": "6a894a9e5e4c87493eb0e3dd"
+        },
+        "sku": "HV-0072",
+        "quantity": 1
+      }
+    ],
+    "discountType": "percentage",
+    "discountValue": 6,
+    "individualTotal": 16497,
+    "bundlePrice": 15507.18,
+    "savings": 989.82,
+    "status": "active",
+    "isActive": true,
+    "startDate": null,
+    "endDate": null
+  },
+  {
+    "_id": {
+      "$oid": "e24823cb475940189d87c381"
+    },
+    "name": "Access Control Panel Bundle",
+    "slug": "access-control-panel-bundle",
+    "mainProduct": {
+      "$oid": "6a894a9e5e4c87493eb0e3de"
+    },
+    "products": [
+      {
+        "productId": {
+          "$oid": "6a894a9e5e4c87493eb0e3de"
+        },
+        "sku": "HV-0073",
+        "quantity": 1
+      },
+      {
+        "productId": {
+          "$oid": "6a894a9d5e4c87493eb0e3d7"
+        },
+        "sku": "HV-0066",
+        "quantity": 1
+      },
+      {
+        "productId": {
+          "$oid": "6a894a9d5e4c87493eb0e3d8"
+        },
+        "sku": "HV-0067",
+        "quantity": 1
+      },
+      {
+        "productId": {
+          "$oid": "6a894a9e5e4c87493eb0e3db"
+        },
+        "sku": "HV-0070",
+        "quantity": 1
+      },
+      {
+        "productId": {
+          "$oid": "6a894a9e5e4c87493eb0e3dd"
+        },
+        "sku": "HV-0072",
+        "quantity": 1
+      }
+    ],
+    "discountType": "percentage",
+    "discountValue": 8,
+    "individualTotal": 28995,
+    "bundlePrice": 26675.4,
+    "savings": 2319.6,
+    "status": "active",
+    "isActive": true,
+    "startDate": null,
+    "endDate": null
+  },
+  {
+    "_id": {
+      "$oid": "830b3c710dfa4e9d99b7cfbf"
+    },
+    "name": "Wall-Mount Network Rack Bundle",
+    "slug": "wall-mount-network-rack-bundle",
+    "mainProduct": {
+      "$oid": "6a894aa05e4c87493eb0e3e1"
+    },
+    "products": [
+      {
+        "productId": {
+          "$oid": "6a894aa05e4c87493eb0e3e1"
+        },
+        "sku": "HV-0076",
+        "quantity": 1
+      },
+      {
+        "productId": {
+          "$oid": "6a894aa35e4c87493eb0e3e9"
+        },
+        "sku": "HV-0084",
+        "quantity": 1
+      },
+      {
+        "productId": {
+          "$oid": "6a894aa35e4c87493eb0e3ea"
+        },
+        "sku": "HV-0085",
+        "quantity": 1
+      },
+      {
+        "productId": {
+          "$oid": "6a894aa25e4c87493eb0e3e7"
+        },
+        "sku": "HV-0082",
+        "quantity": 1
+      },
+      {
+        "productId": {
+          "$oid": "6a894aad5e4c87493eb0e414"
+        },
+        "sku": "HV-0127",
+        "quantity": 1
+      }
+    ],
+    "discountType": "percentage",
+    "discountValue": 8,
+    "individualTotal": 32495,
+    "bundlePrice": 29895.4,
+    "savings": 2599.6,
+    "status": "active",
+    "isActive": true,
+    "startDate": null,
+    "endDate": null
+  },
+  {
+    "_id": {
+      "$oid": "e108ed3c069f46ed9cfb4aea"
+    },
+    "name": "Server Rack Setup Bundle",
+    "slug": "server-rack-setup-bundle",
+    "mainProduct": {
+      "$oid": "6a894aa05e4c87493eb0e3e2"
+    },
+    "products": [
+      {
+        "productId": {
+          "$oid": "6a894aa05e4c87493eb0e3e2"
+        },
+        "sku": "HV-0077",
+        "quantity": 1
+      },
+      {
+        "productId": {
+          "$oid": "6a894aa25e4c87493eb0e3e7"
+        },
+        "sku": "HV-0082",
+        "quantity": 1
+      },
+      {
+        "productId": {
+          "$oid": "6a894aa35e4c87493eb0e3e8"
+        },
+        "sku": "HV-0083",
+        "quantity": 1
+      },
+      {
+        "productId": {
+          "$oid": "6a894aa35e4c87493eb0e3e9"
+        },
+        "sku": "HV-0084",
+        "quantity": 1
+      },
+      {
+        "productId": {
+          "$oid": "6a894aa35e4c87493eb0e3ea"
+        },
+        "sku": "HV-0085",
+        "quantity": 1
+      }
+    ],
+    "discountType": "percentage",
+    "discountValue": 8,
+    "individualTotal": 43995,
+    "bundlePrice": 40475.4,
+    "savings": 3519.6,
+    "status": "active",
+    "isActive": true,
+    "startDate": null,
+    "endDate": null
+  },
+  {
+    "_id": {
+      "$oid": "cf0d53344f5945daa51390e1"
+    },
+    "name": "Network Rack Connectivity Bundle",
+    "slug": "network-rack-connectivity-bundle",
+    "mainProduct": {
+      "$oid": "6a894aa15e4c87493eb0e3e3"
+    },
+    "products": [
+      {
+        "productId": {
+          "$oid": "6a894aa15e4c87493eb0e3e3"
+        },
+        "sku": "HV-0078",
+        "quantity": 1
+      },
+      {
+        "productId": {
+          "$oid": "6a894aa35e4c87493eb0e3e9"
+        },
+        "sku": "HV-0084",
+        "quantity": 1
+      },
+      {
+        "productId": {
+          "$oid": "6a894aa35e4c87493eb0e3ea"
+        },
+        "sku": "HV-0085",
+        "quantity": 1
+      },
+      {
+        "productId": {
+          "$oid": "6a894ab15e4c87493eb0e426"
+        },
+        "sku": "HV-0145",
+        "quantity": 2
+      },
+      {
+        "productId": {
+          "$oid": "6a894aad5e4c87493eb0e414"
+        },
+        "sku": "HV-0127",
+        "quantity": 1
+      }
+    ],
+    "discountType": "percentage",
+    "discountValue": 8,
+    "individualTotal": 26494,
+    "bundlePrice": 24374.48,
+    "savings": 2119.52,
+    "status": "active",
+    "isActive": true,
+    "startDate": null,
+    "endDate": null
+  },
+  {
+    "_id": {
+      "$oid": "c7c8b2fd5c744cb19af44f14"
+    },
+    "name": "CCTV Rack Storage Bundle",
+    "slug": "cctv-rack-storage-bundle",
+    "mainProduct": {
+      "$oid": "6a894aa25e4c87493eb0e3e5"
+    },
+    "products": [
+      {
+        "productId": {
+          "$oid": "6a894aa25e4c87493eb0e3e5"
+        },
+        "sku": "HV-0080",
+        "quantity": 1
+      },
+      {
+        "productId": {
+          "$oid": "6a894aa25e4c87493eb0e3e6"
+        },
+        "sku": "HV-0081",
+        "quantity": 1
+      },
+      {
+        "productId": {
+          "$oid": "6a894aa25e4c87493eb0e3e7"
+        },
+        "sku": "HV-0082",
+        "quantity": 1
+      },
+      {
+        "productId": {
+          "$oid": "6a894aa35e4c87493eb0e3e9"
+        },
+        "sku": "HV-0084",
+        "quantity": 1
+      },
+      {
+        "productId": {
+          "$oid": "6a894aa35e4c87493eb0e3ea"
+        },
+        "sku": "HV-0085",
+        "quantity": 1
+      }
+    ],
+    "discountType": "percentage",
+    "discountValue": 8,
+    "individualTotal": 41495,
+    "bundlePrice": 38175.4,
+    "savings": 3319.6,
+    "status": "active",
+    "isActive": true,
+    "startDate": null,
+    "endDate": null
+  },
+  {
+    "_id": {
+      "$oid": "b2d4cb17163d4ca6b78785ec"
+    },
+    "name": "Office Workstation Starter Bundle",
+    "slug": "office-workstation-starter-bundle",
+    "mainProduct": {
+      "$oid": "6a894a905e4c87493eb0e3ab"
+    },
+    "products": [
+      {
+        "productId": {
+          "$oid": "6a894a905e4c87493eb0e3ab"
+        },
+        "sku": "HV-0022",
+        "quantity": 1
+      },
+      {
+        "productId": {
+          "$oid": "6a894a905e4c87493eb0e3ac"
+        },
+        "sku": "HV-0023",
+        "quantity": 1
+      },
+      {
+        "productId": {
+          "$oid": "6a894a915e4c87493eb0e3b0"
+        },
+        "sku": "HV-0027",
+        "quantity": 1
+      },
+      {
+        "productId": {
+          "$oid": "6a894a915e4c87493eb0e3ae"
+        },
+        "sku": "HV-0025",
+        "quantity": 1
+      }
+    ],
+    "discountType": "percentage",
+    "discountValue": 7,
+    "individualTotal": 8996,
+    "bundlePrice": 8366.28,
+    "savings": 629.72,
+    "status": "active",
+    "isActive": true,
+    "startDate": null,
+    "endDate": null
+  },
+  {
+    "_id": {
+      "$oid": "581fce427c604e2c80eb6eed"
+    },
+    "name": "USB-C Laptop Productivity Bundle",
+    "slug": "usb-c-laptop-productivity-bundle",
+    "mainProduct": {
+      "$oid": "6a894a925e4c87493eb0e3b3"
+    },
+    "products": [
+      {
+        "productId": {
+          "$oid": "6a894a925e4c87493eb0e3b3"
+        },
+        "sku": "HV-0030",
+        "quantity": 1
+      },
+      {
+        "productId": {
+          "$oid": "6a894a915e4c87493eb0e3b0"
+        },
+        "sku": "HV-0027",
+        "quantity": 1
+      },
+      {
+        "productId": {
+          "$oid": "6a894a905e4c87493eb0e3ac"
+        },
+        "sku": "HV-0023",
+        "quantity": 1
+      },
+      {
+        "productId": {
+          "$oid": "6a894a905e4c87493eb0e3ad"
+        },
+        "sku": "HV-0024",
+        "quantity": 1
+      }
+    ],
+    "discountType": "percentage",
+    "discountValue": 7,
+    "individualTotal": 9496,
+    "bundlePrice": 8831.28,
+    "savings": 664.72,
+    "status": "active",
+    "isActive": true,
+    "startDate": null,
+    "endDate": null
+  },
+  {
+    "_id": {
+      "$oid": "8206251628c0444d9cfb1790"
+    },
+    "name": "Home Office Connectivity Bundle",
+    "slug": "home-office-connectivity-bundle",
+    "mainProduct": {
+      "$oid": "6a894a905e4c87493eb0e3ad"
+    },
+    "products": [
+      {
+        "productId": {
+          "$oid": "6a894a905e4c87493eb0e3ad"
+        },
+        "sku": "HV-0024",
+        "quantity": 1
+      },
+      {
+        "productId": {
+          "$oid": "6a894a915e4c87493eb0e3ae"
+        },
+        "sku": "HV-0025",
+        "quantity": 1
+      },
+      {
+        "productId": {
+          "$oid": "6a894a915e4c87493eb0e3af"
+        },
+        "sku": "HV-0026",
+        "quantity": 1
+      },
+      {
+        "productId": {
+          "$oid": "6a894a915e4c87493eb0e3b0"
+        },
+        "sku": "HV-0027",
+        "quantity": 1
+      },
+      {
+        "productId": {
+          "$oid": "6a894a935e4c87493eb0e3b7"
+        },
+        "sku": "HV-0034",
+        "quantity": 1
+      }
+    ],
+    "discountType": "percentage",
+    "discountValue": 7,
+    "individualTotal": 9495,
+    "bundlePrice": 8830.35,
+    "savings": 664.65,
+    "status": "active",
+    "isActive": true,
+    "startDate": null,
+    "endDate": null
+  },
+  {
+    "_id": {
+      "$oid": "52e0089bc81d4e36a14986ed"
+    },
+    "name": "Barcode Printing Starter Bundle",
+    "slug": "barcode-printing-starter-bundle",
+    "mainProduct": {
+      "$oid": "6a894a955e4c87493eb0e3c0"
+    },
+    "products": [
+      {
+        "productId": {
+          "$oid": "6a894a955e4c87493eb0e3c0"
+        },
+        "sku": "HV-0043",
+        "quantity": 1
+      },
+      {
+        "productId": {
+          "$oid": "6a894a955e4c87493eb0e3c2"
+        },
+        "sku": "HV-0045",
+        "quantity": 1
+      },
+      {
+        "productId": {
+          "$oid": "6a894a955e4c87493eb0e3c3"
+        },
+        "sku": "HV-0046",
+        "quantity": 1
+      }
+    ],
+    "discountType": "percentage",
+    "discountValue": 7,
+    "individualTotal": 17497,
+    "bundlePrice": 16272.21,
+    "savings": 1224.79,
+    "status": "active",
+    "isActive": true,
+    "startDate": null,
+    "endDate": null
+  },
+  {
+    "_id": {
+      "$oid": "6a7ee3b2221a470cbbc392d9"
+    },
+    "name": "Document Printing & Scanning Bundle",
+    "slug": "document-printing-scanning-bundle",
+    "mainProduct": {
+      "$oid": "6a894a945e4c87493eb0e3bb"
+    },
+    "products": [
+      {
+        "productId": {
+          "$oid": "6a894a945e4c87493eb0e3bb"
+        },
+        "sku": "HV-0038",
+        "quantity": 1
+      },
+      {
+        "productId": {
+          "$oid": "6a894a955e4c87493eb0e3c1"
+        },
+        "sku": "HV-0044",
+        "quantity": 1
+      },
+      {
+        "productId": {
+          "$oid": "6a894a955e4c87493eb0e3c3"
+        },
+        "sku": "HV-0046",
+        "quantity": 1
+      }
+    ],
+    "discountType": "percentage",
+    "discountValue": 7,
+    "individualTotal": 20497,
+    "bundlePrice": 19062.21,
+    "savings": 1434.79,
+    "status": "active",
+    "isActive": true,
+    "startDate": null,
+    "endDate": null
+  },
+  {
+    "_id": {
+      "$oid": "4c46a3c4693c4fa6ad185148"
+    },
+    "name": "Business Printer Power Protection Bundle",
+    "slug": "business-printer-power-protection-bundle",
+    "mainProduct": {
+      "$oid": "6a894a945e4c87493eb0e3bc"
+    },
+    "products": [
+      {
+        "productId": {
+          "$oid": "6a894a945e4c87493eb0e3bc"
+        },
+        "sku": "HV-0039",
+        "quantity": 1
+      },
+      {
+        "productId": {
+          "$oid": "6a894aaa5e4c87493eb0e40a"
+        },
+        "sku": "HV-0117",
+        "quantity": 1
+      },
+      {
+        "productId": {
+          "$oid": "6a894aab5e4c87493eb0e40b"
+        },
+        "sku": "HV-0118",
+        "quantity": 1
+      },
+      {
+        "productId": {
+          "$oid": "6a894a955e4c87493eb0e3c3"
+        },
+        "sku": "HV-0046",
+        "quantity": 1
+      }
+    ],
+    "discountType": "percentage",
+    "discountValue": 7,
+    "individualTotal": 20496,
+    "bundlePrice": 19061.28,
+    "savings": 1434.72,
+    "status": "active",
+    "isActive": true,
+    "startDate": null,
+    "endDate": null
+  }
+]

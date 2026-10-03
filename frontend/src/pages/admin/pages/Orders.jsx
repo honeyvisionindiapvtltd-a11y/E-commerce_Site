@@ -29,6 +29,8 @@ const normalizeOrder = (order, index = 0) => {
     items: Array.isArray(order?.items)
       ? order.items.reduce((sum, item) => sum + (Number(item.quantity) || 1), 0)
       : Number(order?.items || 0),
+    bundles: Array.isArray(order?.bundles) ? order.bundles : [],
+    bundleDiscount: Number(order?.bundleDiscount || 0),
     amount: Number(order?.totalAmount || order?.total || order?.amount || 0),
     payment: String(order?.paymentMethod || order?.payment || "COD").toUpperCase() === "COD"
       ? "Cash on Delivery"
@@ -165,6 +167,16 @@ export default function Orders() {
             <p><b>Customer:</b> {view.customer}</p>
             <p><b>Phone:</b> {view.phone}</p>
             <p><b>Items:</b> {view.items}</p>
+            {view.bundles.map((bundle, index) => (
+              <div key={`${bundle.bundleId}-${index}`} className="rounded-lg border border-amber-200 bg-amber-50 p-3">
+                <p className="font-bold">Bundle: {bundle.bundleName}</p>
+                <p className="mt-1">{(bundle.items || []).map((item) => `${item.name} × ${item.quantity}`).join(", ")}</p>
+                <p className="mt-1">Individual total: ₹{Number(bundle.originalTotal || 0).toLocaleString("en-IN")}</p>
+                <p className="text-emerald-700">Bundle discount: -₹{Number(bundle.bundleDiscount || 0).toLocaleString("en-IN")}</p>
+                <p className="font-semibold">Bundle total: ₹{Number(bundle.finalTotal || 0).toLocaleString("en-IN")}</p>
+              </div>
+            ))}
+            {view.bundleDiscount > 0 && <p><b>Total bundle discount:</b> -₹{view.bundleDiscount.toLocaleString("en-IN")}</p>}
             <p><b>Total:</b> ₹{Number(view.amount || 0).toLocaleString()}</p>
             <p><b>Payment Method:</b> {view.payment}</p>
             <p><b>Payment Status:</b> {view.paymentStatus}</p>

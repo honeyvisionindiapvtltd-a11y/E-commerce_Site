@@ -124,6 +124,40 @@ export async function adminListProducts({ page = 1, limit = 100, all = false } =
   };
 }
 
+export async function adminListBundles() {
+  const body = await request("/admin/bundles");
+  return Array.isArray(body.bundles) ? body.bundles : [];
+}
+
+export async function adminSearchBundleProducts(filters = {}) {
+  const query = new URLSearchParams(
+    Object.entries(filters).filter(([, value]) => value !== "" && value !== undefined && value !== null)
+  );
+  const body = await request(`/admin/bundles/products?${query.toString()}`);
+  return {
+    ...body,
+    products: Array.isArray(body.products) ? body.products.map((product) => ({ ...product, id: product.id || product._id })) : [],
+  };
+}
+
+export async function adminSaveBundle(id, bundle) {
+  return request(id ? `/admin/bundles/${encodeURIComponent(id)}` : "/admin/bundles", {
+    method: id ? "PUT" : "POST",
+    body: JSON.stringify(bundle),
+  });
+}
+
+export async function adminSetBundleActive(id, active) {
+  return request(`/admin/bundles/${encodeURIComponent(id)}/status`, {
+    method: "PATCH",
+    body: JSON.stringify({ active }),
+  });
+}
+
+export async function adminDeleteBundle(id) {
+  return request(`/admin/bundles/${encodeURIComponent(id)}`, { method: "DELETE" });
+}
+
 export async function adminListCategories() {
   const body = await request("/categories");
   return body.categories || [];

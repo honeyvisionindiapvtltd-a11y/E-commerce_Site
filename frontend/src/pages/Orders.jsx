@@ -252,7 +252,17 @@ export default function Orders() {
 
                       <div className="mt-5 grid gap-5 lg:grid-cols-[1.3fr_0.7fr]">
                         <div className="space-y-4">
-                          {order.items.map((item, idx) => (
+                          {(order.bundles || []).map((bundle, bundleIndex) => (
+                            <section key={`${bundle.bundleId}-${bundleIndex}`} className="rounded-2xl border border-amber-200 bg-amber-50/60 p-4">
+                              <div className="flex items-start justify-between gap-3">
+                                <div><p className="text-[10px] font-bold uppercase tracking-wide text-amber-700">Bundle</p><h3 className="mt-1 font-bold text-[#071426]">{bundle.bundleName}</h3></div>
+                                <p className="text-right text-xs font-extrabold text-[#071426]">{money(bundle.finalTotal || 0)}</p>
+                              </div>
+                              <div className="mt-3 space-y-2">{(bundle.items || []).map((item, itemIndex) => <p key={`${item.product}-${itemIndex}`} className="text-xs text-slate-600">{item.name} × {item.quantity}</p>)}</div>
+                              <div className="mt-3 border-t border-amber-200 pt-2 text-xs"><div className="flex justify-between"><span>Individual total</span><span>{money(bundle.originalTotal || 0)}</span></div><div className="mt-1 flex justify-between text-emerald-700"><span>Bundle discount</span><span>-{money(bundle.bundleDiscount || 0)}</span></div><div className="mt-1 flex justify-between font-bold text-[#071426]"><span>Bundle total</span><span>{money(bundle.finalTotal || 0)}</span></div></div>
+                            </section>
+                          ))}
+                          {order.items.filter((item) => !item.bundleId).map((item, idx) => (
                             <div key={idx} className="flex items-center gap-4 rounded-2xl bg-slate-50 p-3">
                               <div className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-2xl bg-white">
                                 <img src={item.product?.image || '/placeholder.png'} alt={item.productName || item.product?.name} className="h-12 object-contain" />
@@ -283,9 +293,10 @@ export default function Orders() {
                               <span>Subtotal</span>
                               <span>{money(order.subtotal || 0)}</span>
                             </div>
+                            {Number(order.bundleDiscount || 0) > 0 && <div className="flex items-center justify-between text-emerald-700"><span>Bundle discount</span><span>-{money(order.bundleDiscount)}</span></div>}
                             <div className="flex items-center justify-between">
                               <span>Shipping</span>
-                              <span>{(order.shipping || 0) === 0 ? "Free" : money(order.shipping)}</span>
+                              <span>{Number(order.shippingCharge ?? order.shipping ?? order.deliveryDetails?.deliveryCharge ?? 0) === 0 ? "Free" : money(order.shippingCharge ?? order.shipping ?? order.deliveryDetails?.deliveryCharge)}</span>
                             </div>
                             {order.installationFee && (
                               <div className="flex items-center justify-between">

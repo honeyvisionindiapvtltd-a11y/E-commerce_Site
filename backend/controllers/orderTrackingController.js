@@ -23,6 +23,7 @@ import { canCustomerCancelOrder, getOrderActions } from "../services/orderLifecy
 import { confirmedOrderFilter } from "../utils/orderQueries.js";
 import { notifyAdmins, notifyCustomer } from "../services/notificationService.js";
 import inventoryService, { assertInventoryAuthorityReady, isInventoryAuthorityEnabled } from "../services/inventoryService.js";
+import { getBundleQuote } from "../services/bundleService.js";
 
 const escapeRegExp = (value = "") => String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 const canExposeDevelopmentOtp = () => process.env.NODE_ENV === "development"
@@ -80,13 +81,14 @@ export const createOrder = async (req, res) => {
   try {
     await assertInventoryAuthorityReady();
     const {
-      items,
+      items = [],
       shippingAddress,
       address,
       paymentMethod = "COD",
       deliveryType = "courier",
       customerNote = "",
       clientRequestId = "",
+      bundles = [],
     } = req.body;
 
     const normalizedClientRequestId = String(clientRequestId || "").trim().slice(0, 120);
@@ -123,7 +125,9 @@ export const createOrder = async (req, res) => {
       formattedAddress: String(resolvedShippingAddress?.formattedAddress || "").trim(),
     };
 
-    if (!Array.isArray(items) || items.length === 0) {
+    const requestedBundles = Array.isArray(bundles) ? bundles : [];
+    const requestedItems = Array.isArray(items) ? items : [];
+    if (requestedItems.length === 0 && requestedBundles.length === 0) {
       return res.status(400).json({
         success: false,
         message: "Order must contain products",
@@ -220,8 +224,9 @@ export const createOrder = async (req, res) => {
 
     let subtotal = 0;
     const orderItems = [];
+    const orderBundles = [];
 
-    for (const item of items) {
+    for (const item of requestedItems) {
       const productRef = item?.product?._id || item?.product?.id || item?.productId || item?.product;
       console.log('Looking for product with ref:', productRef, 'Type:', typeof productRef);
       const product = await findOrderProduct(productRef);
@@ -268,8 +273,58 @@ export const createOrder = async (req, res) => {
       });
     }
 
+    for (const requestedBundle of requestedBundles) {
+      const bundleId = String(requestedBundle?.bundleId || "").trim();
+      const bundleQuantity = Number(requestedBundle?.quantity ?? 1);
+      const quote = await getBundleQuote(bundleId, bundleQuantity);
+      const snapshotItems = [];
+
+      for (const item of quote.products) {
+        const product = await Product.findById(item.productId);
+        if (!product || product.isActive === false) {
+          return res.status(400).json({ success: false, message: `${item.name} is unavailable.` });
+        }
+
+        const quantity = Number(item.quantity) * bundleQuantity;
+        const unitPrice = Number(product.price || 0);
+        subtotal += unitPrice * quantity;
+        orderItems.push({
+          product: product._id,
+          bundleId,
+          name: product.name,
+          sku: product.sku || "",
+          quantity,
+          price: unitPrice,
+          unitPrice,
+          discount: 0,
+          tax: 0,
+          finalPrice: unitPrice * quantity,
+          image: product.thumbnail || product.images?.[0] || "",
+        });
+        snapshotItems.push({
+          product: product._id,
+          name: product.name,
+          sku: product.sku || "",
+          quantity,
+          unitPrice,
+          image: product.thumbnail || product.images?.[0] || "",
+        });
+      }
+
+      orderBundles.push({
+        bundleId,
+        bundleName: quote.name,
+        quantity: bundleQuantity,
+        items: snapshotItems,
+        originalTotal: quote.originalTotal,
+        bundleDiscount: quote.discountAmount,
+        finalTotal: quote.finalTotal,
+      });
+    }
+
     const shippingFee = Number(serviceability.deliveryCharge || 0);
-    const discount = 0;
+    const bundleDiscount = orderBundles.reduce((sum, bundle) => sum + bundle.bundleDiscount, 0);
+    const discount = bundleDiscount;
     const tax = 0;
     const totalAmount = subtotal + shippingFee - discount + tax;
 
@@ -281,6 +336,8 @@ export const createOrder = async (req, res) => {
       subtotal,
       shippingCharge: shippingFee,
       discount,
+      bundles: orderBundles,
+      bundleDiscount,
       totalAmount,
       paymentMethod: normalizedPaymentMethod,
       paymentStatus: "PENDING",
