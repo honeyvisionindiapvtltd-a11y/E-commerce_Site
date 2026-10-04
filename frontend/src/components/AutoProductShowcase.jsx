@@ -15,7 +15,7 @@ export default function AutoProductShowcase() {
   const scrollingProducts = [...showcaseProducts, ...showcaseProducts];
 
   return (
-    <section className="overflow-hidden bg-white py-8 sm:py-12">
+    <section className="overflow-hidden bg-white py-3 sm:py-12">
       <div className="mx-auto max-w-7xl px-3 sm:px-6">
         <div className="mb-5 flex items-end justify-between gap-3">
           <div>

@@ -276,7 +276,7 @@ const Services = () => {
           HERO SECTION
       ===================================================== */}
 
-      <section className="relative overflow-hidden bg-[#061426]">
+      <section className="services-hero relative overflow-hidden bg-[#061426]">
 
         {/* Background */}
         <div className="absolute inset-0">
@@ -284,12 +284,12 @@ const Services = () => {
         </div>
 
 
-        <div className="relative mx-auto grid min-h-[610px] max-w-[1500px] grid-cols-1 lg:grid-cols-2">
+        <div className="services-hero-layout relative mx-auto grid min-h-[610px] max-w-[1500px] grid-cols-1 lg:grid-cols-2">
 
 
           {/* LEFT CONTENT */}
 
-          <div className="relative z-10 flex flex-col justify-center px-6 py-24 lg:px-12 xl:px-16">
+          <div className="services-hero-content relative z-10 flex flex-col justify-center px-6 py-24 lg:px-12 xl:px-16">
 
             {/* Breadcrumb */}
 
@@ -398,7 +398,7 @@ const Services = () => {
 
           {/* RIGHT IMAGE */}
 
-          <div className="relative min-h-[500px] lg:min-h-full">
+          <div className="services-hero-image relative min-h-[500px] lg:min-h-full">
 
             <img
               src={serviceBanner}
@@ -427,7 +427,7 @@ const Services = () => {
 
       <section
         id="services"
-        className="mx-auto max-w-[1450px] px-6 py-20 lg:px-10"
+        className="services-list-section mx-auto max-w-[1450px] px-6 py-20 lg:px-10"
       >
 
         <div className="text-center">
@@ -448,7 +448,7 @@ const Services = () => {
         </div>
 
 
-        <div className="mt-12 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-5">
+        <div className="services-list-grid mt-12 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-5">
 
           {serviceItems.map((service) => {
 
@@ -478,7 +478,7 @@ const Services = () => {
           WHY CHOOSE US
       ===================================================== */}
 
-      <section className="mx-auto max-w-[1400px] px-6 lg:px-10">
+      <section className="services-why-section mx-auto max-w-[1400px] px-6 lg:px-10">
 
         <div className="overflow-hidden rounded-2xl bg-[#061426]">
 
@@ -553,7 +553,7 @@ const Services = () => {
           PROCESS
       ===================================================== */}
 
-      <section className="mx-auto max-w-[1400px] px-6 py-20 lg:px-10">
+      <section className="services-process-section mx-auto max-w-[1400px] px-6 py-20 lg:px-10">
 
         <div className="text-center">
 
@@ -568,7 +568,7 @@ const Services = () => {
         </div>
 
 
-        <div className="relative mt-14 grid gap-10 md:grid-cols-5">
+        <div className="services-process-grid relative mt-14 grid gap-10 md:grid-cols-5">
 
           {/* Connecting Line */}
 
@@ -628,7 +628,7 @@ const Services = () => {
           SERVICE CENTERS
       ===================================================== */}
 
-      <section className="mx-auto max-w-[1400px] px-6 pb-20 lg:px-10">
+      <section className="services-centers-section mx-auto max-w-[1400px] px-6 pb-20 lg:px-10">
 
         <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm lg:p-10">
 
@@ -651,7 +651,7 @@ const Services = () => {
           </div>
 
 
-          <div className="mt-10 grid gap-6 lg:grid-cols-[1.2fr_1.5fr_0.8fr]">
+          <div className="services-centers-grid mt-10 grid gap-6 lg:grid-cols-[1.2fr_1.5fr_0.8fr]">
 
 
             {/* LOCATION LIST */}
@@ -707,7 +707,7 @@ const Services = () => {
 
             {/* MAP AREA */}
 
-            <div className="relative min-h-[420px] overflow-hidden rounded-xl bg-[#eef4f8]">
+            <div className="services-centers-map relative min-h-[420px] overflow-hidden rounded-xl bg-[#eef4f8]">
 
               {/* Decorative map */}
 
@@ -832,7 +832,7 @@ const Services = () => {
           INDUSTRIES
       ===================================================== */}
 
-      <section className="mx-auto max-w-[1400px] px-6 pb-20 lg:px-10">
+      <section className="services-industries-section mx-auto max-w-[1400px] px-6 pb-20 lg:px-10">
 
         <div className="text-center">
 
@@ -847,7 +847,7 @@ const Services = () => {
         </div>
 
 
-        <div className="mt-10 grid grid-cols-2 gap-4 md:grid-cols-4 lg:grid-cols-8">
+        <div className="services-industries-grid mt-10 grid grid-cols-2 gap-4 md:grid-cols-4 lg:grid-cols-8">
 
           {industries.map((industry) => {
 
@@ -886,9 +886,9 @@ const Services = () => {
           CONTACT CTA
       ===================================================== */}
 
-      <section className="mx-auto max-w-[1400px] px-6 pb-10 lg:px-10">
+      <section className="services-contact-section mx-auto max-w-[1400px] px-6 pb-10 lg:px-10">
 
-        <div className="overflow-hidden rounded-2xl bg-[#061426] p-7 lg:p-9">
+        <div className="services-contact-panel overflow-hidden rounded-2xl bg-[#061426] p-7 lg:p-9">
 
           <div className="grid gap-8 lg:grid-cols-[1fr_2.5fr] lg:items-center">
 
@@ -1022,7 +1022,7 @@ const ServiceCard = ({
 
     <Link
       to={to}
-      className="group flex min-h-[265px] flex-col rounded-xl border border-gray-200 bg-white p-6 text-center transition duration-300 hover:-translate-y-1 hover:border-[#fbb900] hover:shadow-lg"
+      className="service-page-card group flex min-h-[265px] flex-col rounded-xl border border-gray-200 bg-white p-6 text-center transition duration-300 hover:-translate-y-1 hover:border-[#fbb900] hover:shadow-lg"
     >
 
       <div className="service-card-icon mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-[#eef5fa] transition group-hover:bg-[#fff4d0]">

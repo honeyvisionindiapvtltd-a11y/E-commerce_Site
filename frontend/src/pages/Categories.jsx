@@ -26,6 +26,8 @@ export default function Categories() {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All Categories");
   const selectedCategoryButtonRef = useRef(null);
+  const featuredRailRef = useRef(null);
+  const featuredRailInteractingRef = useRef(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -115,9 +117,41 @@ export default function Categories() {
     const categoryProducts = selectedCategory === "All Categories"
       ? products
       : products.filter((product) => product.category === selectedCategory);
+    const categoryProductSet = new Set(categoryProducts);
+    const remainingProducts = products.filter(
+      (product) => !categoryProductSet.has(product)
+    );
 
-    return (categoryProducts.length ? categoryProducts : products).slice(0, 4);
+    return [...categoryProducts, ...remainingProducts].slice(0, 28);
   }, [products, selectedCategory]);
+  const featuredProductCount = featuredProducts.length;
+
+  useEffect(() => {
+    const rail = featuredRailRef.current;
+    const motionPreference = window.matchMedia("(prefers-reduced-motion: reduce)");
+    if (!rail || motionPreference.matches || featuredProductCount < 2) return undefined;
+
+    let frameId;
+    let previousTime = 0;
+    const animate = (time) => {
+      if (previousTime && !featuredRailInteractingRef.current) {
+        const elapsed = Math.min(time - previousTime, 50);
+        rail.scrollLeft += elapsed * 0.08;
+
+        const track = rail.firstElementChild;
+        const loopWidth = track?.children[1]?.offsetLeft - track?.offsetLeft;
+        if (loopWidth > 0 && rail.scrollLeft >= loopWidth) {
+          rail.scrollLeft -= loopWidth;
+        }
+      }
+
+      previousTime = time;
+      frameId = window.requestAnimationFrame(animate);
+    };
+
+    frameId = window.requestAnimationFrame(animate);
+    return () => window.cancelAnimationFrame(frameId);
+  }, [featuredProductCount]);
 
   return (
     <main className="categories-page min-h-screen overflow-x-clip bg-[#f4f8fc] text-[#123563]">
@@ -250,14 +284,42 @@ export default function Categories() {
                 <h2 className="text-sm font-extrabold sm:text-base">Featured Products</h2>
                 <Link to="/products" className="text-[10px] font-semibold text-[#3779b8] sm:text-[11px]">Shop all <ChevronRight size={10} className="inline" /></Link>
               </div>
-              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
-                {featuredProducts.map((product) => (
-                  <Link key={product.id || product._id || product.name} to={`/products/${product.slug || product.id || product._id}`} className="category-featured-card group min-w-0 overflow-hidden rounded-xl border border-[#e1ebf4] bg-white p-2 transition hover:-translate-y-0.5 hover:border-[#8bb3d7] hover:shadow-sm">
-                    <div className="flex h-20 items-center justify-center rounded-lg bg-[#f7fafd] sm:h-24"><img src={product.image || product.thumbnail || categoryImageFallback} alt={product.name} className="h-full w-full object-contain p-1 transition group-hover:scale-105" /></div>
-                    <p className="mt-2 truncate text-[11px] font-bold text-[#123563] sm:text-[12px]">{product.name}</p>
-                    <p className="mt-1 text-[10px] font-extrabold text-[#123563] sm:text-[11px]">₹{Number(product.price || 0).toLocaleString("en-IN")}</p>
-                  </Link>
-                ))}
+              <div
+                ref={featuredRailRef}
+                className="category-featured-rail overflow-x-auto pb-2"
+                onPointerEnter={() => { featuredRailInteractingRef.current = true; }}
+                onPointerLeave={() => { featuredRailInteractingRef.current = false; }}
+                onTouchStart={() => { featuredRailInteractingRef.current = true; }}
+                onTouchEnd={() => { featuredRailInteractingRef.current = false; }}
+                onFocusCapture={() => { featuredRailInteractingRef.current = true; }}
+                onBlurCapture={(event) => {
+                  if (!event.currentTarget.contains(event.relatedTarget)) {
+                    featuredRailInteractingRef.current = false;
+                  }
+                }}
+              >
+                <div className="category-featured-track">
+                  {[0, 1].map((groupIndex) => (
+                    <div
+                      key={groupIndex}
+                      className="category-featured-track-group"
+                      aria-hidden={groupIndex === 1 || undefined}
+                    >
+                      {featuredProducts.map((product, productIndex) => (
+                        <Link
+                          key={`${product.id || product._id || product.name}-${productIndex}`}
+                          to={`/products/${product.slug || product.id || product._id}`}
+                          tabIndex={groupIndex === 1 ? -1 : undefined}
+                          className="category-featured-card group min-w-0 w-[190px] shrink-0 overflow-hidden rounded-xl border border-[#e1ebf4] bg-white p-2 transition hover:-translate-y-0.5 hover:border-[#8bb3d7] hover:shadow-sm sm:w-[220px]"
+                        >
+                          <div className="flex h-20 items-center justify-center rounded-lg bg-[#f7fafd] sm:h-24"><img src={product.image || product.thumbnail || categoryImageFallback} alt={product.name} className="h-full w-full object-contain p-1 transition group-hover:scale-105" /></div>
+                          <p className="mt-2 truncate text-[11px] font-bold text-[#123563] sm:text-[12px]">{product.name}</p>
+                          <p className="mt-1 text-[10px] font-extrabold text-[#123563] sm:text-[11px]">₹{Number(product.price || 0).toLocaleString("en-IN")}</p>
+                        </Link>
+                      ))}
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
           </div>

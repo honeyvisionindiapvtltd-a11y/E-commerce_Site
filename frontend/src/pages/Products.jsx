@@ -1313,9 +1313,9 @@ export default function Products() {
                 0 &&
               totalPages >
                 1 && (
-                <div className="mt-6 flex flex-col gap-4 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+                <div className="mt-4 flex flex-col gap-2 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:mt-6 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:rounded-3xl sm:p-5">
 
-                  <div className="text-sm text-slate-500">
+                  <div className="text-xs text-slate-500 sm:text-sm">
                     Page{" "}
                     <span className="font-bold text-[#071426]">
                       {page}
@@ -1338,7 +1338,7 @@ export default function Products() {
                           page - 1
                         )
                       }
-                      className="flex h-10 items-center gap-1 rounded-xl border border-slate-200 px-3 text-sm font-semibold text-slate-600 transition hover:border-amber-400 hover:text-[#071426] disabled:cursor-not-allowed disabled:opacity-40"
+                      className="flex h-9 items-center gap-1 rounded-lg border border-slate-200 px-2 text-xs font-semibold text-slate-600 transition hover:border-amber-400 hover:text-[#071426] disabled:cursor-not-allowed disabled:opacity-40 sm:h-10 sm:rounded-xl sm:px-3 sm:text-sm"
                     >
                       <ChevronLeft
                         size={17}
@@ -1357,7 +1357,7 @@ export default function Products() {
                         "..." ? (
                           <span
                             key={`ellipsis-${index}`}
-                            className="flex h-10 w-8 items-center justify-center text-slate-400"
+                            className="flex h-9 w-7 items-center justify-center text-xs text-slate-400 sm:h-10 sm:w-8 sm:text-sm"
                           >
                             ...
                           </span>
@@ -1372,7 +1372,7 @@ export default function Products() {
                                 pageNumber
                               )
                             }
-                            className={`h-10 min-w-10 rounded-xl px-3 text-sm font-bold transition ${
+                            className={`h-9 min-w-9 rounded-lg px-2 text-xs font-bold transition sm:h-10 sm:min-w-10 sm:rounded-xl sm:px-3 sm:text-sm ${
                               pageNumber ===
                               page
                                 ? "bg-amber-400 text-[#071426] shadow-sm"
@@ -1396,7 +1396,7 @@ export default function Products() {
                           page + 1
                         )
                       }
-                      className="flex h-10 items-center gap-1 rounded-xl border border-slate-200 px-3 text-sm font-semibold text-slate-600 transition hover:border-amber-400 hover:text-[#071426] disabled:cursor-not-allowed disabled:opacity-40"
+                      className="flex h-9 items-center gap-1 rounded-lg border border-slate-200 px-2 text-xs font-semibold text-slate-600 transition hover:border-amber-400 hover:text-[#071426] disabled:cursor-not-allowed disabled:opacity-40 sm:h-10 sm:rounded-xl sm:px-3 sm:text-sm"
                     >
                       <span className="hidden sm:inline">
                         Next
@@ -1411,7 +1411,7 @@ export default function Products() {
               )}
 
             {/* TRUST BAR */}
-            <div className="mt-6 grid grid-cols-2 gap-3 md:grid-cols-4">
+            <div className="mt-4 grid grid-cols-2 gap-2 sm:mt-6 sm:gap-3 md:grid-cols-4">
 
               <TrustItem
                 icon={
@@ -1472,21 +1472,21 @@ function TrustItem({
   text,
 }) {
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+    <div className="rounded-xl border border-slate-200 bg-white p-2.5 shadow-sm sm:rounded-2xl sm:p-4">
 
-      <div className="flex items-start gap-3">
+      <div className="flex items-start gap-2 sm:gap-3">
 
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-amber-50 text-amber-500">
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-amber-50 text-amber-500 sm:h-9 sm:w-9 sm:rounded-xl">
           {icon}
         </div>
 
         <div className="min-w-0">
 
-          <h3 className="text-sm font-bold text-[#071426]">
+          <h3 className="text-xs font-bold text-[#071426] sm:text-sm">
             {title}
           </h3>
 
-          <p className="mt-0.5 text-xs leading-5 text-slate-500">
+          <p className="mt-0.5 text-[11px] leading-4 text-slate-500 sm:text-xs sm:leading-5">
             {text}
           </p>
 

@@ -133,13 +133,13 @@ export default function ProductSidebar({
   // ==========================================
 
   const content = (
-    <div className="rounded-3xl border border-slate-200 bg-white shadow-sm">
+    <div className={`rounded-3xl border border-slate-200 bg-white shadow-sm ${drawerOnly ? "product-sidebar-drawer-content" : ""}`}>
 
       {/* HEADER */}
-      <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
+      <div className={`flex items-center justify-between border-b border-slate-200 ${drawerOnly ? "px-4 py-3" : "px-5 py-4"}`}>
 
         <div>
-          <h2 className="text-base font-black text-[#071426]">
+          <h2 className={`${drawerOnly ? "text-sm" : "text-base"} font-black text-[#071426]`}>
             Categories
           </h2>
 
@@ -152,23 +152,23 @@ export default function ProductSidebar({
           <button
             type="button"
             onClick={onClose}
-            className="flex h-9 w-9 items-center justify-center rounded-xl text-slate-500 hover:bg-slate-100"
+            className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100"
           >
-            <X size={18} />
+            <X size={16} />
           </button>
         )}
 
       </div>
 
       {/* ALL PRODUCTS */}
-      <div className="p-3">
+      <div className={drawerOnly ? "p-2" : "p-3"}>
 
         <button
           type="button"
           onClick={
             clearFilters
           }
-          className={`flex w-full items-center justify-between rounded-2xl px-3 py-3 text-left transition ${
+          className={`flex w-full items-center justify-between rounded-2xl text-left transition ${drawerOnly ? "px-2.5 py-2.5" : "px-3 py-3"} ${
             !selectedCategorySlug &&
             !selectedSubCategorySlug
               ? "bg-amber-50 text-[#071426]"
@@ -176,10 +176,12 @@ export default function ProductSidebar({
           }`}
         >
 
-          <div className="flex items-center gap-3">
+          <div className={`flex items-center ${drawerOnly ? "gap-2.5" : "gap-3"}`}>
 
             <div
-              className={`flex h-9 w-9 items-center justify-center rounded-xl ${
+              className={`flex items-center justify-center ${
+                drawerOnly ? "h-8 w-8 rounded-lg" : "h-9 w-9 rounded-xl"
+              } ${
                 !selectedCategorySlug &&
                 !selectedSubCategorySlug
                   ? "bg-amber-400 text-[#071426]"
@@ -187,7 +189,7 @@ export default function ProductSidebar({
               }`}
             >
               <Package
-                size={17}
+                size={drawerOnly ? 15 : 17}
               />
             </div>
 
@@ -203,7 +205,7 @@ export default function ProductSidebar({
 
           </div>
 
-          <span className="rounded-full bg-slate-100 px-2 py-1 text-xs font-bold text-slate-600">
+          <span className={`rounded-full bg-slate-100 font-bold text-slate-600 ${drawerOnly ? "px-2 py-0.5 text-[11px]" : "px-2 py-1 text-xs"}`}>
             {totalProductCount || getTotalCount(categories)}
           </span>
 
@@ -212,7 +214,7 @@ export default function ProductSidebar({
       </div>
 
       {/* CATEGORY LIST */}
-      <div className="px-3 pb-4">
+      <div className={drawerOnly ? "px-2 pb-3" : "px-3 pb-4"}>
 
         {isLoading ? (
           <CategorySkeleton />
@@ -231,7 +233,7 @@ export default function ProductSidebar({
 
           </div>
         ) : (
-          <div className="space-y-1">
+          <div className={drawerOnly ? "space-y-0.5" : "space-y-1"}>
 
             {categories.map(
               (category) => {
@@ -275,23 +277,25 @@ export default function ProductSidebar({
                             category
                           )
                         }
-                        className="flex min-w-0 flex-1 items-center gap-3 px-3 py-3 text-left"
+                        className={`flex min-w-0 flex-1 items-center text-left ${drawerOnly ? "gap-2.5 px-2.5 py-2" : "gap-3 px-3 py-3"}`}
                       >
 
                         <div
-                          className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${
+                          className={`flex shrink-0 items-center justify-center ${
+                            drawerOnly ? "h-8 w-8 rounded-lg" : "h-9 w-9 rounded-xl"
+                          } ${
                             isSelected
                               ? "bg-amber-400 text-[#071426]"
                               : "bg-slate-100 text-slate-500"
                           }`}
                         >
                           <Folder
-                            size={17}
+                            size={drawerOnly ? 15 : 17}
                           />
                         </div>
 
                         <span
-                          className={`min-w-0 flex-1 truncate text-sm ${
+                          className={`min-w-0 flex-1 truncate ${drawerOnly ? "text-[13px]" : "text-sm"} ${
                             isSelected
                               ? "font-black text-[#071426]"
                               : "font-semibold text-slate-700"
@@ -302,7 +306,7 @@ export default function ProductSidebar({
                           }
                         </span>
 
-                        <span className="shrink-0 rounded-full bg-slate-100 px-2 py-1 text-[11px] font-bold text-slate-600">
+                        <span className={`shrink-0 rounded-full bg-slate-100 font-bold text-slate-600 ${drawerOnly ? "px-1.5 py-0.5 text-[10px]" : "px-2 py-1 text-[11px]"}`}>
                           {Number(
                             category.productCount ||
                               0
@@ -320,7 +324,7 @@ export default function ProductSidebar({
                               category.slug
                             )
                           }
-                          className="mr-2 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-slate-400 hover:bg-white hover:text-[#071426]"
+                          className={`mr-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-slate-400 hover:bg-white hover:text-[#071426] ${drawerOnly ? "" : "mr-2 h-8 w-8"}`}
                           aria-label={
                             isExpanded
                               ? "Collapse category"
@@ -329,11 +333,11 @@ export default function ProductSidebar({
                         >
                           {isExpanded ? (
                             <ChevronDown
-                              size={17}
+                              size={drawerOnly ? 15 : 17}
                             />
                           ) : (
                             <ChevronRight
-                              size={17}
+                              size={drawerOnly ? 15 : 17}
                             />
                           )}
                         </button>
@@ -462,7 +466,7 @@ export default function ProductSidebar({
         aria-label="Close filters"
       />
 
-      <div className="absolute left-0 top-0 h-full w-[320px] max-w-[90vw] overflow-y-auto bg-[#f6f8fb] p-4 shadow-2xl">
+      <div className="product-sidebar-drawer absolute left-0 top-0 h-full w-[290px] max-w-[84vw] overflow-y-auto bg-[#f6f8fb] p-3 shadow-2xl">
         {content}
       </div>
 

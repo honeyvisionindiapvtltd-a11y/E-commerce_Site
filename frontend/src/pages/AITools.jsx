@@ -203,11 +203,11 @@ function ToolModal({ tool, onClose }) {
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-2xl border border-blue-400/30 bg-[#06142c] shadow-2xl">
-        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-white/10 bg-[#06142c]/95 px-5 py-4 backdrop-blur">
-          <div className="flex items-center gap-3">
-            <tool.icon className="text-cyan-300" size={24} />
-            <h2 id="ai-tool-dialog-title" className="text-lg font-semibold">
+      <div className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-xl border border-blue-400/30 bg-[#06142c] shadow-2xl sm:rounded-2xl">
+        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-white/10 bg-[#06142c]/95 px-3 py-2.5 backdrop-blur sm:px-5 sm:py-4">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <tool.icon className="text-cyan-300" size={20} />
+            <h2 id="ai-tool-dialog-title" className="text-sm font-semibold sm:text-lg">
               {tool.title}
             </h2>
           </div>
@@ -221,7 +221,7 @@ function ToolModal({ tool, onClose }) {
           </button>
         </div>
 
-        <div className="p-5 sm:p-7">
+        <div className="p-3 sm:p-7">
           {tool.kind === "camera" && <CameraRecommendation />}
           {tool.kind === "coverage" && <CoverageCalculator />}
           {tool.kind === "storage" && <StorageCalculator />}
@@ -658,57 +658,57 @@ export default function AiTools() {
   };
 
   return (
-    <main className="min-h-screen overflow-hidden bg-[#020b1b] text-white">
+    <main className="ai-tools-page min-h-screen overflow-hidden bg-[#020b1b] text-white">
       <section className="relative border-b border-blue-500/10">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_72%_45%,rgba(0,99,255,0.24),transparent_30%),radial-gradient(circle_at_25%_30%,rgba(25,105,255,0.12),transparent_28%)]" />
 
-        <div className="relative mx-auto grid max-w-7xl gap-8 px-3 py-14 sm:px-6 lg:grid-cols-2 lg:items-center lg:py-20">
+        <div className="relative mx-auto grid max-w-7xl gap-4 px-3 py-6 sm:gap-8 sm:px-6 sm:py-14 lg:grid-cols-2 lg:items-center lg:py-20">
           <div>
             <span className="inline-flex items-center gap-2 rounded-full border border-blue-400/30 bg-blue-500/10 px-3 py-1.5 text-xs font-semibold text-blue-200">
               <Brain size={14} className="text-blue-400" />
               AI POWERED SOLUTIONS
             </span>
 
-            <h1 className="mt-6 text-5xl font-bold tracking-tight sm:text-6xl lg:text-7xl">
+            <h1 className="mt-3 text-4xl font-bold tracking-tight sm:mt-6 sm:text-6xl lg:text-7xl">
               <span className="bg-gradient-to-r from-cyan-400 via-blue-500 to-violet-500 bg-clip-text text-transparent">
                 AI
               </span>{" "}
               Tools
             </h1>
 
-            <p className="mt-5 max-w-lg text-base leading-7 text-slate-300 sm:text-lg">
+            <p className="mt-3 max-w-lg text-sm leading-5 text-slate-300 sm:mt-5 sm:text-lg sm:leading-7">
               Powerful calculators and intelligent security tools designed to
               simplify surveillance planning and management.
             </p>
 
-            <div className="mt-8 flex flex-wrap gap-4">
+            <div className="mt-4 flex flex-wrap gap-2 sm:mt-8 sm:gap-4">
               <button
                 type="button"
                 onClick={scrollToTools}
-                className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-6 py-3.5 text-sm font-semibold text-white transition hover:bg-blue-500"
+                className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-2.5 text-xs font-semibold text-white transition hover:bg-blue-500 sm:gap-2 sm:px-6 sm:py-3.5 sm:text-sm"
               >
-                <Bot size={18} />
+                <Bot size={16} className="sm:h-[18px] sm:w-[18px]" />
                 Explore {toolCount} AI Tools
               </button>
 
               <button
                 type="button"
                 onClick={() => setSelectedTool(aiTools.find((t) => t.id === "chat"))}
-                className="inline-flex items-center gap-2 rounded-lg border border-blue-400/70 px-6 py-3.5 text-sm font-semibold text-white hover:bg-blue-500/10"
+                className="inline-flex items-center gap-1.5 rounded-lg border border-blue-400/70 px-3 py-2.5 text-xs font-semibold text-white hover:bg-blue-500/10 sm:gap-2 sm:px-6 sm:py-3.5 sm:text-sm"
               >
-                <PlayCircle size={18} />
+                <PlayCircle size={16} className="sm:h-[18px] sm:w-[18px]" />
                 Try AI Assistant
               </button>
             </div>
 
-            <div className="mt-9 grid max-w-xl grid-cols-3 gap-4">
+            <div className="mt-5 grid max-w-xl grid-cols-3 gap-2 sm:mt-9 sm:gap-4">
               <SmallBenefit icon={Brain} text="Smart calculations" />
               <SmallBenefit icon={Zap} text="Save time & resources" />
               <SmallBenefit icon={Target} text="Data-driven decisions" />
             </div>
           </div>
 
-          <div className="relative">
+          <div className="relative hidden lg:block">
             <img
               src="https://res.cloudinary.com/vhrkwyzs/image/upload/v1786345411/Ai_zmtvl8.png"
               alt="AI-powered surveillance tools"
@@ -722,37 +722,37 @@ export default function AiTools() {
         </div>
       </section>
 
-      <section id="tools" className="scroll-mt-20 px-3 py-8 sm:px-6">
-        <div className="mx-auto max-w-7xl rounded-xl border border-blue-500/20 bg-[#06142c]/80 p-5 shadow-[0_0_35px_rgba(20,85,255,0.08)] sm:p-7">
+      <section id="tools" className="scroll-mt-16 px-2 py-4 sm:scroll-mt-20 sm:px-6 sm:py-8">
+        <div className="mx-auto max-w-7xl rounded-xl border border-blue-500/20 bg-[#06142c]/80 p-3 shadow-[0_0_35px_rgba(20,85,255,0.08)] sm:p-7">
           <div className="text-center">
-            <h2 className="text-3xl font-bold">AI Tools</h2>
-            <p className="mt-3 text-sm text-slate-400">
+            <h2 className="text-xl font-bold sm:text-3xl">AI Tools</h2>
+            <p className="mt-2 text-xs text-slate-400 sm:mt-3 sm:text-sm">
               Click any tool to use it directly without navigating to a missing route.
             </p>
             <div className="mx-auto mt-3 h-0.5 w-10 bg-gradient-to-r from-blue-500 to-purple-500" />
           </div>
 
-          <div className="mt-7 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          <div className="mt-4 grid grid-cols-2 gap-2 sm:mt-7 sm:gap-4 md:grid-cols-2 xl:grid-cols-3">
             {aiTools.map(({ title, description, icon: Icon, color, id }) => (
               <button
                 type="button"
                 key={id}
                 onClick={() => setSelectedTool(aiTools.find((tool) => tool.id === id))}
-                className="group text-left rounded-xl border border-blue-500/40 bg-[#07172e] p-5 transition hover:-translate-y-1 hover:border-blue-400 hover:bg-[#0a1e3e] focus:outline-none focus:ring-2 focus:ring-blue-400/50"
+                className="group rounded-lg border border-blue-500/40 bg-[#07172e] p-2.5 text-left transition hover:-translate-y-1 hover:border-blue-400 hover:bg-[#0a1e3e] focus:outline-none focus:ring-2 focus:ring-blue-400/50 sm:rounded-xl sm:p-5"
               >
-                <div className="flex gap-4">
-                  <div className={`grid h-13 w-13 shrink-0 place-items-center rounded-lg bg-gradient-to-br ${color}`}>
-                    <Icon size={27} className="text-cyan-300" />
+                <div className="flex flex-col gap-2 sm:flex-row sm:gap-4">
+                  <div className={`grid h-8 w-8 shrink-0 place-items-center rounded-md bg-gradient-to-br sm:h-13 sm:w-13 sm:rounded-lg ${color}`}>
+                    <Icon size={18} className="text-cyan-300 sm:h-[27px] sm:w-[27px]" />
                   </div>
 
                   <div className="min-w-0">
-                    <h3 className="text-base font-semibold text-white">{title}</h3>
-                    <p className="mt-2 text-sm leading-5 text-slate-400">{description}</p>
+                    <h3 className="text-xs font-semibold leading-tight text-white sm:text-base">{title}</h3>
+                    <p className="mt-1 text-[10px] leading-4 text-slate-400 sm:mt-2 sm:text-sm sm:leading-5">{description}</p>
                   </div>
                 </div>
 
-                <span className="ml-auto mt-4 flex h-8 w-8 items-center justify-center rounded-full border border-blue-400/60 text-blue-300 transition group-hover:bg-blue-500 group-hover:text-white">
-                  <ArrowRight size={16} />
+                <span className="ml-auto mt-2 flex h-6 w-6 items-center justify-center rounded-full border border-blue-400/60 text-blue-300 transition group-hover:bg-blue-500 group-hover:text-white sm:mt-4 sm:h-8 sm:w-8">
+                  <ArrowRight size={14} className="sm:h-4 sm:w-4" />
                 </span>
               </button>
             ))}
@@ -760,12 +760,12 @@ export default function AiTools() {
         </div>
       </section>
 
-      <section className="px-3 py-2 sm:px-6">
-        <div className="mx-auto grid max-w-7xl gap-7 rounded-xl border border-blue-500/20 bg-[#06142c]/80 p-5 sm:p-7 lg:grid-cols-2 lg:items-center">
+      <section className="px-2 py-1.5 sm:px-6 sm:py-2">
+        <div className="mx-auto grid max-w-7xl gap-3 rounded-xl border border-blue-500/20 bg-[#06142c]/80 p-3 sm:gap-7 sm:p-7 lg:grid-cols-2 lg:items-center">
           <img
             src="/images/ai/ai-dashboard.png"
             alt="HoneyVision AI surveillance dashboard"
-            className="w-full rounded-lg border border-blue-400/30"
+            className="mx-auto max-h-32 w-full rounded-lg border border-blue-400/30 object-contain sm:max-h-none"
             loading="lazy"
             onError={(e) => {
               e.currentTarget.style.display = "none";
@@ -778,7 +778,7 @@ export default function AiTools() {
               SMARTER SURVEILLANCE
             </span>
 
-            <h2 className="mt-5 text-3xl font-bold sm:text-4xl">
+            <h2 className="mt-3 text-2xl font-bold sm:mt-5 sm:text-4xl">
               Featured{" "}
               <span className="bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">
                 AI
@@ -786,19 +786,19 @@ export default function AiTools() {
               Solutions
             </h2>
 
-            <p className="mt-4 max-w-lg text-slate-400">
+            <p className="mt-2 max-w-lg text-xs leading-5 text-slate-400 sm:mt-4 sm:text-base">
               Advanced AI workflows to help you monitor, analyze and respond smarter.
             </p>
 
-            <div className="mt-6 space-y-5">
+            <div className="mt-3 grid grid-cols-2 gap-3 sm:mt-6 sm:block sm:space-y-5">
               {solutions.map(({ title, description, icon: Icon }) => (
-                <div key={title} className="flex gap-4">
-                  <div className="grid h-12 w-12 shrink-0 place-items-center rounded-lg border border-blue-500/50 bg-blue-500/10 text-blue-300">
-                    <Icon size={23} />
+                <div key={title} className="flex gap-2 sm:gap-4">
+                  <div className="grid h-8 w-8 shrink-0 place-items-center rounded-md border border-blue-500/50 bg-blue-500/10 text-blue-300 sm:h-12 sm:w-12 sm:rounded-lg">
+                    <Icon size={17} className="sm:h-[23px] sm:w-[23px]" />
                   </div>
                   <div>
                     <h3 className="font-semibold">{title}</h3>
-                    <p className="mt-1 text-sm leading-5 text-slate-400">{description}</p>
+                    <p className="mt-1 text-[10px] leading-4 text-slate-400 sm:text-sm sm:leading-5">{description}</p>
                   </div>
                 </div>
               ))}
@@ -807,42 +807,42 @@ export default function AiTools() {
         </div>
       </section>
 
-      <section className="px-3 py-8 sm:px-6">
-        <div className="mx-auto max-w-7xl rounded-xl border border-blue-500/20 bg-[#06142c]/80 p-5 sm:p-7">
-          <h2 className="text-center text-3xl font-bold">
+      <section className="px-2 py-4 sm:px-6 sm:py-8">
+        <div className="mx-auto max-w-7xl rounded-xl border border-blue-500/20 bg-[#06142c]/80 p-3 sm:p-7">
+          <h2 className="text-center text-xl font-bold sm:text-3xl">
             Why Use <span className="text-amber-400">HoneyVision AI?</span>
           </h2>
 
-          <div className="mt-7 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="mt-4 grid grid-cols-2 gap-2 sm:mt-7 sm:grid-cols-2 sm:gap-4 lg:grid-cols-4">
             {advantages.map(({ title, description, icon: Icon, border, iconColor }) => (
-              <article key={title} className={`rounded-xl border ${border} bg-[#07172e] p-6 text-center`}>
-                <Icon className={`mx-auto ${iconColor}`} size={42} />
-                <h3 className="mt-5 text-lg font-semibold">{title}</h3>
-                <p className="mt-3 text-sm leading-6 text-slate-400">{description}</p>
+              <article key={title} className={`rounded-lg border ${border} bg-[#07172e] p-2.5 text-center sm:rounded-xl sm:p-6`}>
+                <Icon className={`mx-auto ${iconColor} sm:h-[42px] sm:w-[42px]`} size={26} />
+                <h3 className="mt-2 text-xs font-semibold sm:mt-5 sm:text-lg">{title}</h3>
+                <p className="mt-1.5 text-[10px] leading-4 text-slate-400 sm:mt-3 sm:text-sm sm:leading-6">{description}</p>
               </article>
             ))}
           </div>
         </div>
       </section>
 
-      <section className="px-3 pb-10 sm:px-6">
-        <div className="relative mx-auto max-w-7xl overflow-hidden rounded-2xl border border-blue-400 bg-gradient-to-r from-purple-900 via-blue-900 to-[#071d4f] p-7 sm:p-10">
+      <section className="px-2 pb-1 sm:px-6 sm:pb-10">
+        <div className="relative mx-auto max-w-7xl overflow-hidden rounded-xl border border-blue-400 bg-gradient-to-r from-purple-900 via-blue-900 to-[#071d4f] p-4 sm:rounded-2xl sm:p-10">
           <div className="relative ml-auto max-w-xl">
-            <h2 className="text-3xl font-bold sm:text-4xl">
+            <h2 className="text-2xl font-bold sm:text-4xl">
               Ready to Experience
               <br />
               AI-Powered Security?
             </h2>
 
-            <p className="mt-4 text-slate-300">
+            <p className="mt-2 text-xs leading-5 text-slate-300 sm:mt-4 sm:text-base">
               Start with the calculators and AI assistant, then connect your production AI APIs.
             </p>
 
-            <div className="mt-6 flex flex-wrap gap-4">
+            <div className="mt-4 flex flex-wrap gap-2 sm:mt-6 sm:gap-4">
               <button
                 type="button"
                 onClick={scrollToTools}
-                className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-6 py-3 font-semibold hover:bg-blue-500"
+                className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-xs font-semibold hover:bg-blue-500 sm:px-6 sm:py-3 sm:text-base"
               >
                 Get Started
                 <ArrowRight size={18} />
@@ -850,7 +850,7 @@ export default function AiTools() {
 
               <Link
                 to="/contact"
-                className="rounded-lg border border-white/50 px-6 py-3 font-semibold hover:bg-white/10"
+                className="rounded-lg border border-white/50 px-4 py-2.5 text-xs font-semibold hover:bg-white/10 sm:px-6 sm:py-3 sm:text-base"
               >
                 Contact Sales
               </Link>

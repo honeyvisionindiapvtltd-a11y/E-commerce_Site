@@ -150,14 +150,14 @@ const Delivery = () => {
 
   return (
 
-    <div className="min-h-screen bg-white text-[#071426]">
+    <div className="delivery-page min-h-screen bg-white text-[#071426]">
 
 
       {/* =====================================================
           HERO SECTION
       ===================================================== */}
 
-      <section className="relative overflow-hidden bg-[#031426]">
+      <section className="delivery-hero relative overflow-hidden bg-[#031426]">
 
         {/* Background glow */}
 
@@ -188,14 +188,14 @@ const Delivery = () => {
         </svg>
 
 
-        <div className="relative mx-auto grid min-h-[520px] max-w-[1500px] grid-cols-1 lg:grid-cols-2">
+        <div className="delivery-hero-layout relative mx-auto grid min-h-[520px] max-w-[1500px] grid-cols-1 lg:grid-cols-2">
 
 
           {/* =================================================
               HERO LEFT
           ================================================= */}
 
-          <div className="relative z-10 flex flex-col justify-center px-6 py-24 lg:px-12 xl:px-16">
+          <div className="delivery-hero-content relative z-10 flex flex-col justify-center px-6 py-24 lg:px-12 xl:px-16">
 
             <p className="mb-4 text-sm font-extrabold tracking-[0.15em] text-[#fbb900]">
               FAST • SAFE • RELIABLE
@@ -254,7 +254,7 @@ const Delivery = () => {
               HERO RIGHT IMAGE
           ================================================= */}
 
-          <div className="relative min-h-[390px] lg:min-h-full">
+          <div className="delivery-hero-image relative min-h-[390px] lg:min-h-full">
 
             <img
               src={deliveryTruck}
@@ -274,7 +274,7 @@ const Delivery = () => {
           DELIVERY PROCESS
       ===================================================== */}
 
-      <section className="mx-auto max-w-[1400px] px-6 py-8 lg:px-10 lg:py-10">
+      <section className="delivery-process-section mx-auto max-w-[1400px] px-6 py-8 lg:px-10 lg:py-10">
 
 
         {/* Heading */}
@@ -309,7 +309,7 @@ const Delivery = () => {
 
         {/* Process cards */}
 
-        <div className="mt-8 grid gap-4 md:grid-cols-5">
+        <div className="delivery-process-grid mt-8 grid gap-4 md:grid-cols-5">
 
           {deliverySteps.map((step, index) => {
 
@@ -319,7 +319,7 @@ const Delivery = () => {
 
               <div
                 key={step.number}
-                className="relative rounded-xl border border-gray-200 bg-white px-5 py-5 text-center shadow-sm transition hover:-translate-y-1 hover:border-[#fbb900] hover:shadow-md"
+                className="delivery-process-card relative rounded-xl border border-gray-200 bg-white px-5 py-5 text-center shadow-sm transition hover:-translate-y-1 hover:border-[#fbb900] hover:shadow-md"
               >
 
                 {/* Arrow */}
@@ -383,17 +383,17 @@ const Delivery = () => {
           DELIVERY INFORMATION + TRACKING
       ===================================================== */}
 
-      <section className="mx-auto max-w-[1400px] px-6 pb-8 lg:px-10">
+      <section className="delivery-info-section mx-auto max-w-[1400px] px-6 pb-8 lg:px-10">
 
 
-        <div className="grid gap-5 lg:grid-cols-[0.9fr_1.1fr]">
+        <div className="delivery-info-grid grid gap-5 lg:grid-cols-[0.9fr_1.1fr]">
 
 
           {/* =================================================
               DELIVERY INFORMATION
           ================================================= */}
 
-          <div className="rounded-xl border border-gray-200 bg-white p-7 shadow-sm">
+          <div className="delivery-info-card rounded-xl border border-gray-200 bg-white p-7 shadow-sm">
 
             <h2 className="text-2xl font-extrabold">
               Delivery Information
@@ -410,7 +410,7 @@ const Delivery = () => {
 
                   <div
                     key={item.title}
-                    className="flex gap-4"
+                    className="delivery-information-item flex gap-4"
                   >
 
                     <div className="flex h-11 w-11 shrink-0 items-center justify-center">
@@ -461,7 +461,7 @@ const Delivery = () => {
               ORDER TRACKING
           ================================================= */}
 
-          <div className="rounded-xl border border-gray-200 bg-white p-7 shadow-sm">
+          <div className="delivery-tracking-card rounded-xl border border-gray-200 bg-white p-7 shadow-sm">
 
             <div>
 
@@ -524,7 +524,7 @@ const Delivery = () => {
 
             {/* MAP */}
 
-            <div className="relative mt-5 h-[190px] overflow-hidden rounded-xl bg-[#edf3f8]">
+            <div className="delivery-tracking-map relative mt-5 h-[190px] overflow-hidden rounded-xl bg-[#edf3f8]">
 
               {/* Fake map roads */}
 
@@ -608,7 +608,7 @@ const Delivery = () => {
 
             {/* Timeline */}
 
-            <div className="relative mt-8">
+            <div className="delivery-timeline relative mt-8">
 
               <div className="absolute left-[5%] right-[5%] top-[8px] h-[3px] bg-gray-300" />
 
@@ -656,11 +656,11 @@ const Delivery = () => {
           WHY CUSTOMERS LOVE DELIVERY
       ===================================================== */}
 
-      <section className="mx-auto max-w-[1400px] px-6 pb-8 lg:px-10">
+      <section className="delivery-benefits-section mx-auto max-w-[1400px] px-6 pb-8 lg:px-10">
 
         <div className="overflow-hidden rounded-xl bg-[#061a36]">
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4">
+          <div className="delivery-benefits-grid grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4">
 
             {benefits.map((benefit, index) => {
 
@@ -670,7 +670,7 @@ const Delivery = () => {
 
                 <div
                   key={benefit.title}
-                  className={`flex items-center gap-4 p-6 lg:px-7 ${
+                  className={`delivery-benefit-item flex items-center gap-4 p-6 lg:px-7 ${
                     index !== benefits.length - 1
                       ? "border-b border-white/20 lg:border-b-0 lg:border-r"
                       : ""
@@ -714,16 +714,16 @@ const Delivery = () => {
           HELP CTA
       ===================================================== */}
 
-      <section className="mx-auto max-w-[1400px] px-6 pb-10 lg:px-10">
+      <section className="delivery-help-section mx-auto max-w-[1400px] px-6 pb-10 lg:px-10">
 
-        <div className="relative overflow-hidden rounded-xl border border-[#f5d88a] bg-[#fffdf6]">
+        <div className="delivery-help-panel relative overflow-hidden rounded-xl border border-[#f5d88a] bg-[#fffdf6]">
 
-          <div className="grid items-center gap-6 p-6 md:grid-cols-[180px_1fr_auto] lg:p-7">
+          <div className="delivery-help-grid grid items-center gap-6 p-6 md:grid-cols-[180px_1fr_auto] lg:p-7">
 
 
             {/* BOX IMAGE */}
 
-            <div className="flex justify-center">
+            <div className="delivery-help-image flex justify-center">
 
               <img
                 src={deliveryBox}

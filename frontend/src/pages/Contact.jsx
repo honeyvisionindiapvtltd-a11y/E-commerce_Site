@@ -19,11 +19,11 @@ const ContactHero = "https://res.cloudinary.com/vhrkwyzs/image/upload/v178618962
 
 export default function Contact() {
   return (
-    <section className="bg-[#f5f7fb] min-h-screen">
+    <section className="contact-page min-h-screen bg-[#f5f7fb]">
 
       {/* ================= HERO ================= */}
 
-      <section className="relative overflow-hidden bg-gradient-to-r from-[#061324] via-[#0B2A4A] to-[#113D67]">
+      <section className="contact-hero relative overflow-hidden bg-gradient-to-r from-[#061324] via-[#0B2A4A] to-[#113D67]">
 
         {/* Background */}
 
@@ -35,13 +35,13 @@ export default function Contact() {
 
         </div>
 
-        <div className="relative max-w-screen-2xl mx-auto px-6 lg:px-12">
+        <div className="contact-hero-layout relative mx-auto max-w-screen-2xl px-6 lg:px-12">
 
-          <div className="grid lg:grid-cols-2 items-center min-h-[280px] lg:min-h-[320px]">
+          <div className="contact-hero-grid grid min-h-[280px] items-center lg:min-h-[320px] lg:grid-cols-2">
 
             {/* Left */}
 
-            <div className="py-16 lg:py-20">
+            <div className="contact-hero-content py-16 lg:py-20">
 
               <div className="w-16 h-1 bg-[#FDB913] rounded-full mb-8"></div>
 
@@ -70,7 +70,7 @@ export default function Contact() {
 
             {/* Right */}
 
-            <div className="flex justify-center lg:justify-end">
+            <div className="contact-hero-image flex justify-center lg:justify-end">
 
               <img
                 src={ContactHero}
@@ -88,9 +88,9 @@ export default function Contact() {
 
       {/* ================= CONTENT STARTS HERE ================= */}
 
-      <div className="max-w-screen-2xl mx-auto px-6 lg:px-12 py-12">
+      <div className="contact-content mx-auto max-w-screen-2xl px-6 py-12 lg:px-12">
 
-        <div className="grid lg:grid-cols-12 gap-8">
+        <div className="contact-content-grid grid gap-8 lg:grid-cols-12">
 
                     {/* ================= LEFT CONTACT INFO ================= */}
 
@@ -112,7 +112,7 @@ export default function Contact() {
                 href={companyInfo.locationHref}
                 target="_blank"
                 rel="noreferrer"
-                className="bg-white rounded-2xl shadow-sm hover:shadow-lg transition-all duration-300 p-6 flex gap-5 border border-gray-100"
+                className="contact-info-card flex gap-5 rounded-2xl border border-gray-100 bg-white p-6 shadow-sm transition-all duration-300 hover:shadow-lg"
               >
 
                 <div className="w-16 h-16 rounded-2xl bg-[#071426] flex items-center justify-center flex-shrink-0">
@@ -145,7 +145,7 @@ export default function Contact() {
 
               <a
                 href={`mailto:${companyInfo.infoEmail}`}
-                className="bg-white rounded-2xl shadow-sm hover:shadow-lg transition-all duration-300 p-6 flex gap-5 border border-gray-100"
+                className="contact-info-card flex gap-5 rounded-2xl border border-gray-100 bg-white p-6 shadow-sm transition-all duration-300 hover:shadow-lg"
               >
 
                 <div className="w-16 h-16 rounded-2xl bg-[#071426] flex items-center justify-center flex-shrink-0">
@@ -176,7 +176,7 @@ export default function Contact() {
 
               <a
                 href={`tel:${companyInfo.phoneRaw}`}
-                className="bg-white rounded-2xl shadow-sm hover:shadow-lg transition-all duration-300 p-6 flex gap-5 border border-gray-100"
+                className="contact-info-card flex gap-5 rounded-2xl border border-gray-100 bg-white p-6 shadow-sm transition-all duration-300 hover:shadow-lg"
               >
 
                 <div className="w-16 h-16 rounded-2xl bg-[#071426] flex items-center justify-center flex-shrink-0">
@@ -207,7 +207,7 @@ export default function Contact() {
 
               <a
                 href={`mailto:${companyInfo.supportEmail}`}
-                className="bg-white rounded-2xl shadow-sm hover:shadow-lg transition-all duration-300 p-6 flex gap-5 border border-gray-100"
+                className="contact-info-card flex gap-5 rounded-2xl border border-gray-100 bg-white p-6 shadow-sm transition-all duration-300 hover:shadow-lg"
               >
 
                 <div className="w-16 h-16 rounded-2xl bg-[#071426] flex items-center justify-center flex-shrink-0">
@@ -236,7 +236,7 @@ export default function Contact() {
 
               {/* Working Hours */}
 
-              <div className="bg-white rounded-2xl shadow-sm hover:shadow-lg transition-all duration-300 p-6 flex gap-5 border border-gray-100">
+              <div className="contact-info-card flex gap-5 rounded-2xl border border-gray-100 bg-white p-6 shadow-sm transition-all duration-300 hover:shadow-lg">
 
                 <div className="w-16 h-16 rounded-2xl bg-[#071426] flex items-center justify-center flex-shrink-0">
 
@@ -282,7 +282,7 @@ export default function Contact() {
 
           <div className="lg:col-span-6">
 
-                        <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-8">
+                        <div className="contact-form-panel rounded-3xl border border-gray-100 bg-white p-8 shadow-sm">
 
               <h2 className="text-4xl font-bold text-[#071426]">
 
@@ -425,7 +425,7 @@ export default function Contact() {
 
                         {/* Why Choose Honey Vision */}
 
-            <div className="bg-gradient-to-b from-[#071426] to-[#0B315A] rounded-3xl p-8 text-white shadow-lg">
+            <div className="contact-why-panel rounded-3xl bg-gradient-to-b from-[#071426] to-[#0B315A] p-8 text-white shadow-lg">
 
               <h2 className="text-3xl font-bold leading-snug">
 
@@ -551,7 +551,7 @@ export default function Contact() {
 
             {/* Call Card */}
 
-            <div className="mt-6 bg-[#FFF7E8] border border-[#FFE29A] rounded-3xl p-6">
+            <div className="contact-call-panel mt-6 rounded-3xl border border-[#FFE29A] bg-[#FFF7E8] p-6">
 
               <div className="flex items-center gap-4">
 
@@ -603,11 +603,11 @@ export default function Contact() {
 
         {/* Bottom Feature Strip */}
 
-        <div className="mt-10 rounded-3xl overflow-hidden bg-gradient-to-r from-[#071426] to-[#0B315A]">
+        <div className="contact-feature-strip mt-10 overflow-hidden rounded-3xl bg-gradient-to-r from-[#071426] to-[#0B315A]">
 
           <div className="grid lg:grid-cols-5 divide-x divide-white/10">
 
-            <div className="flex items-center gap-4 p-8">
+            <div className="contact-feature-item flex items-center gap-4 p-8">
 
               <ShieldCheck className="text-[#FDB913]" size={42} />
 
@@ -629,7 +629,7 @@ export default function Contact() {
 
             </div>
 
-            <div className="flex items-center gap-4 p-8">
+            <div className="contact-feature-item flex items-center gap-4 p-8">
 
               <Award className="text-[#FDB913]" size={42} />
 
@@ -651,7 +651,7 @@ export default function Contact() {
 
             </div>
 
-            <div className="flex items-center gap-4 p-8">
+            <div className="contact-feature-item flex items-center gap-4 p-8">
 
               <Headphones className="text-[#FDB913]" size={42} />
 
@@ -673,7 +673,7 @@ export default function Contact() {
 
             </div>
 
-            <div className="flex items-center gap-4 p-8">
+            <div className="contact-feature-item flex items-center gap-4 p-8">
 
               <Truck className="text-[#FDB913]" size={42} />
 
@@ -695,7 +695,7 @@ export default function Contact() {
 
             </div>
 
-            <div className="flex items-center gap-4 p-8">
+            <div className="contact-feature-item flex items-center gap-4 p-8">
 
               <BadgeCheck className="text-[#FDB913]" size={42} />
 

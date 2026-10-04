@@ -132,7 +132,7 @@ export default function Home() {
           <ServicesOffers />
         </div>
 
-        <div className="home-section-shell home-section-catalog px-3 pb-8 sm:px-6">
+        <div className="home-section-shell home-section-catalog px-3 pb-0 sm:px-6 sm:pb-8">
           <AutoProductShowcase />
         </div>
       </div>

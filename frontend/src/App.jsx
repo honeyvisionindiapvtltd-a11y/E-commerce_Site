@@ -262,7 +262,7 @@ function App() {
       {!isAdminRoute && !isDeliveryAgentRoute && !isCheckoutRoute && (
         <Navbar isDarkTheme={isDarkTheme} onToggleTheme={() => setIsDarkTheme((value) => !value)} />
       )}
-      <div className="page-content pb-16 lg:pb-0">
+      <div className={`page-content ${location.pathname === '/' || location.pathname === '/ai-tools' ? 'pb-0' : 'pb-16 lg:pb-0'}`}>
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/about" element={<About />} />
