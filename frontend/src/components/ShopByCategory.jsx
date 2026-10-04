@@ -52,7 +52,7 @@ export default function ShopByCategory({ className = "", title = "Shop by Catego
   };
 
   return (
-    <section className={`shop-category-section w-full overflow-x-hidden px-0 py-6 sm:px-0 ${className}`}>
+    <section className={`shop-category-section w-full overflow-x-hidden px-0 py-3 sm:px-0 sm:py-4 ${className}`}>
       <div className="shop-category-panel rounded-[22px] bg-white p-3 shadow-sm sm:p-4">
         <div className="mb-4 flex items-center justify-between gap-3 sm:mb-5">
           <h2 className="text-lg font-bold text-slate-900 sm:text-xl">{title}</h2>

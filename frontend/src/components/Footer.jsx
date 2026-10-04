@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
   Phone,
@@ -16,6 +17,22 @@ import { companyInfo } from "../config/companyInfo.js";
 
 export default function Footer() {
   const navigate = useNavigate();
+  const footerRef = useRef(null);
+
+  useEffect(() => {
+    const footer = footerRef.current;
+    if (!footer || !("IntersectionObserver" in window)) return undefined;
+
+    const observer = new IntersectionObserver(([entry]) => {
+      document.documentElement.classList.toggle("site-footer-visible", entry.isIntersecting);
+    });
+
+    observer.observe(footer);
+    return () => {
+      observer.disconnect();
+      document.documentElement.classList.remove("site-footer-visible");
+    };
+  }, []);
 
   const categoryLinks = [
     ["Laptops", "laptops"],
@@ -65,13 +82,13 @@ export default function Footer() {
   };
 
   return (
-    <footer className="bg-[#06142B] text-gray-300">
+    <footer ref={footerRef} className="site-footer bg-[#06142B] text-gray-300">
 
       {/* Top Section */}
 
-      <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 sm:py-12">
+      <div className="footer-main mx-auto max-w-7xl px-4 py-8 sm:px-6 sm:py-12">
 
-        <div className="grid grid-cols-2 gap-x-5 gap-y-8 sm:gap-10 lg:grid-cols-5">
+        <div className="footer-main-grid grid grid-cols-2 gap-x-5 gap-y-8 sm:gap-10 lg:grid-cols-5">
 
           {/* Company */}
 
@@ -83,7 +100,7 @@ export default function Footer() {
               className="h-10 sm:h-12"
             />
 
-            <p className="mt-4 max-w-sm text-xs leading-5 text-slate-300 sm:text-sm sm:leading-6">
+            <p className="footer-company-description mt-4 max-w-sm text-xs leading-5 text-slate-300 sm:text-sm sm:leading-6">
               Honey Vision is your trusted destination
               for laptops, desktops, CCTV cameras,
               drones, networking equipment,
@@ -92,7 +109,7 @@ export default function Footer() {
               installation services.
             </p>
 
-            <div className="mt-5 space-y-2.5 text-xs sm:mt-6 sm:space-y-3 sm:text-sm">
+            <div className="footer-contact-details mt-5 space-y-2.5 text-xs sm:mt-6 sm:space-y-3 sm:text-sm">
 
               <div className="flex gap-3">
                 <MapPin size={16} className="shrink-0 text-yellow-400"/>
@@ -187,7 +204,7 @@ export default function Footer() {
               Stay Updated
             </h3>
 
-            <p className="max-w-sm text-xs leading-5 sm:text-sm sm:leading-6">
+            <p className="footer-newsletter-description max-w-sm text-xs leading-5 sm:text-sm sm:leading-6">
               Subscribe to receive the latest
               product launches, offers and
               technology updates.
@@ -221,7 +238,7 @@ export default function Footer() {
 
       {/* Features */}
 
-      <div className="border-t border-gray-700">
+      <div className="footer-features border-t border-gray-700">
 
         <div className="mx-auto max-w-7xl px-4 py-5 sm:px-6 sm:py-7">
 
@@ -253,7 +270,7 @@ export default function Footer() {
 
       <div className="border-t border-gray-700">
 
-        <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-3 px-4 py-4 text-center text-xs sm:px-6 sm:py-5 sm:text-sm lg:flex-row lg:text-left">
+        <div className="footer-bottom mx-auto flex max-w-7xl flex-col items-center justify-between gap-3 px-4 py-4 text-center text-xs sm:px-6 sm:py-5 sm:text-sm lg:flex-row lg:text-left">
 
           <p>
             © 2026 Honey Vision Pvt. Ltd. All Rights Reserved.

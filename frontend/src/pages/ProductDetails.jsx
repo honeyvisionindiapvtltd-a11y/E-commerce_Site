@@ -5,6 +5,7 @@ import DeliveryAvailability from "../components/DeliveryAvailability";
 import ReviewCard from "../components/ReviewCard";
 import ShopByCategory from "../components/ShopByCategory";
 import { getProductGallery, money, normalizeProduct } from "../lib/products";
+import { getRecentlyViewed, trackRecentlyViewed } from "../lib/recentlyViewed";
 import { getCanonicalUrl, removeJsonLd, setJsonLd, setPageMetadata } from "../utils/seoMetadata";
 import {
   Heart,
@@ -47,20 +48,16 @@ function getDiscountPercent(price, mrp) {
 }
 
 function ProductImage({ src, alt, className = "", style }) {
-  const [failed, setFailed] = useState(false);
-
-  useEffect(() => {
-    setFailed(false);
-  }, [src]);
+  const [failedSrc, setFailedSrc] = useState("");
 
   return (
     <img
-      src={!failed && src ? src : FALLBACK_IMAGE}
+      src={src && failedSrc !== src ? src : FALLBACK_IMAGE}
       alt={alt}
       className={className}
       style={style}
       loading="lazy"
-      onError={() => setFailed(true)}
+      onError={() => setFailedSrc(src)}
     />
   );
 }
@@ -109,26 +106,126 @@ function MiniBenefit({ icon: Icon, title, subtitle, iconClass }) {
   );
 }
 
+const productPromoSlides = [
+  {
+    title: "Smart Security Upgrades",
+    subtitle: "Get premium protection and installation-ready essentials for every corner of your home.",
+    button: "Explore Deals",
+    href: "/products",
+    accent: "#f2b900",
+    gradient: "linear-gradient(135deg, #fff7d6 0%, #f7f0ff 45%, #eef6ff 100%)",
+  },
+  {
+    title: "Bundle & Save More",
+    subtitle: "Pair cameras, storage and accessories to build a complete surveillance setup with extra savings.",
+    button: "View Bundles",
+    href: "/products",
+    accent: "#0f766e",
+    gradient: "linear-gradient(135deg, #ecfeff 0%, #dbeafe 48%, #fef3c7 100%)",
+  },
+  {
+    title: "Expert Support Included",
+    subtitle: "Talk to our team for product guidance, installation help and system recommendations.",
+    button: "Book a Call",
+    href: "/contact",
+    accent: "#2563eb",
+    gradient: "linear-gradient(135deg, #e0f2fe 0%, #f5f3ff 45%, #fefce8 100%)",
+  },
+];
+
+function ProductPromoBannerStrip() {
+  const [activeIndex, setActiveIndex] = useState(0);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      setActiveIndex((current) => (current + 1) % productPromoSlides.length);
+    }, 3500);
+
+    return () => window.clearInterval(timer);
+  }, []);
+
+  return (
+    <section className="product-banner-strip mt-4">
+      <div className="product-banner-viewport">
+        <div
+          className="product-banner-track"
+          style={{ transform: `translateX(-${activeIndex * 100}%)` }}
+        >
+          {productPromoSlides.map((slide) => (
+            <article
+              key={slide.title}
+              className="product-banner-slide"
+              style={{ background: slide.gradient }}
+            >
+              <div className="product-banner-copy">
+                <span
+                  className="product-banner-kicker"
+                  style={{ color: slide.accent }}
+                >
+                  Honey Vision
+                </span>
+                <h3>{slide.title}</h3>
+                <p>{slide.subtitle}</p>
+                <Link to={slide.href} className="product-banner-button">
+                  {slide.button}
+                </Link>
+              </div>
+
+              <div
+                className="product-banner-badge"
+                style={{ backgroundColor: slide.accent }}
+              >
+                Special Offer
+              </div>
+            </article>
+          ))}
+        </div>
+      </div>
+
+      <div className="product-banner-dots" aria-label="Banner navigation">
+        {productPromoSlides.map((slide, index) => (
+          <button
+            key={`${slide.title}-dot`}
+            type="button"
+            aria-label={`Go to banner ${index + 1}`}
+            className={index === activeIndex ? "is-active" : ""}
+            onClick={() => setActiveIndex(index)}
+          />
+        ))}
+      </div>
+    </section>
+  );
+}
+
 export default function ProductDetails() {
   const { productId } = useParams();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { products, addToCart, addBundleToCart, toggleWishlist, wishlist } = useCommerce();
+  const { products, user, addToCart, addBundleToCart, toggleWishlist, wishlist } = useCommerce();
+  const userId = user?.id || user?._id || null;
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
   const purchaseBoxRef = useRef(null);
   const [showMobilePurchaseBar, setShowMobilePurchaseBar] = useState(false);
-  const [selectedImage, setSelectedImage] = useState("");
-  const [imageIndex, setImageIndex] = useState(0);
+  const [imageSelection, setImageSelection] = useState({ productId: null, index: 0 });
   const [quantity, setQuantity] = useState(1);
   const [activeTab, setActiveTab] = useState("overview");
   const [descriptionExpanded, setDescriptionExpanded] = useState(false);
   const [specificationsExpanded, setSpecificationsExpanded] = useState(false);
   const [shareStatus, setShareStatus] = useState("");
   const [cartStatus, setCartStatus] = useState("");
-  const [recentlyViewed, setRecentlyViewed] = useState([]);
+  const recentlyViewed = useMemo(
+    () => getRecentlyViewed(userId)
+      .filter((id) => String(id) !== String(product?.id))
+      .map((id) => products.find((item) => String(item.id) === String(id)))
+      .filter(Boolean)
+      .slice(0, 4)
+      .map((item) => normalizeProduct(item)),
+    [product?.id, products, userId]
+  );
   const [relatedCatalogProducts, setRelatedCatalogProducts] = useState([]);
   const [relatedProductsLoading, setRelatedProductsLoading] = useState(false);
+  const galleryTouchStartX = useRef(null);
   const [bundleResponse, setBundleResponse] = useState({ productId: "", status: "idle", bundles: [] });
   const [addingBundleId, setAddingBundleId] = useState("");
   const [bundleCartMessage, setBundleCartMessage] = useState("");
@@ -140,7 +237,11 @@ export default function ProductDetails() {
     if (!purchaseBox) return undefined;
 
     const updateVisibility = () => {
-      setShowMobilePurchaseBar(purchaseBox.getBoundingClientRect().bottom < 0);
+      const purchaseBoxPassed = purchaseBox.getBoundingClientRect().bottom < 0;
+      const footerTop = document.querySelector(".site-footer")?.getBoundingClientRect().top;
+      const footerVisible = footerTop !== undefined && footerTop < window.innerHeight;
+
+      setShowMobilePurchaseBar(purchaseBoxPassed && !footerVisible);
     };
 
     updateVisibility();
@@ -266,6 +367,12 @@ export default function ProductDetails() {
     let cancelled = false;
 
     async function loadProduct() {
+      if (!productId) {
+        setProduct(null);
+        setLoading(false);
+        return;
+      }
+
       setLoading(true);
 
       const contextProduct = products.find(
@@ -274,12 +381,7 @@ export default function ProductDetails() {
 
       if (contextProduct && !cancelled) {
         const normalized = normalizeProduct(contextProduct);
-        const gallery = getProductGallery(normalized);
-
         setProduct(normalized);
-        setSelectedImage(
-          gallery[0] || normalized.image || FALLBACK_IMAGE
-        );
       }
 
       try {
@@ -296,12 +398,7 @@ export default function ProductDetails() {
 
         if (apiProduct && !cancelled) {
           const normalized = normalizeProduct(apiProduct);
-          const gallery = getProductGallery(normalized);
-
           setProduct(normalized);
-          setSelectedImage(
-            gallery[0] || normalized.image || FALLBACK_IMAGE
-          );
         }
       } catch {
         if (!cancelled && !contextProduct) {
@@ -314,12 +411,7 @@ export default function ProductDetails() {
       }
     }
 
-    if (productId) {
-      loadProduct();
-    } else {
-      setProduct(null);
-      setLoading(false);
-    }
+    loadProduct();
 
     return () => {
       cancelled = true;
@@ -327,41 +419,45 @@ export default function ProductDetails() {
   }, [productId, products]);
 
   useEffect(() => {
-    if (!product?.id) {
-      setRelatedCatalogProducts([]);
-      setRelatedProductsLoading(false);
-      return undefined;
-    }
-
-    const params = [];
-    if (product.categorySlug) params.push(`category=${encodeURIComponent(product.categorySlug)}`);
-    if (product.subCategorySlug) params.push(`subCategory=${encodeURIComponent(product.subCategorySlug)}`);
-
-    if (!params.length) {
-      setRelatedCatalogProducts([]);
-      setRelatedProductsLoading(false);
-      return undefined;
-    }
-
     let cancelled = false;
-    setRelatedProductsLoading(true);
 
-    Promise.all(params.map(async (param) => {
-      try {
-        const response = await fetch(`${API_BASE}/products?${param}&limit=100`);
-        if (!response.ok) return [];
-        const data = await response.json();
-        const items = Array.isArray(data?.products) ? data.products : [];
-        return items.map(normalizeProduct).filter(Boolean);
-      } catch {
-        return [];
+    async function loadRelatedProducts() {
+      if (!product?.id) {
+        setRelatedCatalogProducts([]);
+        setRelatedProductsLoading(false);
+        return;
       }
-    })).then((results) => {
+
+      const params = [];
+      if (product.categorySlug) params.push(`category=${encodeURIComponent(product.categorySlug)}`);
+      if (product.subCategorySlug) params.push(`subCategory=${encodeURIComponent(product.subCategorySlug)}`);
+
+      if (!params.length) {
+        setRelatedCatalogProducts([]);
+        setRelatedProductsLoading(false);
+        return;
+      }
+
+      setRelatedProductsLoading(true);
+      const results = await Promise.all(params.map(async (param) => {
+        try {
+          const response = await fetch(`${API_BASE}/products?${param}&limit=100`);
+          if (!response.ok) return [];
+          const data = await response.json();
+          const items = Array.isArray(data?.products) ? data.products : [];
+          return items.map(normalizeProduct).filter(Boolean);
+        } catch {
+          return [];
+        }
+      }));
+
       if (!cancelled) {
         setRelatedCatalogProducts(results.flat());
         setRelatedProductsLoading(false);
       }
-    });
+    }
+
+    loadRelatedProducts();
 
     return () => {
       cancelled = true;
@@ -435,42 +531,17 @@ export default function ProductDetails() {
     return [FALLBACK_IMAGE];
   }, [product]);
 
+  const imageIndex = Math.min(
+    imageSelection.productId === product?.id ? imageSelection.index : 0,
+    images.length - 1
+  );
   const visibleThumbs = images;
-
-  useEffect(() => {
-    if (!images.length) {
-      setImageIndex(0);
-      setSelectedImage(FALLBACK_IMAGE);
-      return;
-    }
-
-    const currentIndex = images.indexOf(selectedImage);
-    if (currentIndex >= 0) {
-      setImageIndex(currentIndex);
-    } else {
-      setImageIndex(0);
-      setSelectedImage(images[0]);
-    }
-  }, [images, selectedImage]);
 
   useEffect(() => {
     if (!product?.id) return;
 
-    try {
-      const storageKey = "honeyvision_recently_viewed";
-      const storedIds = JSON.parse(window.localStorage.getItem(storageKey) || "[]");
-      const nextIds = [product.id, ...storedIds.filter((id) => String(id) !== String(product.id))].slice(0, 6);
-      window.localStorage.setItem(storageKey, JSON.stringify(nextIds));
-
-      const viewed = products
-        .filter((item) => nextIds.some((id) => String(id) === String(item.id)) && String(item.id) !== String(product.id))
-        .slice(0, 4)
-        .map((item) => normalizeProduct(item));
-      setRecentlyViewed(viewed);
-    } catch {
-      setRecentlyViewed([]);
-    }
-  }, [product?.id, products]);
+    trackRecentlyViewed(product.id, userId);
+  }, [product?.id, products, userId]);
 
   // Fetch product reviews
   useEffect(() => {
@@ -625,13 +696,35 @@ export default function ProductDetails() {
   };
 
   const selectImage = (index) => {
-    const nextIndex = Math.max(
-      0,
-      Math.min(images.length - 1, index)
-    );
+    if (!images.length) return;
 
-    setImageIndex(nextIndex);
-    setSelectedImage(images[nextIndex]);
+    const nextIndex = index < 0
+      ? images.length - 1
+      : index >= images.length
+        ? 0
+        : index;
+
+    setImageSelection({ productId: product?.id ?? null, index: nextIndex });
+  };
+
+  const handleGalleryTouchStart = (event) => {
+    galleryTouchStartX.current = event.touches[0]?.clientX ?? null;
+  };
+
+  const handleGalleryTouchEnd = (event) => {
+    if (galleryTouchStartX.current === null) return;
+
+    const endX = event.changedTouches[0]?.clientX ?? galleryTouchStartX.current;
+    const deltaX = endX - galleryTouchStartX.current;
+    galleryTouchStartX.current = null;
+
+    if (Math.abs(deltaX) < 35) return;
+
+    if (deltaX < 0) {
+      selectImage(imageIndex + 1);
+    } else {
+      selectImage(imageIndex - 1);
+    }
   };
 
   if (loading && !product) {
@@ -707,7 +800,7 @@ export default function ProductDetails() {
         ];
 
   return (
-    <section className="product-details-page min-h-screen bg-[#f5f7fb] pb-16 pt-4 text-[#071426]">
+    <section className="product-details-page bg-[#f5f7fb] pb-6 pt-4 text-[#071426]">
       <div className="mx-auto max-w-[1450px] px-3 sm:px-5 lg:px-7">
         {/* Breadcrumb */}
         <nav className="mb-4 flex items-center gap-1.5 overflow-hidden px-1 text-xs sm:text-sm">
@@ -795,7 +888,11 @@ export default function ProductDetails() {
 
               {/* Main image panel */}
               <div className="min-w-0 flex-1">
-                <div className="product-main-image product-image-surface relative flex min-h-[330px] items-center justify-center overflow-hidden rounded-[20px] border border-slate-200 bg-[radial-gradient(circle_at_center,#ffffff_0%,#f7f9fc_75%)] sm:min-h-[395px] lg:min-h-[420px]">
+                <div
+                  className="product-main-image product-image-surface relative flex min-h-[330px] items-center justify-center overflow-hidden rounded-[20px] border border-slate-200 bg-[radial-gradient(circle_at_center,#ffffff_0%,#f7f9fc_75%)] sm:min-h-[395px] lg:min-h-[420px]"
+                  onTouchStart={handleGalleryTouchStart}
+                  onTouchEnd={handleGalleryTouchEnd}
+                >
                   {stock <= 0 && (
                     <span className="absolute bottom-4 left-4 z-10 rounded-full bg-red-600 px-3 py-1.5 text-[10px] font-extrabold uppercase tracking-wide text-white shadow-md sm:bottom-5 sm:left-5 sm:text-xs">
                       Out of stock
@@ -842,12 +939,18 @@ export default function ProductDetails() {
                     <ChevronLeft size={18} />
                   </button>
 
-                  <ProductImage
-                    src={images[imageIndex]}
-                    alt={product.name}
-                    className="max-h-[360px] w-[87%] object-contain p-3 transition duration-500 hover:scale-[1.02] sm:max-h-[390px]"
-                    style={{ filter: stock <= 0 ? "grayscale(1)" : "none" }}
-                  />
+                  <div className="product-gallery-slider h-full w-full" style={{ transform: `translateX(-${imageIndex * 100}%)` }}>
+                    {images.map((image, index) => (
+                      <div key={`${image}-${index}`} className="product-gallery-slide h-full w-full">
+                        <ProductImage
+                          src={image}
+                          alt={`${product.name} image ${index + 1}`}
+                          className="max-h-[360px] w-[87%] object-contain p-3 transition duration-500 hover:scale-[1.02] sm:max-h-[390px]"
+                          style={{ filter: stock <= 0 ? "grayscale(1)" : "none" }}
+                        />
+                      </div>
+                    ))}
+                  </div>
 
                   <button
                     type="button"
@@ -1164,12 +1267,12 @@ export default function ProductDetails() {
             </div>
 
             {/* Enquiry */}
-            <div className="product-info-enquiry mt-3 rounded-xl border border-amber-200 bg-[#fffaf0] p-3.5">
-              <p className="text-xs font-extrabold text-slate-800">
+            <div className="product-info-enquiry mt-3 rounded-2xl p-3.5">
+              <p className="text-xs font-extrabold text-[#1a2435]">
                 Need a different model or custom requirement?
               </p>
 
-              <p className="mt-1 text-[10px] leading-4 text-slate-500">
+              <p className="mt-1 text-[10px] leading-4 text-slate-600">
                 Contact our team for alternate models, bulk orders,
                 installation or technical guidance.
               </p>
@@ -1179,7 +1282,7 @@ export default function ProductDetails() {
                   href={`mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent(
                     `Product enquiry: ${product.name}`
                   )}&body=${requestMessage}`}
-                  className="rounded-lg bg-[#071426] px-3 py-2 text-[10px] font-extrabold text-white transition hover:bg-[#0b315a]"
+                  className="rounded-xl bg-[#071426] px-3 py-2 text-[10px] font-extrabold text-white transition hover:bg-[#102c4d]"
                 >
                   Email Us
                 </a>
@@ -1674,18 +1777,7 @@ export default function ProductDetails() {
                       </span>
                     </div>
 
-                    <div className="mt-1.5">
-                      <button
-                        type="button"
-                        onClick={() =>
-                          navigate(`/products/${item.id}`)
-                        }
-                        className="w-full rounded-md border border-slate-200 py-1 text-[10px] font-bold text-slate-700 hover:bg-slate-50"
-                      >
-                        View
-                      </button>
-
-                    </div>
+                    <div className="mt-1.5" />
                   </div>
                 </div>
               )) : (
@@ -1703,6 +1795,8 @@ export default function ProductDetails() {
             title="Shop by Categories"
           />
         )}
+
+        <ProductPromoBannerStrip />
 
       </div>
     </section>
