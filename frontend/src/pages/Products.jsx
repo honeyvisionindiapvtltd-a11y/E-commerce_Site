@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import {
   useSearchParams,
   useNavigate,
+  useLocation,
 } from "react-router-dom";
 
 import {
@@ -38,6 +39,7 @@ export default function Products() {
     useSearchParams();
 
   const navigate = useNavigate();
+  const location = useLocation();
 
   const [products, setProducts] = useState([]);
 
@@ -68,6 +70,21 @@ export default function Products() {
 
   const [apiPages, setApiPages] =
     useState(1);
+
+  useEffect(() => {
+    if (location.hash !== "#product-results") {
+      return undefined;
+    }
+
+    const frame = window.requestAnimationFrame(() => {
+      document.getElementById("product-results")?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    });
+
+    return () => window.cancelAnimationFrame(frame);
+  }, [location.hash, location.key]);
 
   // ==========================================
   // URL PARAMETERS
@@ -790,9 +807,9 @@ export default function Products() {
 
       {/* HEADER */}
       <section className="products-page-header border-b border-slate-200 bg-white">
-        <div className="mx-auto max-w-[1500px] px-3 py-3 sm:px-6 sm:py-7 lg:px-8">
+        <div className="mx-auto max-w-[1500px] px-3 py-3 sm:px-6 sm:py-4 lg:px-8 lg:py-5">
 
-          <div className="mb-2 flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-500 sm:mb-5 sm:text-sm">
+          <div className="mb-2 flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-500 sm:mb-3 sm:text-sm">
 
             <div className="flex flex-wrap items-center gap-2">
               <button
@@ -812,12 +829,12 @@ export default function Products() {
               </span>
             </div>
 
-            <div className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-2 shadow-sm sm:gap-3 sm:px-5 sm:py-3">
+            <div className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-2 shadow-sm sm:gap-3 sm:px-4 sm:py-2">
               <div className="text-[10px] font-medium text-slate-500 sm:text-xs">
                 Products
               </div>
 
-              <div className="text-base font-black text-[#071426] sm:text-xl">
+              <div className="text-base font-black text-[#071426] sm:text-lg">
                 {totalProducts}
               </div>
             </div>
@@ -847,41 +864,6 @@ export default function Products() {
             )}
           </div>
 
-          <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
-
-            <div className="hidden max-w-3xl sm:block">
-
-              <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-amber-50 px-3 py-1.5 text-xs font-bold uppercase tracking-wider text-amber-600">
-                <Sparkles size={14} />
-                HoneyVision IT Store
-              </div>
-
-              <h1 className="text-3xl font-black tracking-tight text-[#071426] sm:text-4xl lg:text-5xl">
-                {pageTitle}
-              </h1>
-
-              <p className="mt-3 text-base leading-7 text-slate-500">
-                {pageSubtitle}
-              </p>
-            </div>
-
-            <div className="hidden items-center gap-3 sm:flex">
-
-              <button
-                type="button"
-                onClick={() =>
-                  window.location.reload()
-                }
-                className="flex h-12 w-12 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:border-amber-400 hover:text-amber-500"
-                title="Refresh products"
-              >
-                <RefreshCw
-                  size={18}
-                />
-              </button>
-
-            </div>
-          </div>
         </div>
       </section>
 
@@ -1023,10 +1005,8 @@ export default function Products() {
 
             <div className="products-mobile-promo mb-6 overflow-hidden rounded-3xl">
               <CategoryLandingHero
-                title={pageTitle}
-                subtitle={
-                  pageSubtitle
-                }
+                title="Technology for work, home & security"
+                subtitle="Reliable devices and accessories for every setup."
               />
             </div>
 
@@ -1215,7 +1195,7 @@ export default function Products() {
               )}
 
               {/* PRODUCT AREA */}
-              <div className="products-grid-area p-3 sm:p-5">
+              <div id="product-results" className="products-grid-area scroll-mt-24 p-3 sm:p-5">
 
                 {error &&
                   !loading && (

@@ -59,6 +59,7 @@ const mobileNavIcons = {
 
 export default function Navbar({ isDarkTheme = false, onToggleTheme }) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [isCompact, setIsCompact] = useState(false);
   const [query, setQuery] = useState("");
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [showCategories, setShowCategories] = useState(false);
@@ -131,6 +132,43 @@ export default function Navbar({ isDarkTheme = false, onToggleTheme }) {
   }, [location.pathname, location.search]);
 
   useEffect(() => {
+    let previousScrollY = window.scrollY;
+    let accumulatedScroll = 0;
+    let scrollDirection = 0;
+
+    const handleScroll = () => {
+      const currentScrollY = window.scrollY;
+      const scrollDifference = currentScrollY - previousScrollY;
+
+      if (currentScrollY < 48) {
+        accumulatedScroll = 0;
+        setIsCompact(false);
+      } else if (scrollDifference !== 0) {
+        const nextDirection = Math.sign(scrollDifference);
+        if (nextDirection !== scrollDirection) {
+          scrollDirection = nextDirection;
+          accumulatedScroll = 0;
+        }
+
+        accumulatedScroll += Math.abs(scrollDifference);
+        const isMobile = window.matchMedia("(max-width: 1023px)").matches;
+        const threshold = isMobile
+          ? nextDirection > 0 ? 44 : 24
+          : nextDirection > 0 ? 14 : 28;
+        if (accumulatedScroll >= threshold) {
+          setIsCompact(nextDirection > 0);
+          accumulatedScroll = 0;
+        }
+      }
+
+      previousScrollY = currentScrollY;
+    };
+
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, [location.pathname]);
+
+  useEffect(() => {
     const handleOutsideClick = (event) => {
       if (navRef.current && navRef.current.contains(event.target)) {
         return;
@@ -186,9 +224,9 @@ export default function Navbar({ isDarkTheme = false, onToggleTheme }) {
 
   return (
     <>
-      <header className="sticky top-0 z-50 w-full bg-[#071426] text-white shadow-lg">
+      <header className={`site-navbar sticky top-0 z-50 w-full ${isDarkTheme ? "bg-[#020b1b]" : "bg-[#071426]"} text-white shadow-lg${isCompact ? " navbar--compact" : ""}`}>
       {/* Top header */}
-      <div className="border-b border-white/10">
+      <div className="navbar-top-row border-b border-white/10">
         <div className="flex h-11 w-full items-center justify-between px-3 text-xs sm:px-6 sm:text-sm">
           <button
             type="button"
@@ -227,7 +265,7 @@ export default function Navbar({ isDarkTheme = false, onToggleTheme }) {
       </div>
 
       {/* Logo, search and icons */}
-      <div className="flex w-full items-center gap-2 px-2 py-2 sm:gap-4 sm:px-6 sm:py-3">
+      <div className="navbar-main-row flex w-full items-center gap-2 px-2 py-2 sm:gap-4 sm:px-6 sm:py-3">
         <button
           type="button"
           onClick={() => setMenuOpen((value) => !value)}
@@ -511,9 +549,9 @@ export default function Navbar({ isDarkTheme = false, onToggleTheme }) {
       )}
 
       {/* Navigation menu */}
-      <nav ref={navRef} className="border-t border-white/10">
+      <nav ref={navRef} className="navbar-primary-nav border-t border-white/10">
         <div className="w-full px-3 sm:px-6">
-          <ul className="hidden h-14 items-center gap-8 text-sm font-medium lg:flex">
+          <ul className="navbar-desktop-links hidden h-14 items-center gap-8 text-sm font-medium lg:flex">
             <li>
               <NavLink
                 to="/"
@@ -681,7 +719,7 @@ function NavIcon({ icon: Icon, label, to, count }) {
       <Icon size={21} />
       <span>{label}</span>
 
-      {count && (
+      {count > 0 && (
         <span className="absolute -right-2 -top-2 grid h-5 w-5 place-items-center rounded-full bg-yellow-500 text-[10px] font-bold text-slate-950">
           {count}
         </span>

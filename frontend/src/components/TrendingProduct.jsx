@@ -96,8 +96,9 @@ export default function TrendingProducts() {
               <button
                 type="button"
                 onClick={() => toggleWishlist(product.id)}
-                className={`absolute right-2 top-2 rounded-full p-1.5 sm:right-3 sm:top-3 sm:p-2 ${isWishlisted ? "bg-red-50 text-red-500" : "bg-slate-100 text-slate-400 hover:text-red-500"}`}
-                aria-label={`Add ${product.name} to wishlist`}
+                className={`absolute right-2 top-2 z-10 rounded-full p-1.5 shadow-sm transition-colors sm:right-3 sm:top-3 sm:p-2 ${isWishlisted ? "bg-red-50 text-red-500" : "bg-slate-100 text-slate-400 hover:text-red-500"}`}
+                aria-label={isWishlisted ? `Remove ${product.name} from wishlist` : `Add ${product.name} to wishlist`}
+                aria-pressed={isWishlisted}
               >
                 <Heart size={16} className="sm:h-[19px] sm:w-[19px]" fill={isWishlisted ? "currentColor" : "none"} />
               </button>
