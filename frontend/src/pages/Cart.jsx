@@ -86,10 +86,11 @@ export default function Cart() {
   }, [missingProductIds, products, loadedProducts]);
 
   const items = validCart
-    .map((item) => ({
-      ...item,
-      product: item.type === "bundle"
-        ? {
+    .map((item) => {
+      if (item.type === "bundle") {
+        return {
+          ...item,
+          product: {
             id: item.productId,
             name: item.bundle?.name || "Bundle",
             image: item.bundle?.products?.[0]?.image || "",
@@ -98,9 +99,19 @@ export default function Cart() {
             features: [],
             delivery: "Availability is checked at checkout",
             installationEligible: false,
-          }
-        : item.product || products.find((product) => String(product.id) === String(item.productId)) || loadedProducts[String(item.productId)],
-    }))
+          },
+        };
+      }
+
+      const product = item.product
+        || products.find((candidate) => String(candidate.id) === String(item.productId))
+        || loadedProducts[String(item.productId)];
+
+      return {
+        ...item,
+        product: product ? normalizeCartProduct(product) : null,
+      };
+    })
     .filter((item) => item.product);
 
   useEffect(() => {
@@ -129,7 +140,7 @@ function CartItem({ item, onQuantity, onRemove }) {
   if (item.type === "bundle") {
     return (
       <article className="grid gap-4 p-5 sm:grid-cols-[100px_minmax(0,1fr)_auto] sm:items-center">
-        <img src={item.product.image} alt={item.product.name} className="h-24 w-24 rounded-xl bg-slate-50 object-contain" />
+        <img src={item.product.image || undefined} alt={item.product.name} className="h-24 w-24 rounded-xl bg-slate-50 object-contain" />
         <div>
           <p className="font-extrabold text-slate-900">{item.product.name}</p>
           <p className="mt-1 text-sm text-slate-500">{(item.bundle?.products || []).map((product) => `${product.name} × ${product.quantity}`).join(" · ")}</p>
@@ -145,7 +156,7 @@ function CartItem({ item, onQuantity, onRemove }) {
     );
   }
 
-  return <article className="grid gap-4 p-5 sm:grid-cols-[100px_minmax(0,1fr)_auto] sm:items-center"><img src={item.product.image} alt={item.product.name} className="h-24 w-24 rounded-xl bg-slate-50 object-contain" /><div><Link to={`/products/${item.productId}`} className="font-extrabold text-slate-900 hover:text-amber-600">{item.product.name}</Link><p className="mt-1 text-sm text-slate-500">{item.product.features.slice(0, 3).join(" · ")}</p><p className="mt-2 flex items-center gap-1 text-sm font-semibold text-green-700"><CheckCircle2 size={15} /> In stock · {item.product.delivery}</p>{item.installation && <p className="mt-2 flex items-center gap-1 text-sm font-semibold text-amber-700"><Wrench size={15} /> Installation service added</p>}<div className="mt-4 flex flex-wrap items-center gap-4"><div className="flex overflow-hidden rounded-lg border border-slate-200"><button onClick={() => onQuantity(item, item.quantity - 1)} className="p-2.5 hover:bg-slate-50"><Minus size={16} /></button><span className="grid w-10 place-items-center border-x border-slate-200 text-sm font-semibold">{item.quantity}</span><button onClick={() => onQuantity(item, item.quantity + 1)} className="p-2.5 hover:bg-slate-50"><Plus size={16} /></button></div><button onClick={() => onRemove(item)} className="flex items-center gap-1 text-sm text-red-500"><Trash2 size={16} /> Remove</button></div></div><div className="sm:text-right"><p className="text-lg font-extrabold">{money(item.product.price * item.quantity)}</p><p className="mt-1 text-sm text-slate-400 line-through">{money(item.product.mrp * item.quantity)}</p></div></article>;
+  return <article className="grid gap-4 p-5 sm:grid-cols-[100px_minmax(0,1fr)_auto] sm:items-center"><img src={item.product.image || undefined} alt={item.product.name} className="h-24 w-24 rounded-xl bg-slate-50 object-contain" /><div><Link to={`/products/${item.productId}`} className="font-extrabold text-slate-900 hover:text-amber-600">{item.product.name}</Link><p className="mt-1 text-sm text-slate-500">{item.product.features.slice(0, 3).join(" · ")}</p><p className="mt-2 flex items-center gap-1 text-sm font-semibold text-green-700"><CheckCircle2 size={15} /> In stock · {item.product.delivery}</p>{item.installation && <p className="mt-2 flex items-center gap-1 text-sm font-semibold text-amber-700"><Wrench size={15} /> Installation service added</p>}<div className="mt-4 flex flex-wrap items-center gap-4"><div className="flex overflow-hidden rounded-lg border border-slate-200"><button onClick={() => onQuantity(item, item.quantity - 1)} className="p-2.5 hover:bg-slate-50"><Minus size={16} /></button><span className="grid w-10 place-items-center border-x border-slate-200 text-sm font-semibold">{item.quantity}</span><button onClick={() => onQuantity(item, item.quantity + 1)} className="p-2.5 hover:bg-slate-50"><Plus size={16} /></button></div><button onClick={() => onRemove(item)} className="flex items-center gap-1 text-sm text-red-500"><Trash2 size={16} /> Remove</button></div></div><div className="sm:text-right"><p className="text-lg font-extrabold">{money(item.product.price * item.quantity)}</p><p className="mt-1 text-sm text-slate-400 line-through">{money(item.product.mrp * item.quantity)}</p></div></article>;
 }
 
 function OrderSummary({ subtotal, discount, shipping, installation, total, couponApplied, setCouponApplied }) { return <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm"><h2 className="text-xl font-extrabold">Order summary</h2>{couponApplied ? <div className="mt-5 flex items-center justify-between rounded-lg border border-dashed border-green-500 bg-green-50 p-3"><span className="flex items-center gap-2 text-sm font-bold text-green-700"><Tag size={17} /> HONEY10 <span className="font-normal">Coupon applied</span></span><button onClick={() => setCouponApplied(false)} className="text-sm font-bold text-green-700">Remove</button></div> : <button onClick={() => setCouponApplied(true)} className="mt-5 w-full rounded-lg border border-dashed border-amber-500 bg-amber-50 p-3 text-sm font-bold text-amber-700">Apply HONEY10 and save 10%</button>}<div className="mt-5 space-y-3 border-b border-slate-200 pb-5 text-sm"><Line label="Subtotal" value={money(subtotal)} /><Line label="Discount (HONEY10)" value={`- ${money(discount)}`} green /><Line label="Shipping" value={shipping ? money(shipping) : "FREE"} green={!shipping} /><Line label="Installation charges" value={money(installation)} /></div><div className="flex items-end justify-between py-5"><span className="font-extrabold">Total amount</span><span className="text-2xl font-extrabold">{money(total)}</span></div><p className="text-right text-xs text-green-700">You save {money(discount)} on this order</p><Link to="/checkout" className="mt-5 block rounded-lg bg-amber-500 px-5 py-3.5 text-center font-extrabold text-slate-950 hover:bg-amber-400">Place order</Link></section>; }

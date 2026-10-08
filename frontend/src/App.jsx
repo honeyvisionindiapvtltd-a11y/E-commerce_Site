@@ -1,12 +1,9 @@
-import { useEffect, useState } from 'react'
+import { lazy, Suspense, useEffect, useState } from 'react'
 import { ArrowUp } from 'lucide-react'
 import { Routes, Route, useLocation, useNavigate, Navigate } from 'react-router-dom'
 import { useCommerce } from './context/index.js'
 import { APIProvider } from '@vis.gl/react-google-maps'
 import { Capacitor } from '@capacitor/core'
-import { Camera } from '@capacitor/camera'
-import { Geolocation } from '@capacitor/geolocation'
-import { PushNotifications } from '@capacitor/push-notifications'
 import { NotificationContainer } from './components/Notifications/NotificationComponents.jsx'
 import useNotifications from './hooks/useNotifications.js'
 import { initializeNativeApp } from './services/nativeInit'
@@ -14,62 +11,62 @@ import { networkStatus } from './services/networkStatus'
 import Navbar from './components/Navbar.jsx'
 import Footer from './components/Footer.jsx'
 import WebLoginPrompt from './components/WebLoginPrompt.jsx'
-import Home from './Home.jsx'
-import About from './pages/About.jsx'
-import Products from './pages/Products.jsx'
-import Categories from './pages/Categories.jsx'
-import Category from './pages/Category.jsx'
-import ProductDetails from './pages/ProductDetails.jsx'
-import Brands from './pages/Brands.jsx'
-import Solutions from './pages/Solutions.jsx'
-import Technology from './pages/Technology.jsx'
-import Services from './pages/Services.jsx'
-import Industries from './pages/Industries.jsx'
-import Blog from './pages/Blog.jsx'
-import Contact from './pages/Contact.jsx'
-import Dashboard from './pages/Dashboard.jsx'
-import Cart from './pages/Cart.jsx'
-import AITools from './pages/AITools.jsx'
-import Wishlist from './pages/Wishlist.jsx'
-import Checkout from './pages/Checkout.jsx'
-import Orders from './pages/Orders.jsx'
-import OrderTracking from './pages/OrderTracking.jsx'
-import Addresses from './pages/Addresses.jsx'
-import Payment from './pages/Payment.jsx'
-import PaymentSuccess from './pages/PaymentSuccess.jsx'
-import PaymentFailure from './pages/PaymentFailure.jsx'
-import Notifications from './pages/Notifications.jsx'
-import AccountSettings from './pages/AccountSettings.jsx'
-import DealerLocator from './pages/DealerLocator.jsx'
-import ComboDeals from './pages/ComboDeals.jsx'
-import Support from './pages/Support.jsx'
-import SupportTickets from './pages/SupportTickets.jsx'
-import SupportTicketDetails from './pages/SupportTicketDetails.jsx'
-import Compare from './pages/Compare.jsx'
-import Login from './pages/Login.jsx'
-import ForgotPassword from './pages/ForgotPassword.jsx'
-import ResetPassword from './pages/ResetPassword.jsx'
-import Profile from './pages/Profile.jsx'
-import EditProfile from './pages/EditProfile.jsx'
-import Delivery from './pages/Delivery.jsx'
-import DeliveryAgentDashboard from './pages/DeliveryAgentDashboard.jsx'
-import AgentInstallationDashboard from './pages/AgentInstallationDashboard.jsx'
-import Installation from './pages/Installation.jsx'
-import InstallationSuccess from './pages/InstallationSuccess.jsx'
-import InstallationPaymentFailure from './pages/InstallationPaymentFailure.jsx'
-import InstallationHistory from './pages/InstallationHistory.jsx'
-import CustomerInstallationDetails from './pages/CustomerInstallationDetails.jsx'
-import AMC from "./pages/AMC";
-import MyAMC from "./pages/MyAMC.jsx";
-import RequestDemo from './pages/RequestDemo.jsx'
-import GetStarted from './pages/GetStarted.jsx'
-import ServiceDetail from './pages/ServiceDetail.jsx'
-import ScanProduct from './pages/ScanProduct.jsx'
-import NotFound from './pages/NotFound.jsx'
-import InformationPage from './pages/InformationPage.jsx'
-import Register from './pages/Register.jsx'
-import AdminRoutes from "./pages/admin/AdminRoutes.jsx";
-import TrackOrder from "./pages/TrackOrder";
+const Home = lazy(() => import('./Home.jsx'));
+const About = lazy(() => import('./pages/About.jsx'));
+const Products = lazy(() => import('./pages/Products.jsx'));
+const Categories = lazy(() => import('./pages/Categories.jsx'));
+const Category = lazy(() => import('./pages/Category.jsx'));
+const ProductDetails = lazy(() => import('./pages/ProductDetails.jsx'));
+const Brands = lazy(() => import('./pages/Brands.jsx'));
+const Solutions = lazy(() => import('./pages/Solutions.jsx'));
+const Technology = lazy(() => import('./pages/Technology.jsx'));
+const Services = lazy(() => import('./pages/Services.jsx'));
+const Industries = lazy(() => import('./pages/Industries.jsx'));
+const Blog = lazy(() => import('./pages/Blog.jsx'));
+const Contact = lazy(() => import('./pages/Contact.jsx'));
+const Dashboard = lazy(() => import('./pages/Dashboard.jsx'));
+const Cart = lazy(() => import('./pages/Cart.jsx'));
+const AITools = lazy(() => import('./pages/AITools.jsx'));
+const Wishlist = lazy(() => import('./pages/Wishlist.jsx'));
+const Checkout = lazy(() => import('./pages/Checkout.jsx'));
+const Orders = lazy(() => import('./pages/Orders.jsx'));
+const OrderTracking = lazy(() => import('./pages/OrderTracking.jsx'));
+const Addresses = lazy(() => import('./pages/Addresses.jsx'));
+const Payment = lazy(() => import('./pages/Payment.jsx'));
+const PaymentSuccess = lazy(() => import('./pages/PaymentSuccess.jsx'));
+const PaymentFailure = lazy(() => import('./pages/PaymentFailure.jsx'));
+const Notifications = lazy(() => import('./pages/Notifications.jsx'));
+const AccountSettings = lazy(() => import('./pages/AccountSettings.jsx'));
+const DealerLocator = lazy(() => import('./pages/DealerLocator.jsx'));
+const ComboDeals = lazy(() => import('./pages/ComboDeals.jsx'));
+const Support = lazy(() => import('./pages/Support.jsx'));
+const SupportTickets = lazy(() => import('./pages/SupportTickets.jsx'));
+const SupportTicketDetails = lazy(() => import('./pages/SupportTicketDetails.jsx'));
+const Compare = lazy(() => import('./pages/Compare.jsx'));
+const Login = lazy(() => import('./pages/Login.jsx'));
+const ForgotPassword = lazy(() => import('./pages/ForgotPassword.jsx'));
+const ResetPassword = lazy(() => import('./pages/ResetPassword.jsx'));
+const Profile = lazy(() => import('./pages/Profile.jsx'));
+const EditProfile = lazy(() => import('./pages/EditProfile.jsx'));
+const Delivery = lazy(() => import('./pages/Delivery.jsx'));
+const DeliveryAgentDashboard = lazy(() => import('./pages/DeliveryAgentDashboard.jsx'));
+const AgentInstallationDashboard = lazy(() => import('./pages/AgentInstallationDashboard.jsx'));
+const Installation = lazy(() => import('./pages/Installation.jsx'));
+const InstallationSuccess = lazy(() => import('./pages/InstallationSuccess.jsx'));
+const InstallationPaymentFailure = lazy(() => import('./pages/InstallationPaymentFailure.jsx'));
+const InstallationHistory = lazy(() => import('./pages/InstallationHistory.jsx'));
+const CustomerInstallationDetails = lazy(() => import('./pages/CustomerInstallationDetails.jsx'));
+const AMC = lazy(() => import('./pages/AMC.jsx'));
+const MyAMC = lazy(() => import('./pages/MyAMC.jsx'));
+const RequestDemo = lazy(() => import('./pages/RequestDemo.jsx'));
+const GetStarted = lazy(() => import('./pages/GetStarted.jsx'));
+const ServiceDetail = lazy(() => import('./pages/ServiceDetail.jsx'));
+const ScanProduct = lazy(() => import('./pages/ScanProduct.jsx'));
+const NotFound = lazy(() => import('./pages/NotFound.jsx'));
+const InformationPage = lazy(() => import('./pages/InformationPage.jsx'));
+const Register = lazy(() => import('./pages/Register.jsx'));
+const AdminRoutes = lazy(() => import('./pages/admin/AdminRoutes.jsx'));
+const TrackOrder = lazy(() => import('./pages/TrackOrder.jsx'));
 import ChatWidget from "./components/chat/ChatWidget.jsx";
 import NotificationCenter from "./components/Notifications/NotificationCenter.jsx";
 import './App.css'
@@ -86,41 +83,6 @@ function RoleRoute({ roles, children }) {
   return children;
 }
 
-function NativeWelcome({ onLogin, onSkip }) {
-  return (
-    <div className="fixed inset-0 z-100 flex items-end justify-center bg-[#061a38]/55 p-3 backdrop-blur-sm sm:items-center">
-      <div className="w-full max-w-md rounded-2xl bg-white p-6 text-[#123563] shadow-2xl sm:p-8">
-        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-[#123563] text-xl font-black text-amber-400">HV</div>
-        <h2 className="mt-5 text-center text-2xl font-extrabold">Welcome to HoneyVision</h2>
-        <p className="mt-2 text-center text-sm leading-6 text-slate-500">Sign in for orders, saved products, delivery updates, and a faster shopping experience.</p>
-        <div className="mt-6 grid gap-3">
-          <button type="button" onClick={onLogin} className="h-12 rounded-xl bg-[#123563] text-sm font-bold text-white transition hover:bg-[#0b2a54]">Login or Register</button>
-          <button type="button" onClick={onSkip} className="h-12 rounded-xl border border-slate-200 text-sm font-bold text-[#123563] transition hover:bg-slate-50">Skip for now</button>
-        </div>
-        <p className="mt-4 text-center text-[11px] text-slate-400">You can sign in anytime from the account menu.</p>
-      </div>
-    </div>
-  );
-}
-
-async function requestNativePermissions() {
-  if (!Capacitor.isNativePlatform()) return;
-
-  const permissionRequests = [
-    () => Camera.requestPermissions({ permissions: ['camera', 'photos'] }),
-    () => Geolocation.requestPermissions(),
-    () => PushNotifications.requestPermissions(),
-  ];
-
-  for (const requestPermission of permissionRequests) {
-    try {
-      await requestPermission();
-    } catch (error) {
-      console.warn('Optional native permission was not granted:', error);
-    }
-  }
-}
-
 function App() {
   const location = useLocation();
   const navigate = useNavigate();
@@ -131,15 +93,13 @@ function App() {
   const [isDarkTheme, setIsDarkTheme] = useState(() => localStorage.getItem('honey-vision-theme') === 'dark');
   const isWebLoginPage = ['/login', '/register', '/forgot-password', '/reset-password'].includes(location.pathname)
     || location.pathname.startsWith('/reset-password/');
-  const [showWebLoginPrompt, setShowWebLoginPrompt] = useState(() => (
-    !Capacitor.isNativePlatform()
+  const [isWebLoginPromptDismissed, setIsWebLoginPromptDismissed] = useState(() => (
+    Boolean(sessionStorage.getItem('honey-vision-login-prompt-dismissed'))
+  ));
+  const showWebLoginPrompt = !Capacitor.isNativePlatform()
     && !isLoggedIn
     && !isWebLoginPage
-    && !sessionStorage.getItem('honey-vision-login-prompt-dismissed')
-  ));
-  const [showNativeWelcome, setShowNativeWelcome] = useState(() => (
-    Capacitor.isNativePlatform() && !localStorage.getItem('honey-vision-native-welcome')
-  ));
+    && !isWebLoginPromptDismissed;
   const isAdminRoute = location.pathname.startsWith('/admin');
   const isDeliveryAgentRoute = location.pathname.startsWith('/delivery-agent');
   const isCheckoutRoute = ['/checkout', '/payment', '/payment-methods'].includes(location.pathname);
@@ -160,34 +120,10 @@ function App() {
     };
   }, [navigate]);
 
-  const handleNativeLogin = async () => {
-    localStorage.setItem('honey-vision-native-welcome', 'login');
-    setShowNativeWelcome(false);
-    navigate('/login');
-    await requestNativePermissions();
-  };
-
-  const handleNativeSkip = async () => {
-    localStorage.setItem('honey-vision-native-welcome', 'skipped');
-    setShowNativeWelcome(false);
-    await requestNativePermissions();
-  };
-
   const handleDismissWebLoginPrompt = () => {
     sessionStorage.setItem('honey-vision-login-prompt-dismissed', 'true');
-    setShowWebLoginPrompt(false);
+    setIsWebLoginPromptDismissed(true);
   };
-
-  useEffect(() => {
-    if (Capacitor.isNativePlatform()) return;
-    if (isLoggedIn || isWebLoginPage) {
-      setShowWebLoginPrompt(false);
-      return;
-    }
-    if (!sessionStorage.getItem('honey-vision-login-prompt-dismissed')) {
-      setShowWebLoginPrompt(true);
-    }
-  }, [isLoggedIn, isWebLoginPage]);
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark-theme', isDarkTheme);
@@ -274,6 +210,7 @@ function App() {
         <Navbar isDarkTheme={isDarkTheme} onToggleTheme={() => setIsDarkTheme((value) => !value)} />
       )}
       <div className={`page-content ${location.pathname === '/' || location.pathname === '/ai-tools' ? 'pb-0' : 'pb-16 lg:pb-0'}`}>
+        <Suspense fallback={<div className="flex min-h-[50vh] items-center justify-center text-sm font-semibold text-slate-500" role="status">Loading page…</div>}>
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/about" element={<About />} />
@@ -303,7 +240,7 @@ function App() {
           <Route path="/privacy-policy" element={<InformationPage />} />
           <Route path="/terms" element={<InformationPage />} />
           <Route path="/dashboard" element={<RoleRoute roles={["customer"]}><Dashboard /></RoleRoute>} />
-          <Route path="/cart" element={<RoleRoute roles={["customer"]}><Cart /></RoleRoute>} />
+          <Route path="/cart" element={<Cart />} />
           <Route path="/ai-tools" element={<AITools />} />
           <Route path="/wishlist" element={<RoleRoute roles={["customer"]}><Wishlist /></RoleRoute>} />
           <Route path="/orders" element={<RoleRoute roles={["customer"]}><Orders /></RoleRoute>} />
@@ -371,6 +308,7 @@ function App() {
           />
           <Route path="*" element={<NotFound />} />
         </Routes>
+        </Suspense>
       </div>
       {!isAdminRoute && !isDeliveryAgentRoute && !isCheckoutRoute && <Footer />}
       {showBackToTop && !isAdminRoute && !isDeliveryAgentRoute && !isCheckoutRoute && (
@@ -399,9 +337,6 @@ function App() {
 
   const content = (
     <>
-      {showNativeWelcome && !isLoggedIn ? (
-        <NativeWelcome onLogin={handleNativeLogin} onSkip={handleNativeSkip} />
-      ) : null}
       {showWebLoginPrompt && !isLoggedIn && !isWebLoginPage ? (
         <WebLoginPrompt onClose={handleDismissWebLoginPrompt} />
       ) : null}
