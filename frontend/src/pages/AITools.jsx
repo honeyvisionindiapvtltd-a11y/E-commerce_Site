@@ -669,8 +669,8 @@ export default function AiTools() {
               AI POWERED SOLUTIONS
             </span>
 
-            <h1 className="mt-3 text-4xl font-bold tracking-tight sm:mt-6 sm:text-6xl lg:text-7xl">
-              <span className="bg-gradient-to-r from-cyan-400 via-blue-500 to-violet-500 bg-clip-text text-transparent">
+            <h1 className="ai-analytics-display-heading mt-3 text-4xl font-bold tracking-tight sm:mt-6 sm:text-6xl lg:text-7xl">
+              <span className="text-amber-400">
                 AI
               </span>{" "}
               Tools

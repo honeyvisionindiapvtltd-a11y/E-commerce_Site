@@ -178,13 +178,14 @@ export default function ScanProduct() {
   };
 
   const addDetectedToCart = () => {
-    if (!result?.product) return;
+    if (!result?.product || !result.product.availability) return;
     addToCart(result.product.id, 1, false, result.product);
     navigate(`/products/${result.product.id}`);
   };
 
-  const isHighConfidence = safeNumber(result?.confidence, 0) >= 0.82;
-  const availabilityText = result?.product?.stock > 0 ? 'Available' : 'Out of Stock';
+  const isHighConfidence = ['visual-image-match', 'exact-identifier'].includes(result?.matchType);
+  const productAvailable = Boolean(result?.product?.availability ?? safeNumber(result?.product?.stock, 0) > 0);
+  const availabilityText = productAvailable ? 'In Stock' : 'Out of Stock';
 
   return (
     <main className="min-h-screen bg-[#f5f7fb] px-4 py-8 text-slate-900 sm:px-6 lg:px-8">
@@ -268,7 +269,11 @@ export default function ScanProduct() {
                 </div>
 
                 <div className="overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 p-3">
-                  <img src={result.product?.thumbnail || selectedPreview} alt={result.product?.name || 'Matched product'} className="h-52 w-full rounded-xl object-contain bg-white" />
+                  {result.product?.thumbnail ? (
+                    <img src={result.product.thumbnail} alt={result.product?.name || 'Matched product'} className="h-52 w-full rounded-xl object-contain bg-white" />
+                  ) : (
+                    <div className="flex h-52 items-center justify-center rounded-xl bg-white text-sm text-slate-500">Catalog image unavailable</div>
+                  )}
                 </div>
 
                 <div>
@@ -279,11 +284,11 @@ export default function ScanProduct() {
                 <div className="flex items-center justify-between rounded-2xl bg-slate-50 px-4 py-3">
                   <div>
                     <p className="text-xs uppercase tracking-[0.12em] text-slate-500">Confidence</p>
-                    <p className="text-lg font-black text-[#071426]">{safeNumber(result.confidence, 0).toFixed(2)}</p>
+                    <p className="text-lg font-black text-[#071426]">{Math.round(safeNumber(result.confidence, 0) * 100)}%</p>
                   </div>
                   <div className="text-right">
                     <p className="text-xs uppercase tracking-[0.12em] text-slate-500">Availability</p>
-                    <p className={`text-lg font-black ${result.product?.stock > 0 ? 'text-emerald-600' : 'text-red-600'}`}>{result.product?.stock > 0 ? availabilityText : 'Out of Stock'}</p>
+                    <p className={`text-lg font-black ${productAvailable ? 'text-emerald-600' : 'text-red-600'}`}>{availabilityText}</p>
                   </div>
                 </div>
 
@@ -298,8 +303,13 @@ export default function ScanProduct() {
                     View Product <ArrowRight size={16} />
                   </Link>
                   {result.product && (
-                    <button type="button" onClick={addDetectedToCart} className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-amber-400 px-4 py-3 text-sm font-bold text-[#071426] hover:bg-amber-300">
-                      <ShoppingCart size={16} /> Add to Cart
+                    <button
+                      type="button"
+                      onClick={addDetectedToCart}
+                      disabled={!productAvailable}
+                      className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-amber-400 px-4 py-3 text-sm font-bold text-[#071426] transition hover:bg-amber-300 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-500"
+                    >
+                      <ShoppingCart size={16} /> {productAvailable ? 'Add to Cart' : 'Out of Stock'}
                     </button>
                   )}
                 </div>
@@ -321,12 +331,12 @@ export default function ScanProduct() {
                 <div className="mt-3 space-y-3">
                   {possibleMatches.map((match) => (
                     <Link key={match.id} to={`/products/${match.id}`} className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3 transition hover:border-slate-300 hover:bg-white">
-                      <img src={match.thumbnail} alt={match.name} className="h-14 w-14 rounded-xl object-contain bg-white" />
+                      {match.thumbnail && <img src={match.thumbnail} alt={match.name} className="h-14 w-14 rounded-xl object-contain bg-white" />}
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-sm font-bold text-[#071426]">{match.name}</p>
                         <p className="text-xs text-slate-500">{match.brand} • {money(match.price)}</p>
                       </div>
-                      <span className="text-xs font-semibold text-amber-700">{safeNumber(match.confidence, 0).toFixed(2)}</span>
+                      <span className="text-xs font-semibold text-amber-700">{Math.round(safeNumber(match.confidence, 0) * 100)}%</span>
                     </Link>
                   ))}
                 </div>

@@ -1,4 +1,4 @@
-﻿import { Link } from "react-router-dom";
+import { Link } from "react-router-dom";
 import {
   Wrench,
   ShieldCheck,
@@ -35,9 +35,46 @@ const services = [
 
 export default function InstallationSection() {
   return (
-    <section className="home-installation-section bg-white py-4 sm:py-10 lg:py-14">
+    <section className="home-installation-section bg-white py-3 sm:py-10 lg:py-14">
       <div className="mx-auto max-w-6xl px-3 sm:px-6">
-        <div className="grid items-start gap-4 sm:gap-6 lg:grid-cols-2 lg:gap-10">
+        <div className="home-installation-mobile-summary relative isolate overflow-hidden rounded-2xl p-4 shadow-[0_8px_24px_rgba(15,42,75,0.1)] sm:hidden">
+          <div aria-hidden="true" className="pointer-events-none absolute -right-10 -top-12 -z-10 h-36 w-36 rounded-full bg-cyan-200/35 blur-2xl" />
+          <div className="flex items-start gap-3">
+            <div className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-[#0A1931] text-amber-300 shadow-md shadow-blue-950/15">
+              <Wrench size={21} />
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-amber-700">
+                  Installation & AMC
+                </p>
+                <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[9px] font-bold text-emerald-700">
+                  CERTIFIED TEAM
+                </span>
+              </div>
+              <h2 className="mt-1.5 text-base font-extrabold leading-tight text-[#0A1931]">
+                Expert installation, made easy
+              </h2>
+              <p className="mt-1 text-xs leading-4 text-slate-600">
+                CCTV, networking and AMC support at your doorstep.
+              </p>
+            </div>
+          </div>
+          <div className="mt-3 flex items-center justify-between gap-2 border-t border-slate-200/80 pt-3">
+            <span className="text-[10px] font-semibold text-slate-500">
+              Pan-India service
+            </span>
+            <Link
+              to="/services"
+              className="inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-lg bg-amber-400 px-3 py-2 text-xs font-extrabold text-[#071426] shadow-sm transition hover:bg-amber-300"
+            >
+              Explore services
+              <ArrowRight size={14} />
+            </Link>
+          </div>
+        </div>
+
+        <div className="hidden items-start gap-4 sm:grid sm:gap-6 lg:grid-cols-2 lg:gap-10">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-yellow-500 sm:text-sm sm:tracking-widest">
               Installation & AMC
@@ -104,13 +141,13 @@ export default function InstallationSection() {
                     className="mt-2 inline-flex items-center gap-1 text-[11px] font-semibold text-[#0A1931] sm:mt-3 sm:gap-2 sm:text-xs"
                   >
                     Learn More
-                    <ArrowRight size={15} className="sm:h-[18px] sm:w-[18px]" />
+                    <ArrowRight size={15} className="sm:h-4.5 sm:w-4.5" />
                   </Link>
                 </div>
               ))}
             </div>
 
-            <div className="mt-4 rounded-2xl bg-gradient-to-r from-[#06142B] to-[#0A1931] p-3 text-white sm:mt-5 sm:rounded-2xl sm:p-5">
+            <div className="mt-4 rounded-2xl bg-linear-to-r from-[#06142B] to-[#0A1931] p-3 text-white sm:mt-5 sm:rounded-2xl sm:p-5">
               <div className="grid grid-cols-2 gap-3 text-center sm:grid-cols-4 sm:gap-4">
                 <div>
                   <MapPin size={19} className="mx-auto text-yellow-400 sm:h-6 sm:w-6" />

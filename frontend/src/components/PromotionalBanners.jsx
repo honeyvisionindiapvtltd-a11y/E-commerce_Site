@@ -114,7 +114,7 @@ export default function PromotionalBanners() {
 
               <Link
                 to={banner.link}
-                className="mt-3 inline-block rounded-md bg-[#071426] px-3.5 py-2 text-xs font-semibold text-white transition hover:bg-amber-500 hover:text-slate-950 sm:mt-5 sm:px-5 sm:py-2.5 sm:text-sm"
+                className="home-promo-cta mt-3 inline-block rounded-md bg-[#071426] px-3.5 py-2 text-xs font-semibold text-white transition hover:bg-amber-500 hover:text-slate-950 sm:mt-5 sm:px-5 sm:py-2.5 sm:text-sm"
               >
                 {banner.button}
               </Link>

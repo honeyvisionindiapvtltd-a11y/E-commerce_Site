@@ -17,10 +17,10 @@ export default function AutoProductShowcase() {
   return (
     <section className="overflow-hidden bg-white py-3 sm:py-12">
       <div className="mx-auto max-w-7xl px-3 sm:px-6">
-        <div className="mb-5 flex items-end justify-between gap-3">
+        <div className="catalog-showcase-heading mb-5 flex items-end justify-between gap-3">
           <div>
             <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-amber-500">Explore the catalog</p>
-            <h2 className="mt-1 text-2xl font-extrabold text-[#071426] sm:text-3xl">Popular products for every setup</h2>
+            <h2 className="catalog-showcase-title mt-1 text-2xl font-extrabold text-[#071426] sm:text-3xl">Popular products for every setup</h2>
           </div>
           <Link to="/products" className="inline-flex shrink-0 items-center gap-1 text-xs font-bold text-blue-600 hover:text-amber-500 sm:text-sm">
             View all <ArrowRight size={15} />
@@ -33,7 +33,7 @@ export default function AutoProductShowcase() {
               <Link
                 key={`${product.id}-${index}`}
                 to={`/products/${product.id}`}
-                className="group w-[180px] shrink-0 rounded-xl border border-slate-200 bg-slate-50 p-3 transition hover:-translate-y-1 hover:border-amber-300 hover:bg-white hover:shadow-lg sm:w-[230px] sm:p-4"
+                className="catalog-showcase-card group w-[180px] shrink-0 rounded-xl border border-slate-200 bg-slate-50 p-3 transition hover:-translate-y-1 hover:border-amber-300 hover:bg-white hover:shadow-lg sm:w-[230px] sm:p-4"
               >
                 <div className="home-product-image flex h-28 items-center justify-center rounded-lg bg-white sm:h-36">
                   <img src={product.image} alt={product.name} loading="lazy" className="h-full w-full object-contain p-2 transition group-hover:scale-105" />

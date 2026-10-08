@@ -311,7 +311,7 @@ const Services = () => {
             </p>
 
 
-            <h1 className="max-w-[700px] text-4xl font-extrabold leading-[1.05] text-white md:text-5xl">
+            <h1 className="services-display-heading max-w-[700px] text-4xl font-extrabold leading-[1.05] text-white md:text-5xl">
 
               Complete IT Solutions
 

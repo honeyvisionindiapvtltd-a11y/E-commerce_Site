@@ -59,7 +59,10 @@ const mobileNavIcons = {
 
 export default function Navbar({ isDarkTheme = false, onToggleTheme }) {
   const [menuOpen, setMenuOpen] = useState(false);
-  const [isCompact, setIsCompact] = useState(false);
+  const [isCompact, setIsCompact] = useState(() =>
+    typeof window !== "undefined" && window.scrollY > 96
+  );
+  const [isHiddenOnMobile, setIsHiddenOnMobile] = useState(false);
   const [query, setQuery] = useState("");
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [showCategories, setShowCategories] = useState(false);
@@ -133,40 +136,35 @@ export default function Navbar({ isDarkTheme = false, onToggleTheme }) {
 
   useEffect(() => {
     let previousScrollY = window.scrollY;
-    let accumulatedScroll = 0;
-    let scrollDirection = 0;
+    const mobileViewport = window.matchMedia("(max-width: 767px)");
 
     const handleScroll = () => {
       const currentScrollY = window.scrollY;
-      const scrollDifference = currentScrollY - previousScrollY;
 
       if (currentScrollY < 48) {
-        accumulatedScroll = 0;
         setIsCompact(false);
-      } else if (scrollDifference !== 0) {
-        const nextDirection = Math.sign(scrollDifference);
-        if (nextDirection !== scrollDirection) {
-          scrollDirection = nextDirection;
-          accumulatedScroll = 0;
-        }
+      } else if (currentScrollY > 96) {
+        setIsCompact(true);
+      }
 
-        accumulatedScroll += Math.abs(scrollDifference);
-        const isMobile = window.matchMedia("(max-width: 1023px)").matches;
-        const threshold = isMobile
-          ? nextDirection > 0 ? 44 : 24
-          : nextDirection > 0 ? 14 : 28;
-        if (accumulatedScroll >= threshold) {
-          setIsCompact(nextDirection > 0);
-          accumulatedScroll = 0;
-        }
+      if (!mobileViewport.matches || currentScrollY <= 24 || menuOpen) {
+        setIsHiddenOnMobile(false);
+      } else if (currentScrollY > previousScrollY) {
+        setIsHiddenOnMobile(true);
+      } else if (currentScrollY < previousScrollY) {
+        setIsHiddenOnMobile(false);
       }
 
       previousScrollY = currentScrollY;
     };
 
     window.addEventListener("scroll", handleScroll, { passive: true });
-    return () => window.removeEventListener("scroll", handleScroll);
-  }, [location.pathname]);
+    window.addEventListener("resize", handleScroll);
+    return () => {
+      window.removeEventListener("scroll", handleScroll);
+      window.removeEventListener("resize", handleScroll);
+    };
+  }, [location.pathname, menuOpen]);
 
   useEffect(() => {
     const handleOutsideClick = (event) => {
@@ -224,7 +222,7 @@ export default function Navbar({ isDarkTheme = false, onToggleTheme }) {
 
   return (
     <>
-      <header className={`site-navbar sticky top-0 z-50 w-full ${isDarkTheme ? "bg-[#020b1b]" : "bg-[#071426]"} text-white shadow-lg${isCompact ? " navbar--compact" : ""}`}>
+      <header className={`site-navbar sticky top-0 z-50 w-full ${isDarkTheme ? "bg-[#020b1b]" : "bg-[#071426]"} text-white shadow-lg${isCompact ? " navbar--compact" : ""}${isHiddenOnMobile ? " navbar--hidden-mobile" : ""}`}>
       {/* Top header */}
       <div className="navbar-top-row border-b border-white/10">
         <div className="flex h-11 w-full items-center justify-between px-3 text-xs sm:px-6 sm:text-sm">
@@ -346,7 +344,7 @@ export default function Navbar({ isDarkTheme = false, onToggleTheme }) {
         </Link>
 
         {/* Desktop search */}
-        <div ref={searchRef} className="relative hidden flex-1 lg:block">
+        <div ref={searchRef} className="navbar-desktop-search relative hidden flex-1 lg:block">
           <form onSubmit={submitSearch} className="flex h-10 w-full items-center overflow-hidden rounded-lg border border-yellow-400 bg-white shadow-[0_6px_16px_rgba(251,191,36,0.12)] ring-1 ring-yellow-200">
             <button
               type="button"

@@ -45,7 +45,7 @@ export default function Contact() {
 
               <div className="w-16 h-1 bg-[#FDB913] rounded-full mb-8"></div>
 
-              <h1 className="text-6xl font-black text-white leading-none">
+              <h1 className="contact-display-heading text-6xl font-bold text-white leading-none">
 
                 Contact
 

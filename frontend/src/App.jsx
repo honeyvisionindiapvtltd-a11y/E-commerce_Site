@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { ArrowUp } from 'lucide-react'
 import { Routes, Route, useLocation, useNavigate, Navigate } from 'react-router-dom'
 import { useCommerce } from './context/index.js'
 import { APIProvider } from '@vis.gl/react-google-maps'
@@ -126,6 +127,7 @@ function App() {
   const { isLoggedIn, user } = useCommerce();
   const { notifications, removeNotification } = useNotifications();
   const [isOffline, setIsOffline] = useState(() => !navigator.onLine);
+  const [showBackToTop, setShowBackToTop] = useState(() => window.scrollY > 300);
   const [isDarkTheme, setIsDarkTheme] = useState(() => localStorage.getItem('honey-vision-theme') === 'dark');
   const isWebLoginPage = ['/login', '/register', '/forgot-password', '/reset-password'].includes(location.pathname)
     || location.pathname.startsWith('/reset-password/');
@@ -251,6 +253,15 @@ function App() {
     window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
   }, [location.pathname]);
 
+  useEffect(() => {
+    const updateBackToTopVisibility = () => {
+      setShowBackToTop(window.scrollY > 300);
+    };
+
+    window.addEventListener('scroll', updateBackToTopVisibility, { passive: true });
+    return () => window.removeEventListener('scroll', updateBackToTopVisibility);
+  }, []);
+
   const appContent = (
     <div className="app-shell">
       {isOffline && (
@@ -362,11 +373,26 @@ function App() {
         </Routes>
       </div>
       {!isAdminRoute && !isDeliveryAgentRoute && !isCheckoutRoute && <Footer />}
+      {showBackToTop && !isAdminRoute && !isDeliveryAgentRoute && !isCheckoutRoute && (
+        <button
+          type="button"
+          className="back-to-top-button"
+          aria-label="Back to top"
+          title="Back to top"
+          onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+        >
+          <ArrowUp size={16} strokeWidth={2} />
+        </button>
+      )}
       <NotificationContainer 
         notifications={notifications} 
         onRemove={removeNotification} 
       />
-      {isLoggedIn && !isAdminRoute && <div className="fixed right-4 top-4 z-40"><NotificationCenter /></div>}
+      {isLoggedIn && user?.role === 'admin' && location.pathname === '/' && (
+        <div className="mobile-global-notifications fixed right-4 top-4 z-[60] md:hidden">
+          <NotificationCenter />
+        </div>
+      )}
       {!isAdminRoute && !isDeliveryAgentRoute && !isCheckoutRoute && <ChatWidget />}
     </div>
   );

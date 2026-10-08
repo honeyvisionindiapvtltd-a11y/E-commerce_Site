@@ -125,6 +125,23 @@ export default function Categories() {
     return [...categoryProducts, ...remainingProducts].slice(0, 28);
   }, [products, selectedCategory]);
   const featuredProductCount = featuredProducts.length;
+  const accessoryProducts = useMemo(() => {
+    const accessoryPattern = /\b(accessor(?:y|ies)|cables?|cords?|connectors?|adapters?|power supplies|mounts?|brackets?|junction boxes|hdmi|usb|bnc|patch leads?|lan)\b/i;
+    const cameraProductPattern = /\b(camera|cctv|surveillance|ptz|dome|bullet|fisheye|anpr)\b/i;
+    const nonCameraProducts = products.filter((product) => {
+      const details = `${product.name || ""} ${product.category || ""} ${product.subCategory || ""}`;
+      return !cameraProductPattern.test(details);
+    });
+    const accessoryMatches = nonCameraProducts.filter((product) => (
+      accessoryPattern.test(`${product.name || ""} ${product.category || ""} ${product.subCategory || ""}`)
+    ));
+    const accessoryIds = new Set(accessoryMatches.map((product) => String(product.id || product._id)));
+    const remainingProducts = nonCameraProducts.filter(
+      (product) => !accessoryIds.has(String(product.id || product._id))
+    );
+
+    return [...accessoryMatches, ...remainingProducts].slice(0, 12);
+  }, [products]);
 
   useEffect(() => {
     const rail = featuredRailRef.current;
@@ -159,18 +176,18 @@ export default function Categories() {
         <div className="mb-3 hidden items-center gap-2 text-[11px] font-semibold text-[#6f89a8] sm:flex">
           <Link to="/" className="hover:text-[#123563]">Home</Link>
           <ChevronRight size={13} />
-          <span className="text-[#123563]">All Categories</span>
+          <span className="text-[#123563]">Categories</span>
         </div>
 
-        <div className="categories-sticky-bar sticky top-11 z-50 isolate -mx-3 mb-3 block overflow-x-auto bg-[#f4f8fc] px-3 pb-2 pt-1 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8 lg:hidden">
-          <div className="flex min-w-max gap-2">
+        <div className="categories-sticky-bar sticky top-0 z-40 isolate -mx-3 mb-3 block overflow-x-auto bg-white px-3 py-2 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8 lg:hidden">
+          <div className="categories-sticky-track flex min-w-max gap-2">
             <button
               type="button"
               onClick={() => setSelectedCategory("All Categories")}
               aria-pressed={selectedCategory === "All Categories"}
               className={`min-h-11 rounded-full px-3 py-2 text-sm font-semibold transition ${selectedCategory === "All Categories" ? "bg-[#0862c6] text-white shadow-sm" : "border border-[#dbe7f3] bg-white text-[#123563]"}`}
             >
-              All Categories
+              All
             </button>
             {categoryTiles.map((category) => (
               <button
@@ -179,7 +196,7 @@ export default function Categories() {
                 onClick={() => setSelectedCategory(category.name)}
                 ref={selectedCategory === category.name ? selectedCategoryButtonRef : null}
                 aria-pressed={selectedCategory === category.name}
-                className={`min-h-11 rounded-full px-3 py-2 text-sm font-semibold transition ${selectedCategory === category.name ? "bg-[#fff4cf] text-[#123563] shadow-sm" : "border border-[#dbe7f3] bg-white text-[#34577f]"}`}
+                className={`min-h-11 rounded-full px-4 py-2 text-sm font-semibold transition ${selectedCategory === category.name ? "bg-[#0862c6] text-white shadow-sm" : "border border-[#dbe7f3] bg-white text-[#34577f] hover:border-[#0862c6] hover:text-[#0862c6]"}`}
               >
                 {category.name}
               </button>
@@ -188,14 +205,10 @@ export default function Categories() {
         </div>
 
         <div className="lg:grid lg:grid-cols-[220px_minmax(0,1fr)] lg:gap-4">
-          <aside className="categories-sidebar hidden self-start overflow-hidden rounded-xl border border-[#dbe7f3] bg-white shadow-[0_2px_8px_rgba(24,61,103,0.04)] lg:sticky lg:top-24 lg:block lg:max-h-[calc(100vh-7rem)] lg:overflow-y-auto lg:overscroll-contain [scrollbar-width:thin] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-slate-300 [&::-webkit-scrollbar-track]:bg-slate-100">
-            <div className="flex items-center gap-2 border-b border-[#e2ebf4] px-3 py-2.5">
-              <Grid2X2 size={17} className="text-[#123563]" />
-              <h2 className="text-[15px] font-extrabold">All Categories</h2>
-            </div>
+          <aside className="categories-sidebar hidden self-start overflow-hidden rounded-xl border border-[#dbe7f3] bg-white shadow-[0_2px_8px_rgba(24,61,103,0.04)] lg:sticky lg:top-24 lg:block lg:max-h-[calc(100vh-7rem)] lg:overflow-y-auto lg:overscroll-contain">
             <div className="p-1.5">
               <button type="button" onClick={() => setSelectedCategory("All Categories")} className={`flex w-full items-center justify-between rounded-md px-2 py-2.5 text-left text-[11px] font-bold ${selectedCategory === "All Categories" ? "bg-[#0862c6] text-white" : "text-[#123563] hover:bg-[#f1f6fb]"}`}>
-                <span className="truncate">All Categories</span>
+                <span className="truncate">All</span>
                 <ChevronRight size={13} />
               </button>
               {categoryTiles.map((category) => (
@@ -322,6 +335,34 @@ export default function Categories() {
                 </div>
               </div>
             </div>
+
+            {accessoryProducts.length > 0 && (
+              <div className="mt-4 border-t border-[#e4edf5] pt-3 sm:mt-5 sm:pt-4">
+                <div className="mb-2 flex items-center justify-between gap-2">
+                  <h2 className="text-sm font-extrabold sm:text-base">Accessories & Essentials</h2>
+                  <Link to="/products" className="text-[10px] font-semibold text-[#3779b8] sm:text-[11px]">
+                    Shop all <ChevronRight size={10} className="inline" />
+                  </Link>
+                </div>
+                <div className="category-image-product-rail flex gap-2 overflow-x-auto pb-2 sm:gap-3">
+                  {accessoryProducts.map((product, productIndex) => (
+                    <Link
+                      key={`image-${product.id || product._id || product.name}-${productIndex}`}
+                      to={`/products/${product.slug || product.id || product._id}`}
+                      aria-label={`View ${product.name}`}
+                      className="category-image-product group flex h-[76px] w-[76px] shrink-0 items-center justify-center overflow-hidden rounded-lg border border-[#e1ebf4] bg-[#f7fafd] p-1.5 transition hover:border-[#8bb3d7] hover:shadow-sm sm:h-24 sm:w-24 sm:rounded-xl sm:p-2"
+                    >
+                      <img
+                        src={product.image || product.thumbnail || categoryImageFallback}
+                        alt=""
+                        loading="lazy"
+                        className="h-full w-full object-contain transition duration-300 group-hover:scale-105"
+                      />
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </section>

@@ -201,7 +201,7 @@ export default function ProductDetails() {
   const { productId } = useParams();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { products, user, addToCart, addBundleToCart, toggleWishlist, wishlist } = useCommerce();
+  const { products, user, cart, addToCart, addBundleToCart, toggleWishlist, wishlist } = useCommerce();
   const userId = user?.id || user?._id || null;
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -231,6 +231,10 @@ export default function ProductDetails() {
   const [bundleCartMessage, setBundleCartMessage] = useState("");
   const [reviews, setReviews] = useState([]);
   const [reviewsLoading, setReviewsLoading] = useState(false);
+  const isProductInCart = Boolean(product && cart.some(
+    (item) => item.type !== "bundle"
+      && String(item.productId || item.id) === String(product.id)
+  ));
 
   useEffect(() => {
     const purchaseBox = purchaseBoxRef.current;
@@ -645,8 +649,16 @@ export default function ProductDetails() {
   const handleAddToCart = () => {
     if (!product || stock <= 0) return;
     addToCart(product.id, quantity, false, product);
-    setCartStatus(`${quantity} item${quantity === 1 ? "" : "s"} added to cart`);
+    setCartStatus(`${quantity === 1 ? "Product" : `${quantity} products`} added to cart`);
     window.setTimeout(() => setCartStatus(""), 2200);
+  };
+
+  const handleCartButtonClick = () => {
+    if (isProductInCart) {
+      navigate("/cart");
+      return;
+    }
+    handleAddToCart();
   };
 
   const handleQuantityChange = (nextQuantity) => {
@@ -1213,12 +1225,12 @@ export default function ProductDetails() {
               <div className="mt-3 grid gap-2 sm:grid-cols-2">
                 <button
                   type="button"
-                  onClick={handleAddToCart}
+                  onClick={handleCartButtonClick}
                   disabled={stock <= 0}
                   className="inline-flex h-11 items-center justify-center gap-2 rounded-lg border-2 border-[#f2b900] bg-[#fffaf0] px-3 text-xs font-extrabold text-[#071426] transition hover:bg-[#fff3c7] disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <ShoppingCart size={15} />
-                  Add to Cart
+                  {isProductInCart ? "Go to Cart" : "Add to Cart"}
                 </button>
                 <button
                   type="button"
@@ -1231,11 +1243,6 @@ export default function ProductDetails() {
                 </button>
               </div>
 
-              {cartStatus && (
-                <p className="mt-2 text-center text-[10px] font-bold text-emerald-600">
-                  {cartStatus}
-                </p>
-              )}
             </div>
 
             {/* Benefits */}
@@ -1303,15 +1310,31 @@ export default function ProductDetails() {
             aria-hidden={!showMobilePurchaseBar}
           >
             <span className="mobile-purchase-price">{money(price)}</span>
-            <button type="button" onClick={handleAddToCart} disabled={stock <= 0}>
+            <button type="button" onClick={handleCartButtonClick} disabled={stock <= 0}>
               <ShoppingCart size={15} />
-              {stock > 0 ? "Add to Cart" : "Sold out"}
+              {stock > 0 ? (isProductInCart ? "Go to Cart" : "Add to Cart") : "Sold out"}
             </button>
             <button type="button" onClick={handleBuyNow} disabled={stock <= 0}>
               <Zap size={15} />
               {stock > 0 ? "Buy Now" : "Sold out"}
             </button>
           </div>
+
+          {cartStatus && (
+            <div
+              role="status"
+              className={`fixed left-1/2 z-[60] flex w-[calc(100%-2rem)] max-w-md -translate-x-1/2 items-center justify-between gap-4 rounded-xl border border-emerald-200 bg-white px-4 py-3 shadow-xl ${showMobilePurchaseBar ? "bottom-24" : "bottom-4"}`}
+            >
+              <p className="text-sm font-semibold text-slate-800">{cartStatus}</p>
+              <button
+                type="button"
+                onClick={() => navigate("/cart")}
+                className="shrink-0 rounded-lg bg-emerald-600 px-3 py-2 text-xs font-bold text-white transition hover:bg-emerald-700"
+              >
+                View Cart
+              </button>
+            </div>
+          )}
 
           {/* =========================
               QUICK SPECIFICATIONS - Below price on mobile, right column on desktop

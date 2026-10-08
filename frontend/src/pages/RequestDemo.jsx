@@ -237,7 +237,7 @@ const RequestDemo = () => {
   // ============================================================
 
   return (
-    <div className="min-h-screen bg-[#F5F7FA] text-[#071426]">
+    <div className="request-demo-page min-h-screen bg-[#F5F7FA] text-[#071426]">
 
       {/* ========================================================
           DEMO PAGE CONTAINER
@@ -334,7 +334,7 @@ const RequestDemo = () => {
               </div>
 
 
-              <h1 className="
+              <h1 className="request-display-heading
                 text-3xl
                 sm:text-4xl
                 lg:text-5xl

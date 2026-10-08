@@ -29,6 +29,7 @@ const IMAGE_VISION_CLIENT = imageVisionConfig.enabled
 const INDEX_VERSION = 'product-image-index-v1';
 const DEFAULT_CANDIDATE_LIMIT = 60;
 const DEFAULT_RESULTS_LIMIT = 5;
+const VISUAL_CANDIDATE_LIMIT = 8;
 let imageIndexTask = null;
 
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
@@ -269,46 +270,34 @@ export const extractVisibleTextSignals = async (imageBuffer, mimeType = 'image/j
       barcode: '',
       category: '',
       text: '',
+      visualDescription: '',
       source: 'fallback',
     };
   }
 
-  try {
-    const base64 = imageBuffer.toString('base64');
-    const completion = await IMAGE_VISION_CLIENT.responses.create({
-      model: imageVisionConfig.model,
-      instructions: 'You identify retail products from photos. Extract only details visibly present in the image. Return a JSON object with brand, model, sku, barcode, category, and visibleText. Use empty strings for unreadable fields and never guess.',
-      input: [{
-        role: 'user',
-        content: [
-          {
-            type: 'input_text',
-            text: 'Read the product label, model number, barcode, brand, and other visible text. Return JSON only.',
-          },
-          {
-            type: 'input_image',
-            image_url: `data:${mimeType};base64,${base64}`,
-            detail: 'high',
-          },
-        ],
-      }],
-      text: { format: { type: 'json_object' } },
-      max_output_tokens: 300,
-    });
+  const base64 = imageBuffer.toString('base64');
+  const completion = await IMAGE_VISION_CLIENT.responses.create({
+    model: imageVisionConfig.model,
+    instructions: 'You identify retail products from photos. Extract only details visibly present in the image. Return a JSON object with brand, model, sku, barcode, category, visibleText, and visualDescription. visualDescription should describe the product itself, its shape, color, configuration, and distinctive visible features. Use empty strings for unreadable fields and never guess.',
+    input: [{
+      role: 'user',
+      content: [
+        {
+          type: 'input_text',
+          text: 'Identify the visible product category and describe its physical appearance. Also read any visible brand, model number, SKU, barcode, and label text. Return JSON only.',
+        },
+        {
+          type: 'input_image',
+          image_url: `data:${mimeType};base64,${base64}`,
+          detail: 'high',
+        },
+      ],
+    }],
+    text: { format: { type: 'json_object' } },
+    max_output_tokens: 300,
+  });
 
-    return parseImageRecognitionResponse(completion?.output_text || '{}');
-  } catch (error) {
-    console.warn('Vision-text extraction failed:', error.message);
-    return {
-      brand: '',
-      model: '',
-      sku: '',
-      barcode: '',
-      category: '',
-      text: '',
-      source: 'fallback',
-    };
-  }
+  return parseImageRecognitionResponse(completion?.output_text || '{}');
 };
 
 const exactMatchCandidates = (signals = {}) => {
@@ -327,6 +316,7 @@ export const hasProductRecognitionSignals = (signals = {}) => [
   signals.barcode,
   signals.category,
   signals.text,
+  signals.visualDescription,
 ].some((value) => String(value || '').trim().length > 0);
 
 export const scoreProductCandidate = (candidate = {}, signals = {}) => {
@@ -335,7 +325,15 @@ export const scoreProductCandidate = (candidate = {}, signals = {}) => {
   const modelSimilarity = similarityScore(candidate.modelNumber || candidate.name, signals.model || signals.name || '');
   const skuSimilarity = similarityScore(candidate.sku, signals.sku || '');
   const categorySimilarity = similarityScore(candidate.category, signals.category || '');
-  const queryText = coerceString(signals.brand, signals.model, signals.sku, signals.barcode, signals.category, signals.text);
+  const queryText = coerceString(
+    signals.brand,
+    signals.model,
+    signals.sku,
+    signals.barcode,
+    signals.category,
+    signals.text,
+    signals.visualDescription,
+  );
   const queryTokens = new Set(queryText.toLowerCase().replace(/[^a-z0-9\s]/g, ' ').split(/\s+/).filter((token) => token.length > 1));
   const productTokens = new Set(productText.toLowerCase().replace(/[^a-z0-9\s]/g, ' ').split(/\s+/).filter((token) => token.length > 1));
   const matchedTokens = [...queryTokens].filter((token) => productTokens.has(token)).length;
@@ -400,11 +398,117 @@ export const parseImageRecognitionResponse = (content = '{}') => {
     barcode: coerceString(parsed.barcode, parsed.qrCode, parsed.productCode),
     category: coerceString(parsed.category, parsed.subCategory),
     text: coerceString(parsed.visibleText, parsed.text),
+    visualDescription: coerceString(parsed.visualDescription, parsed.productDescription, parsed.description),
     source: 'openai-vision',
   };
 };
 
+export const parseVisualProductMatchResponse = (content = '{}') => {
+  const parsed = JSON.parse(content || '{}');
+  const confidence = Number(parsed.confidence);
+  return {
+    productId: String(parsed.productId || parsed.matchedProductId || '').trim(),
+    confidence: Number.isFinite(confidence) ? roundValue(clamp(confidence, 0, 1)) : 0,
+    reason: String(parsed.reason || '').trim(),
+  };
+};
+
+const buildVisualCandidateTerms = (signals = {}) => {
+  const ignoredTerms = new Set([
+    'about', 'across', 'also', 'and', 'are', 'black', 'blue', 'brown', 'camera',
+    'from', 'gray', 'green', 'image', 'lens', 'looks', 'object', 'photo',
+    'product', 'that', 'this', 'there', 'they', 'with', 'white',
+  ]);
+  const text = coerceString(
+    signals.brand,
+    signals.model,
+    signals.sku,
+    signals.barcode,
+    signals.category,
+    signals.text,
+    signals.visualDescription,
+  );
+
+  return [...new Set(
+    text.toLowerCase()
+      .replace(/[^a-z0-9\s-]/g, ' ')
+      .split(/\s+/)
+      .filter((token) => token.length >= 3 && !ignoredTerms.has(token))
+  )].slice(0, 10);
+};
+
+const matchCatalogCandidatesByImage = async (imageBuffer, mimeType, candidates) => {
+  const comparableCandidates = candidates
+    .map(({ product, confidence }) => ({
+      id: String(product._id),
+      name: String(product.name || ''),
+      brand: String(product.brand || ''),
+      sku: String(product.sku || ''),
+      category: String(product.categoryName || ''),
+      confidence,
+      image: product.thumbnail || product.images?.[0] || product.image || '',
+    }))
+    .filter((candidate) => candidate.image);
+
+  if (!comparableCandidates.length) {
+    return { productId: '', confidence: 0, reason: '' };
+  }
+
+  const candidateContent = comparableCandidates.flatMap((candidate) => [
+    {
+      type: 'input_text',
+      text: `Catalog candidate ID: ${candidate.id}. Name: ${candidate.name}. Brand: ${candidate.brand}. SKU: ${candidate.sku}. Category: ${candidate.category}.`,
+    },
+    {
+      type: 'input_image',
+      image_url: candidate.image,
+      detail: 'low',
+    },
+  ]);
+  const completion = await IMAGE_VISION_CLIENT.responses.create({
+    model: imageVisionConfig.model,
+    instructions: 'Compare the uploaded reference photo with the catalog candidate photos. Select a candidate only when the physical product appears to be the same product/model, not merely the same broad category. Never infer a match from text alone. If no candidate is visually the same or the photos are insufficient, return an empty productId and confidence 0. Return JSON with productId, confidence from 0 to 1, and a brief reason.',
+    input: [{
+      role: 'user',
+      content: [
+        {
+          type: 'input_text',
+          text: 'Reference product photo:',
+        },
+        {
+          type: 'input_image',
+          image_url: `data:${mimeType};base64,${imageBuffer.toString('base64')}`,
+          detail: 'high',
+        },
+        {
+          type: 'input_text',
+          text: 'Compare it against each catalog candidate below. Return the single visually matching candidate ID, or an empty productId if none is the same product.',
+        },
+        ...candidateContent,
+      ],
+    }],
+    text: { format: { type: 'json_object' } },
+    max_output_tokens: 250,
+  });
+
+  const result = parseVisualProductMatchResponse(completion?.output_text || '{}');
+  const validCandidate = comparableCandidates.some((candidate) => candidate.id === result.productId);
+  return validCandidate ? result : { productId: '', confidence: 0, reason: result.reason };
+};
+
 export const searchProductsByImage = async (fileBuffer, mimeType, metadata = {}) => {
+  if (!IMAGE_VISION_CLIENT) {
+    return {
+      success: true,
+      matched: false,
+      confidence: 0,
+      matchType: 'vision-unavailable',
+      message: 'Image product matching is not configured. Please contact support or try again later.',
+      product: null,
+      possibleMatches: [],
+    };
+  }
+
   const processedSignals = await extractVisibleTextSignals(fileBuffer, mimeType);
   const finalSignals = {
     ...processedSignals,
@@ -415,6 +519,7 @@ export const searchProductsByImage = async (fileBuffer, mimeType, metadata = {})
     barcode: metadata?.barcode || processedSignals.barcode || '',
     category: metadata?.category || processedSignals.category || '',
     text: coerceString(processedSignals.text, metadata?.text || ''),
+    visualDescription: processedSignals.visualDescription || '',
   };
 
   if (!hasProductRecognitionSignals(finalSignals)) {
@@ -447,6 +552,15 @@ export const searchProductsByImage = async (fileBuffer, mimeType, metadata = {})
 
   if (finalSignals.model) {
     candidateFilters.push({ modelNumber: { $regex: escapeRegex(finalSignals.model), $options: 'i' } });
+  }
+
+  const visualTerms = buildVisualCandidateTerms(finalSignals);
+  if (visualTerms.length) {
+    candidateFilters.push({
+      $or: visualTerms.map((term) => ({
+        searchableText: { $regex: escapeRegex(term), $options: 'i' },
+      })),
+    });
   }
 
   const filter = candidateFilters.length > 0 ? { $and: [{ indexingStatus: { $in: ['indexed', 'outdated'] } }, { $or: candidateFilters }] } : { indexingStatus: { $in: ['indexed', 'outdated'] } };
@@ -482,18 +596,18 @@ export const searchProductsByImage = async (fileBuffer, mimeType, metadata = {})
 
   evaluatedResults.sort((left, right) => right.confidence - left.confidence);
 
-  const highConfidenceThreshold = Number(process.env.IMAGE_MATCH_HIGH_THRESHOLD || 0.82);
   const mediumThreshold = Number(process.env.IMAGE_MATCH_MEDIUM_THRESHOLD || 0.65);
+  const visualThreshold = Number(process.env.IMAGE_MATCH_VISUAL_THRESHOLD || 0.88);
 
-  const exactBrandMatch = evaluatedResults[0]?.exactIdentifierMatch;
+  const exactIdentifierMatches = evaluatedResults.filter(({ exactIdentifierMatch }) => exactIdentifierMatch);
 
-  if (exactBrandMatch && evaluatedResults[0]?.confidence >= mediumThreshold) {
-    const top = evaluatedResults[0];
+  if (exactIdentifierMatches.length === 1 && exactIdentifierMatches[0].confidence >= mediumThreshold) {
+    const top = exactIdentifierMatches[0];
     return {
       success: true,
       matched: true,
       confidence: top.confidence,
-      matchType: 'image+ocr+vector',
+      matchType: 'exact-identifier',
       message: 'Product matched against the HoneyVision catalog.',
       product: {
         id: String(top.product._id),
@@ -520,7 +634,7 @@ export const searchProductsByImage = async (fileBuffer, mimeType, metadata = {})
     };
   }
 
-  const topMatches = evaluatedResults.slice(0, DEFAULT_RESULTS_LIMIT);
+  const topMatches = evaluatedResults.slice(0, Math.max(DEFAULT_RESULTS_LIMIT, VISUAL_CANDIDATE_LIMIT));
 
   if (topMatches.length === 0) {
     return {
@@ -534,26 +648,33 @@ export const searchProductsByImage = async (fileBuffer, mimeType, metadata = {})
     };
   }
 
-  const bestConfidence = topMatches[0].confidence;
-  const matched = bestConfidence >= highConfidenceThreshold;
+  const visualCandidates = topMatches.slice(0, VISUAL_CANDIDATE_LIMIT);
+  const visualMatch = await matchCatalogCandidatesByImage(fileBuffer, mimeType, visualCandidates);
+  const verifiedMatch = visualMatch.confidence >= visualThreshold
+    ? visualCandidates.find(({ product }) => String(product._id) === visualMatch.productId)
+    : null;
+  const matched = Boolean(verifiedMatch);
+  const bestResult = verifiedMatch;
+  const bestConfidence = verifiedMatch ? visualMatch.confidence : 0;
 
   return {
     success: true,
     matched,
     confidence: bestConfidence,
-    matchType: matched ? 'image+ocr+vector' : 'possible-match',
-    message: matched ? 'Product matched against the HoneyVision catalog.' : "We couldn't confidently identify this product.",
-    product: matched ? {
-      id: String(topMatches[0].product._id),
-      name: topMatches[0].product.name,
-      sku: topMatches[0].product.sku,
-      brand: topMatches[0].product.brand,
-      price: topMatches[0].product.price,
-      mrp: topMatches[0].product.mrp,
-      stock: topMatches[0].product.stock,
-      stockStatus: topMatches[0].product.stockStatus,
-      availability: topMatches[0].product.stock > 0 && topMatches[0].product.isActive !== false,
-      thumbnail: topMatches[0].product.thumbnail || topMatches[0].product.images?.[0] || '',
+    matchType: verifiedMatch ? 'visual-image-match' : 'possible-match',
+    message: matched ? 'Product matched against the HoneyVision catalog.' : "We couldn't confidently identify this product. Review the closest catalog matches below.",
+    product: bestResult ? {
+      id: String(bestResult.product._id),
+      name: bestResult.product.name,
+      sku: bestResult.product.sku,
+      brand: bestResult.product.brand,
+      price: bestResult.product.price,
+      mrp: bestResult.product.mrp,
+      stock: bestResult.product.stock,
+      stockStatus: bestResult.product.stockStatus,
+      availability: bestResult.product.stock > 0 && bestResult.product.isActive !== false,
+      confidence: bestConfidence,
+      thumbnail: bestResult.product.thumbnail || bestResult.product.images?.[0] || '',
     } : null,
     possibleMatches: topMatches.slice(0, 3).map(({ product, confidence }) => ({
       id: String(product._id),

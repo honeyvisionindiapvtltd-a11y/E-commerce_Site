@@ -202,7 +202,7 @@ const Delivery = () => {
             </p>
 
 
-            <h1 className="text-5xl font-extrabold leading-[1.05] text-white md:text-6xl">
+            <h1 className="delivery-display-heading text-5xl font-extrabold leading-[1.05] text-white md:text-6xl">
 
               Delivery You
 

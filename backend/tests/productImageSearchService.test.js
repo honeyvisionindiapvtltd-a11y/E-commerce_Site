@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {
   hasProductRecognitionSignals,
   parseImageRecognitionResponse,
+  parseVisualProductMatchResponse,
   resolveImageVisionConfig,
   scoreProductCandidate,
   shouldReindexImageProduct,
@@ -22,19 +23,45 @@ test('image recognition uses the shared AI environment configuration', () => {
   assert.equal(config.model, 'vision-test-model');
 });
 
-test('image recognition parses documented product identifiers and visible text', () => {
+test('image recognition parses product identifiers, visible text, and visual descriptions', () => {
   const signals = parseImageRecognitionResponse(JSON.stringify({
     brandName: 'Honey Vision',
     modelNumber: 'HV-420',
     productCode: '89012345',
     visibleText: '4MP IP Camera',
+    visualDescription: 'White turret camera with a black glass lens',
   }));
 
   assert.equal(signals.brand, 'Honey Vision');
   assert.equal(signals.model, 'HV-420');
   assert.equal(signals.barcode, '89012345');
   assert.equal(signals.text, '4MP IP Camera');
+  assert.equal(signals.visualDescription, 'White turret camera with a black glass lens');
   assert.equal(signals.source, 'openai-vision');
+});
+
+test('visual product match parsing normalizes confidence and trims product ID', () => {
+  const match = parseVisualProductMatchResponse(JSON.stringify({
+    productId: ' product-123 ',
+    confidence: 0.93,
+    reason: 'Matching turret housing and lens layout',
+  }));
+
+  assert.deepEqual(match, {
+    productId: 'product-123',
+    confidence: 0.93,
+    reason: 'Matching turret housing and lens layout',
+  });
+});
+
+test('visual description is usable matching evidence and contributes to candidate scoring', () => {
+  const signals = { visualDescription: 'white turret camera black lens' };
+  const score = scoreProductCandidate({
+    searchableText: 'white outdoor turret camera with black lens',
+  }, signals);
+
+  assert.equal(hasProductRecognitionSignals(signals), true);
+  assert.ok(score.semanticSimilarity > 0.5);
 });
 
 test('exact SKU recognition returns a high-confidence catalog match', () => {

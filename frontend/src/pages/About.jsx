@@ -4,6 +4,8 @@ import {
   Building2,
   CheckCircle2,
   Cpu,
+  ExternalLink,
+  Globe2,
   Headphones,
   Mail,
   MapPin,
@@ -53,35 +55,76 @@ export default function About() {
       <section className="relative overflow-hidden border-b border-white/10">
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(14,165,233,0.22),transparent_35%),radial-gradient(circle_at_bottom_left,rgba(245,158,11,0.12),transparent_30%)]" />
 
-        <div className="relative mx-auto max-w-7xl px-4 py-10 sm:px-6 sm:py-20 lg:px-8 lg:py-28">
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-amber-400 sm:text-sm sm:tracking-[0.22em]">
-            About Honey Vision
-          </p>
+        <div className="relative mx-auto grid max-w-7xl items-center gap-8 px-4 py-10 sm:px-6 sm:py-16 lg:grid-cols-[1.1fr_0.9fr] lg:gap-12 lg:px-8 lg:py-20">
+          <div className="relative z-10">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-amber-400 sm:text-sm sm:tracking-[0.22em]">
+              About Honey Vision
+            </p>
 
-          <h1 className="mt-3 max-w-4xl text-3xl font-extrabold leading-tight sm:mt-5 sm:text-5xl lg:text-6xl">
-            Technology that protects, connects and powers your world.
-          </h1>
+            <h1 className="about-display-heading mt-3 max-w-4xl text-3xl font-bold leading-tight sm:mt-5 sm:text-5xl lg:text-6xl">
+              Technology that protects,{" "}
+              <span className="text-amber-400">connects and powers your world.</span>
+            </h1>
 
-          <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-300 sm:mt-6 sm:text-lg sm:leading-8">
-            Honey Vision delivers dependable IT products, smart security
-            systems and expert support for homes, businesses and institutions
-            across India.
-          </p>
+            <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-300 sm:mt-6 sm:text-lg sm:leading-8">
+              Honey Vision delivers dependable IT products, smart security
+              systems and expert support for homes, businesses and institutions
+              across India.
+            </p>
 
-          <div className="mt-5 flex flex-wrap gap-2 sm:mt-10 sm:gap-4">
-            <a
-              href="#contact"
-              className="inline-flex items-center gap-2 rounded-lg bg-amber-500 px-4 py-2.5 text-sm font-semibold text-slate-950 transition hover:bg-amber-400 sm:px-6 sm:py-3"
-            >
-              Talk to an Expert <ArrowRight size={18} />
-            </a>
+            <div className="mt-5 flex flex-wrap gap-2 sm:mt-10 sm:gap-4">
+              <a
+                href="#contact"
+                className="inline-flex items-center gap-2 rounded-lg bg-amber-500 px-4 py-2.5 text-sm font-semibold text-slate-950 transition hover:bg-amber-400 sm:px-6 sm:py-3"
+              >
+                Talk to an Expert <ArrowRight size={18} />
+              </a>
 
-            <a
-              href="#services"
-              className="rounded-lg border border-white/25 px-4 py-2.5 text-sm font-semibold text-white transition hover:border-amber-400 hover:text-amber-300 sm:px-6 sm:py-3"
-            >
-              Explore Our Services
-            </a>
+              <a
+                href="#services"
+                className="rounded-lg border border-white/25 px-4 py-2.5 text-sm font-semibold text-white transition hover:border-amber-400 hover:text-amber-300 sm:px-6 sm:py-3"
+              >
+                Explore Our Services
+              </a>
+
+              <a
+                href="https://honeyvision.in"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 rounded-lg border border-cyan-300/25 bg-cyan-300/5 px-4 py-2.5 text-sm font-semibold text-cyan-100 transition hover:border-cyan-200/60 hover:bg-cyan-300/10"
+              >
+                <Globe2 size={16} className="text-cyan-300" />
+                honeyvision.in
+                <ExternalLink size={14} className="text-cyan-300" />
+              </a>
+            </div>
+          </div>
+
+          <div className="relative mx-auto flex aspect-square w-full max-w-[18rem] items-center justify-center sm:max-w-[24rem] lg:max-w-[28rem]">
+            <div aria-hidden="true" className="absolute inset-[8%] rounded-full bg-cyan-400/10 blur-3xl" />
+            <div aria-hidden="true" className="absolute inset-[13%] rounded-full border border-cyan-300/15 bg-[radial-gradient(circle,rgba(14,165,233,0.13),rgba(7,19,38,0.18)_58%,transparent_72%)] shadow-[0_0_90px_rgba(14,165,233,0.12)]" />
+            <div aria-hidden="true" className="absolute inset-[19%] rounded-full border border-white/10" />
+            <div aria-hidden="true" className="absolute inset-[27%] rounded-full border border-amber-300/20" />
+            <div aria-hidden="true" className="absolute left-[17%] top-[21%] h-3 w-3 rounded-full bg-cyan-300 shadow-[0_0_20px_rgba(103,232,249,0.9)]" />
+            <div aria-hidden="true" className="absolute bottom-[23%] right-[18%] h-2.5 w-2.5 rounded-full bg-amber-300 shadow-[0_0_18px_rgba(252,211,77,0.9)]" />
+
+            <div className="relative z-10 flex h-[62%] w-[76%] items-center justify-center rounded-[2rem] border border-white/10 bg-slate-950/55 p-5 shadow-[0_24px_80px_rgba(0,0,0,0.4)] backdrop-blur-md sm:rounded-[2.5rem] sm:p-8">
+              <img
+                src="https://res.cloudinary.com/vhrkwyzs/image/upload/v1788235324/logo1_fzsjda.png"
+                alt="Honey Vision company logo"
+                className="h-auto max-h-full w-full object-contain drop-shadow-[0_0_24px_rgba(250,204,21,0.2)]"
+              />
+            </div>
+
+            <div aria-hidden="true" className="absolute left-0 top-[38%] z-20 grid h-11 w-11 place-items-center rounded-2xl border border-cyan-200/20 bg-[#0b1d35]/90 text-cyan-200 shadow-lg shadow-cyan-950/40 sm:h-14 sm:w-14">
+              <ShieldCheck size={22} />
+            </div>
+            <div aria-hidden="true" className="absolute right-[2%] top-[24%] z-20 grid h-11 w-11 place-items-center rounded-2xl border border-amber-200/20 bg-[#0b1d35]/90 text-amber-300 shadow-lg shadow-amber-950/30 sm:h-14 sm:w-14">
+              <Network size={22} />
+            </div>
+            <div aria-hidden="true" className="absolute bottom-[17%] left-[22%] z-20 grid h-10 w-10 place-items-center rounded-xl border border-white/10 bg-[#0b1d35]/90 text-slate-200 shadow-lg sm:h-12 sm:w-12">
+              <MonitorCog size={20} />
+            </div>
           </div>
         </div>
       </section>

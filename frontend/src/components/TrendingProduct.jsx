@@ -65,7 +65,7 @@ export default function TrendingProducts() {
           type="button"
           onClick={() => scrollProducts(-1)}
           aria-label="Scroll trending products left"
-          className="absolute left-0 top-1/2 z-10 grid h-8 w-8 -translate-y-1/2 place-items-center rounded-full bg-white text-slate-700 shadow-md transition hover:bg-amber-400 hover:text-slate-950 sm:h-10 sm:w-10"
+          className="trending-product-scroll-button absolute left-0 top-1/2 z-10 grid h-8 w-8 -translate-y-1/2 place-items-center rounded-full transition sm:h-10 sm:w-10"
         >
           <ChevronRight size={18} className="rotate-180" />
         </button>
@@ -73,12 +73,12 @@ export default function TrendingProducts() {
           type="button"
           onClick={() => scrollProducts(1)}
           aria-label="Scroll trending products right"
-          className="absolute right-0 top-1/2 z-10 grid h-8 w-8 -translate-y-1/2 place-items-center rounded-full bg-white text-slate-700 shadow-md transition hover:bg-amber-400 hover:text-slate-950 sm:h-10 sm:w-10"
+          className="trending-product-scroll-button absolute right-0 top-1/2 z-10 grid h-8 w-8 -translate-y-1/2 place-items-center rounded-full transition sm:h-10 sm:w-10"
         >
           <ChevronRight size={18} />
         </button>
 
-        <div ref={productRailRef} className="overflow-x-auto pb-1.5 pl-8 pr-9 sm:pb-2 sm:pl-10 sm:pr-10 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <div ref={productRailRef} className="trending-product-rail overflow-x-auto pb-1.5 pr-9 sm:pb-2 sm:pl-10 sm:pr-10 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           <div className="flex min-w-max gap-2.5 sm:gap-4">
           {trendingProducts.map((product) => {
             const isWishlisted = wishlist.includes(product.id);
@@ -87,7 +87,7 @@ export default function TrendingProducts() {
             return (
               <article
                 key={product.id}
-                className="group relative w-[165px] shrink-0 rounded-xl border border-slate-200 bg-white p-3 transition hover:-translate-y-1 hover:border-amber-300 hover:shadow-lg sm:w-[220px] sm:p-4"
+                className="trending-product-card group relative w-[165px] shrink-0 rounded-xl border border-slate-200 bg-white p-3 transition hover:-translate-y-1 hover:border-amber-300 hover:shadow-lg sm:w-[220px] sm:p-4"
               >
               <span className="absolute left-2 top-2 rounded bg-red-500 px-1.5 py-0.5 text-[9px] font-bold text-white sm:left-3 sm:top-3 sm:px-2 sm:py-1 sm:text-[10px]">
                 {discount}% OFF

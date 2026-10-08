@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   useSearchParams,
   useNavigate,
@@ -9,6 +9,7 @@ import {
   LayoutGrid,
   List,
   ChevronDown,
+  ArrowUpDown,
   SlidersHorizontal,
   Menu,
   Package,
@@ -70,6 +71,25 @@ export default function Products() {
 
   const [apiPages, setApiPages] =
     useState(1);
+
+  const [isMobileViewport, setIsMobileViewport] = useState(
+    () => typeof window !== "undefined" && window.matchMedia("(max-width: 767px)").matches
+  );
+  const [mobileLoadedPage, setMobileLoadedPage] = useState(1);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [loadMoreError, setLoadMoreError] = useState("");
+  const mobileLoadInProgress = useRef(false);
+  const loadMoreSentinelRef = useRef(null);
+  const loadMoreProductsRef = useRef(null);
+  const mobileFilterKeyRef = useRef("");
+
+  useEffect(() => {
+    const mobileMediaQuery = window.matchMedia("(max-width: 767px)");
+    const handleViewportChange = (event) => setIsMobileViewport(event.matches);
+
+    mobileMediaQuery.addEventListener("change", handleViewportChange);
+    return () => mobileMediaQuery.removeEventListener("change", handleViewportChange);
+  }, []);
 
   useEffect(() => {
     if (location.hash !== "#product-results") {
@@ -334,6 +354,16 @@ export default function Products() {
     return query;
   };
 
+  const mobileFilterKey = useMemo(() => {
+    const params = new URLSearchParams(searchParams);
+    params.delete("page");
+    params.delete("limit");
+    return params.toString();
+  }, [searchParams]);
+  useEffect(() => {
+    mobileFilterKeyRef.current = mobileFilterKey;
+  }, [mobileFilterKey]);
+
   // ==========================================
   // LOAD PRODUCTS
   // ==========================================
@@ -363,6 +393,10 @@ export default function Products() {
       try {
         const query =
           buildProductQuery();
+        if (isMobileViewport) {
+          query.set("page", "1");
+          query.set("limit", "24");
+        }
 
         const response =
           await fetch(
@@ -388,6 +422,8 @@ export default function Products() {
             : [];
 
         setProducts(productList);
+        setMobileLoadedPage(isMobileViewport ? 1 : Number(query.get("page") || 1));
+        setLoadMoreError("");
 
         setApiTotal(
           Number(
@@ -441,12 +477,92 @@ export default function Products() {
     sort,
     page,
     limit,
+    isMobileViewport,
     isCctvCategory,
     cctvFilterValues.series,
     cctvFilterValues.cameraType,
     cctvFilterValues.technology,
     cctvFilterValues.resolution,
     cctvFilterValues.connectivity,
+  ]);
+
+  const loadMoreProducts = async () => {
+    if (!isMobileViewport || mobileLoadInProgress.current || mobileLoadedPage >= Math.max(1, apiPages)) return;
+
+    mobileLoadInProgress.current = true;
+    setIsLoadingMore(true);
+    setLoadMoreError("");
+
+    const filterKey = mobileFilterKey;
+    const nextPage = mobileLoadedPage + 1;
+
+    try {
+      const query = buildProductQuery();
+      query.set("page", String(nextPage));
+      query.set("limit", "24");
+
+      const response = await fetch(`${API_BASE}/products?${query.toString()}`);
+      if (!response.ok) {
+        throw new Error(`Products API failed with status ${response.status}`);
+      }
+
+      const data = await response.json();
+      if (filterKey !== mobileFilterKeyRef.current) return;
+
+      const nextProducts = Array.isArray(data?.products)
+        ? data.products.map(normalizeProduct)
+        : [];
+      setProducts((current) => {
+        const knownProductIds = new Set(current.map((item) => String(item.id)));
+        return [
+          ...current,
+          ...nextProducts.filter((item) => !knownProductIds.has(String(item.id))),
+        ];
+      });
+      setMobileLoadedPage(nextPage);
+      setApiTotal(Number(data?.totalProducts || 0));
+      setApiPages(Number(data?.totalPages || 1));
+    } catch (error) {
+      console.error("Failed to load more products:", error);
+      setLoadMoreError(error?.message || "Unable to load more products.");
+    } finally {
+      mobileLoadInProgress.current = false;
+      setIsLoadingMore(false);
+    }
+  };
+
+  useEffect(() => {
+    loadMoreProductsRef.current = loadMoreProducts;
+  });
+
+  useEffect(() => {
+    const sentinel = loadMoreSentinelRef.current;
+    if (
+      !sentinel
+      || !isMobileViewport
+      || loading
+      || isLoadingMore
+      || error
+      || loadMoreError
+      || mobileLoadedPage >= Math.max(1, apiPages)
+    ) return undefined;
+
+    if (!("IntersectionObserver" in window)) return undefined;
+
+    const observer = new IntersectionObserver(([entry]) => {
+      if (entry.isIntersecting) loadMoreProductsRef.current?.();
+    }, { rootMargin: "500px 0px" });
+
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [
+    error,
+    isLoadingMore,
+    isMobileViewport,
+    loadMoreError,
+    mobileLoadedPage,
+    apiPages,
+    loading,
   ]);
 
   // ==========================================
@@ -704,8 +820,10 @@ export default function Products() {
     );
 
   const currentStart =
-    totalProducts === 0
+    totalProducts === 0 || (isMobileViewport && filteredProducts.length === 0)
       ? 0
+      : isMobileViewport
+      ? 1
       : (page - 1) *
           limit +
         1;
@@ -713,6 +831,8 @@ export default function Products() {
   const currentEnd =
     totalProducts === 0
       ? 0
+      : isMobileViewport
+      ? Math.min(filteredProducts.length, totalProducts)
       : Math.min(
           page * limit,
           totalProducts
@@ -871,15 +991,21 @@ export default function Products() {
       <section className="mx-auto max-w-[1500px] px-4 py-7 sm:px-6 lg:px-8">
 
         <div className="products-mobile-controls -mx-3 mb-2 border-y border-slate-200 bg-white sm:-mx-6 lg:hidden">
-          <div className="grid grid-cols-2 divide-x divide-slate-200">
-            <label className="flex h-12 items-center justify-center gap-2 text-sm font-bold text-[#071426]">
-              <span className="text-base leading-none">☷</span>
-              Sort
+          <div className="grid grid-cols-2">
+            <label className="products-mobile-control-button">
+              <ArrowUpDown size={17} strokeWidth={2} />
+              <span className="products-mobile-control-label">Sort</span>
+              <span className="products-mobile-control-value">
+                {sort === "price_low" ? "Price: Low to High"
+                  : sort === "price_high" ? "Price: High to Low"
+                    : sort === "newest" ? "Newest" : "Popular"}
+              </span>
+              <ChevronDown size={15} className="products-mobile-control-chevron" />
               <select
                 value={sort}
                 onChange={handleSortChange}
                 aria-label="Sort products"
-                className="absolute h-px w-px opacity-0"
+                className="products-mobile-control-select"
               >
                 <option value="popular">Popularity</option>
                 <option value="price_low">Price: Low to High</option>
@@ -891,10 +1017,12 @@ export default function Products() {
             <button
               type="button"
               onClick={() => setMobileSidebarOpen(true)}
-              className="flex h-12 items-center justify-center gap-2 text-sm font-bold text-[#071426]"
+              className="products-mobile-control-button"
             >
               <SlidersHorizontal size={18} strokeWidth={1.8} />
-              Filter
+              <span className="products-mobile-control-label">Filter</span>
+              <span className="products-mobile-control-value">Refine products</span>
+              <ChevronDown size={15} className="products-mobile-control-chevron" />
             </button>
           </div>
         </div>
@@ -1082,7 +1210,7 @@ export default function Products() {
                     </div>
                   ))}
 
-                  <div className="relative">
+                  <div className="relative hidden lg:block">
 
                     <select
                       value={sort}
@@ -1228,7 +1356,7 @@ export default function Products() {
                     gridView={
                       gridView
                     }
-                    count={limit}
+                    count={isMobileViewport ? 24 : limit}
                   />
                 )}
 
@@ -1287,7 +1415,53 @@ export default function Products() {
             </div>
 
             {/* PAGINATION */}
-            {!loading &&
+            {isMobileViewport &&
+              !loading &&
+              !error &&
+              filteredProducts.length > 0 &&
+              mobileLoadedPage < totalPages && (
+                <div ref={loadMoreSentinelRef} className="mt-4 rounded-2xl border border-slate-200 bg-white p-4 text-center shadow-sm">
+                  <p className="mb-3 text-sm text-slate-500">
+                    Showing <span className="font-bold text-[#071426]">{filteredProducts.length}</span> of{" "}
+                    <span className="font-bold text-[#071426]">{totalProducts}</span> products
+                  </p>
+                  {loadMoreError && (
+                    <p role="alert" className="mb-3 text-sm font-medium text-red-600">
+                      {loadMoreError}
+                    </p>
+                  )}
+                  {isLoadingMore ? (
+                    <div role="status" aria-live="polite" className="space-y-4">
+                      <div className="inline-flex items-center gap-2 rounded-full bg-amber-50 px-4 py-2 text-sm font-bold text-[#071426]">
+                        <RefreshCw size={16} className="animate-spin text-amber-600" />
+                        Loading more products...
+                      </div>
+                      <SkeletonGrid gridView={gridView} count={4} />
+                    </div>
+                  ) : loadMoreError ? (
+                    <button
+                      type="button"
+                      onClick={loadMoreProducts}
+                      className="inline-flex min-h-11 min-w-40 items-center justify-center rounded-xl bg-[#071426] px-5 py-3 text-sm font-bold text-white transition hover:bg-[#12355b]"
+                    >
+                      Try again
+                    </button>
+                  ) : !("IntersectionObserver" in window) ? (
+                    <button
+                      type="button"
+                      onClick={loadMoreProducts}
+                      className="inline-flex min-h-11 min-w-48 items-center justify-center gap-2 rounded-xl bg-[#071426] px-5 py-3 text-sm font-bold text-white transition hover:bg-[#12355b]"
+                    >
+                      Load more products
+                    </button>
+                  ) : (
+                    <p className="text-xs font-medium text-slate-400">More products load as you scroll</p>
+                  )}
+                </div>
+              )}
+
+            {!isMobileViewport &&
+              !loading &&
               !error &&
               totalProducts >
                 0 &&

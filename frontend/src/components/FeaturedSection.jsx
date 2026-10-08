@@ -254,25 +254,26 @@ export default function FeaturedSection() {
           </div>
 
         </div>
-        <div className="relative mt-10 sm:mt-16">
+        <div className="relative -mx-2 mt-10 sm:mx-0 sm:mt-16">
           <button
             type="button"
             onClick={() => scrollProducts(-1)}
-            className="absolute left-2 top-1/2 z-10 grid h-8 w-8 -translate-y-1/2 place-items-center rounded-full bg-white text-slate-700 shadow-md transition hover:bg-amber-400 hover:text-slate-950 sm:h-10 sm:w-10"
+            aria-label="Scroll featured products left"
+            className="home-featured-scroll-button absolute left-2 top-1/2 z-10 grid h-8 w-8 -translate-y-1/2 place-items-center rounded-full transition sm:h-10 sm:w-10"
           >
-            <ChevronRight size={16} className="rotate-180" />
+            <ChevronRight size={18} className="rotate-180" />
           </button>
           <button
             type="button"
             onClick={() => scrollProducts(1)}
             aria-label="Scroll featured products right"
-            className="absolute right-2 top-1/2 z-10 grid h-8 w-8 -translate-y-1/2 place-items-center rounded-full bg-white text-slate-700 shadow-md transition hover:bg-amber-400 hover:text-slate-950 sm:h-10 sm:w-10"
+            className="home-featured-scroll-button absolute right-2 top-1/2 z-10 grid h-8 w-8 -translate-y-1/2 place-items-center rounded-full transition sm:h-10 sm:w-10"
           >
-            <ChevronRight size={16} />
+            <ChevronRight size={18} />
           </button>
 
-          <div ref={productRailRef} className="overflow-x-auto pb-2 px-8 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:px-10">
-            <div className="flex min-w-max gap-3 sm:gap-5">
+          <div ref={productRailRef} className="home-featured-rail overflow-x-auto pb-2 pl-0 pr-8 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:px-10">
+            <div className="home-featured-track flex min-w-max gap-3 sm:gap-5">
               {finalProductsToShow.map((item) => {
                 const isWishlisted = wishlist.includes(item.id);
                 const discount = Math.max(5, Math.round(((item.mrp - item.price) / Math.max(item.mrp, 1)) * 100));

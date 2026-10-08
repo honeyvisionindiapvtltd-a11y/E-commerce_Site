@@ -50,7 +50,7 @@ function RecentlyViewedSection() {
   if (!viewedProducts.length) return null;
 
   return (
-    <section className="bg-white/70 py-7 sm:py-9">
+    <section className="home-section-shell bg-white/70 py-7 sm:py-9">
       <div className="mx-auto max-w-7xl px-3 sm:px-6">
         <div className="mb-4 flex items-end justify-between gap-3 sm:mb-5">
           <div>
@@ -62,12 +62,12 @@ function RecentlyViewedSection() {
           </Link>
         </div>
 
-        <div className="flex snap-x snap-mandatory gap-3 overflow-x-auto overscroll-x-contain pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <div className="recently-viewed-home-list flex snap-x snap-mandatory gap-3 overflow-x-auto overscroll-x-contain pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {viewedProducts.map((product) => (
             <Link
               key={product.id}
               to={`/products/${encodeURIComponent(product.id)}`}
-              className="group min-w-[160px] max-w-[220px] flex-[0_0_160px] snap-start overflow-hidden rounded-lg border border-slate-200 bg-white p-2.5 transition hover:border-amber-300 hover:shadow-md sm:min-w-[205px] sm:flex-[0_0_205px] sm:p-3"
+              className="recently-viewed-home-card group min-w-[160px] max-w-[220px] flex-[0_0_160px] snap-start overflow-hidden rounded-lg border border-slate-200 bg-white p-2.5 transition hover:border-amber-300 hover:shadow-md sm:min-w-[205px] sm:flex-[0_0_205px] sm:p-3"
             >
               <div className="flex h-28 items-center justify-center rounded-md bg-slate-50 sm:h-36">
                 <img
@@ -99,40 +99,44 @@ export default function Home() {
       <div className="home-ambient two" />
       <div className="home-ambient three" />
 
-      <div className="relative z-10">
+      <div className="relative z-10 flex flex-col gap-4 sm:gap-8">
         <Hero />
 
-        <div className="home-section-shell home-section-category px-3 pb-8 pt-2 sm:px-6">
+        <div className="home-section-shell home-section-category px-3 pt-2 sm:px-6">
           <ShopByCategory />
         </div>
 
-        <div className="home-section-shell home-section-benefits px-3 pb-8 sm:px-6">
+        <div className="home-section-shell home-section-benefits px-3 sm:px-6">
           <BenefitsStrip />
         </div>
 
-        <div className="home-section-shell home-section-trending bg-white/55 px-0 pb-8 sm:px-6">
+        <div className="home-section-shell home-section-trending bg-white/55 px-0 sm:px-6">
           <TrendingProduct />
         </div>
 
-        <div className="home-section-shell home-section-promos px-3 pb-8 sm:px-6">
+        <div className="home-section-shell home-section-promos px-3 sm:px-6">
           <PromotionalBanners />
         </div>
 
         <RecentlyViewedSection />
 
-        <div className="home-section-shell home-section-featured px-0 pb-8 sm:px-6">
+        <div className="home-section-shell home-section-featured px-0 sm:px-6">
           <FeaturedSection />
         </div>
 
-        <div className="home-section-shell home-section-installation px-3 pb-8 sm:px-6">
+        <div className="home-section-shell home-section-installation px-3 sm:px-6">
           <InstallationSection />
         </div>
 
-        <div className="home-section-shell home-section-services px-3 pb-8 sm:px-6">
+        <div className="home-section-shell home-section-subcategories px-3 sm:px-6">
+          <ShopByCategory mode="subcategories" title="Explore Subcategories" />
+        </div>
+
+        <div className="home-section-shell home-section-services px-3 sm:px-6">
           <ServicesOffers />
         </div>
 
-        <div className="home-section-shell home-section-catalog px-3 pb-0 sm:px-6 sm:pb-8">
+        <div className="home-section-shell home-section-catalog px-3 sm:px-6">
           <AutoProductShowcase />
         </div>
       </div>
