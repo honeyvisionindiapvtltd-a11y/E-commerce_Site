@@ -1,7 +1,8 @@
 import { Heart, Star, ChevronRight } from "lucide-react";
 import { useRef } from "react";
 import { Link } from "react-router-dom";
-import { useCommerce } from "../context/index.js";
+import { useCatalog } from "../context/CatalogContext.jsx";
+import { useWishlist } from "../context/WishlistContext.jsx";
 import { isCameraOnlyProduct, money, normalizeProduct } from "../lib/products";
 
 const selectMixedBrandProducts = (items, limit = 18) => {
@@ -37,7 +38,8 @@ const selectMixedBrandProducts = (items, limit = 18) => {
 };
 
 export default function TrendingProducts() {
-  const { toggleWishlist, wishlist, products } = useCommerce();
+  const { toggleWishlist, wishlist } = useWishlist();
+  const { products } = useCatalog();
   const productRailRef = useRef(null);
   const allProducts = (Array.isArray(products) ? products : []).map(normalizeProduct).filter(Boolean);
   const cameraProducts = allProducts.filter(isCameraOnlyProduct);

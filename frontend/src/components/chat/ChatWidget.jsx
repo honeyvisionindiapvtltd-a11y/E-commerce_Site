@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Bot, Check, ChevronDown, Loader2, MessageCircle, RefreshCw, Send, UserRound, X } from "lucide-react";
-import { useCommerce } from "../../context/index.js";
+import { useAuth } from "../../context/useAuth.js";
 import useRealtimeUpdates from "../../hooks/useRealtimeUpdates.js";
 import { createNewConversation, createTicketFromChat, getChatMessages, getCurrentConversation, requestChatAgent, sendChatMessage } from "../../services/chatService.js";
 
@@ -14,10 +14,10 @@ const normalizeAssistantMessage = (message) => String(message || "")
   .trim();
 const normalizeMessages = (items) => (Array.isArray(items) ? items : []).map((item) => item.senderType === "customer" ? item : { ...item, message: normalizeAssistantMessage(item.message) });
 
-export default function ChatWidget() {
-  const { isLoggedIn, user, authToken, requestJson } = useCommerce();
+export default function ChatWidget({ initialOpen = false, onReady }) {
+  const { isLoggedIn, user, authToken, requestJson } = useAuth();
   const { getSocket } = useRealtimeUpdates(user?.id || user?._id, authToken);
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(initialOpen);
   const [conversation, setConversation] = useState(null);
   const [messages, setMessages] = useState([]);
   const [draft, setDraft] = useState("");
@@ -30,6 +30,10 @@ export default function ChatWidget() {
   const [creatingNewChat, setCreatingNewChat] = useState(false);
   const endRef = useRef(null);
   const inputRef = useRef(null);
+
+  useEffect(() => {
+    onReady?.();
+  }, [onReady]);
 
   const loadConversation = useCallback(async () => {
     if (!isLoggedIn) return;

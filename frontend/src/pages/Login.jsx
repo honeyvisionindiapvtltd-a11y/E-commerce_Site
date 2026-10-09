@@ -4,6 +4,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useCommerce } from "../context/index.js";
 
 const LoginImage = "https://res.cloudinary.com/vhrkwyzs/image/upload/v1786189628/login_odyhdp.png";
+const API_BASE = import.meta.env.VITE_API_URL || "/api";
 
 export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
@@ -11,6 +12,9 @@ export default function Login() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [googleReady, setGoogleReady] = useState(false);
+  const [googleConfigLoading, setGoogleConfigLoading] = useState(true);
+  const [googleConfigError, setGoogleConfigError] = useState("");
   const navigate = useNavigate();
   const location = useLocation();
   const returnPath = location.state?.from?.pathname || "/";
@@ -38,42 +42,103 @@ export default function Login() {
   };
 
   useEffect(() => {
-    const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
-    if (!clientId || !googleButtonRef.current) return undefined;
-    const renderGoogleButton = () => {
-      if (!window.google?.accounts?.id || !googleButtonRef.current) return;
-      if (!window.__honeyVisionGoogleInitialized) {
-        window.google.accounts.id.initialize({
-          client_id: clientId,
-          callback: async ({ credential }) => {
-            try {
-              setLoading(true); setError("");
-              const user = await loginWithGoogle(credential);
-              const destination = user?.role === "admin" ? "/admin/dashboard" : user?.role === "delivery_agent" ? "/delivery-agent" : returnPath;
-              navigate(destination, { replace: true });
-            } catch (googleError) { setError(googleError.message || "Google login failed."); }
-            finally { setLoading(false); }
-          },
-        });
-        window.__honeyVisionGoogleInitialized = true;
+    let active = true;
+    let googleScript;
+    let handleGoogleLoad;
+    let handleGoogleError;
+
+    const initializeGoogle = async () => {
+      try {
+        let clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || "";
+        if (!clientId) {
+          const response = await fetch(`${API_BASE}/auth/google/config`);
+          const data = await response.json().catch(() => ({}));
+          if (!response.ok) {
+            throw new Error(data.message || "Could not load Google sign-in configuration.");
+          }
+          clientId = data.clientId || "";
+        }
+
+        if (!active) return;
+        if (!clientId) {
+          setGoogleConfigError("Google sign-in is not configured on the backend.");
+          setGoogleConfigLoading(false);
+          return;
+        }
+
+        const renderGoogleButton = () => {
+          if (!active || !googleButtonRef.current) return;
+          if (!window.google?.accounts?.id) {
+            setGoogleConfigError("Google sign-in could not be initialized. Check the authorized website origins in Google Cloud.");
+            setGoogleConfigLoading(false);
+            return;
+          }
+          if (!window.__honeyVisionGoogleInitialized) {
+            window.google.accounts.id.initialize({
+              client_id: clientId,
+              callback: async ({ credential }) => {
+                try {
+                  setLoading(true); setError("");
+                  const user = await loginWithGoogle(credential);
+                  const destination = user?.role === "admin" ? "/admin/dashboard" : user?.role === "delivery_agent" ? "/delivery-agent" : returnPath;
+                  navigate(destination, { replace: true });
+                } catch (googleError) { setError(googleError.message || "Google login failed."); }
+                finally { setLoading(false); }
+              },
+            });
+            window.__honeyVisionGoogleInitialized = true;
+          }
+          googleButtonRef.current.innerHTML = "";
+          window.google.accounts.id.renderButton(googleButtonRef.current, {
+            theme: "outline",
+            size: "large",
+            width: Math.min(400, googleButtonRef.current.clientWidth || 400),
+            text: "continue_with",
+          });
+          setGoogleReady(true);
+          setGoogleConfigLoading(false);
+        };
+
+        if (window.google?.accounts?.id) {
+          renderGoogleButton();
+          return;
+        }
+
+        googleScript = document.querySelector('script[src="https://accounts.google.com/gsi/client"]');
+        if (!googleScript) {
+          googleScript = document.createElement("script");
+          googleScript.src = "https://accounts.google.com/gsi/client";
+          googleScript.async = true;
+          googleScript.defer = true;
+        }
+        handleGoogleLoad = renderGoogleButton;
+        handleGoogleError = () => {
+          if (active) {
+            setGoogleConfigError("Google sign-in could not be loaded. Check your connection and try again.");
+            setGoogleConfigLoading(false);
+          }
+        };
+        googleScript.addEventListener("load", handleGoogleLoad, { once: true });
+        googleScript.addEventListener("error", handleGoogleError, { once: true });
+        if (!googleScript.isConnected) document.head.appendChild(googleScript);
+      } catch (configError) {
+        if (active) {
+          setGoogleConfigError(configError.message || "Could not load Google sign-in configuration.");
+          setGoogleConfigLoading(false);
+        }
       }
-      googleButtonRef.current.innerHTML = "";
-      window.google.accounts.id.renderButton(googleButtonRef.current, {
-        theme: "outline",
-        size: "large",
-        width: Math.min(400, googleButtonRef.current.clientWidth || 400),
-        text: "continue_with",
-      });
     };
-    const script = document.querySelector('script[src="https://accounts.google.com/gsi/client"]');
-    if (script) renderGoogleButton();
-    else {
-      const googleScript = document.createElement("script");
-      googleScript.src = "https://accounts.google.com/gsi/client";
-      googleScript.async = true; googleScript.defer = true; googleScript.onload = renderGoogleButton;
-      document.head.appendChild(googleScript);
-    }
-    return undefined;
+
+    initializeGoogle();
+    return () => {
+      active = false;
+      if (googleScript && handleGoogleLoad) {
+        googleScript.removeEventListener("load", handleGoogleLoad);
+      }
+      if (googleScript && handleGoogleError) {
+        googleScript.removeEventListener("error", handleGoogleError);
+      }
+    };
   }, [loginWithGoogle, navigate, returnPath]);
 
   return (
@@ -295,11 +360,15 @@ export default function Login() {
 
               {/* Google Login */}
 
-              {import.meta.env.VITE_GOOGLE_CLIENT_ID ? (
-                <div ref={googleButtonRef} className="flex min-h-11 justify-center" />
-              ) : (
-                <button type="button" disabled className="w-full rounded-xl border border-gray-300 py-4 font-semibold text-gray-400">Google login is not configured</button>
+              <div className={googleReady ? "flex min-h-11 justify-center" : "hidden"}>
+                <div ref={googleButtonRef} />
+              </div>
+              {!googleReady && (
+                <button type="button" disabled className="w-full rounded-xl border border-gray-300 py-4 font-semibold text-gray-400">
+                  {googleConfigLoading ? "Loading Google sign-in..." : "Google sign-in unavailable"}
+                </button>
               )}
+              {googleConfigError && <p role="status" className="mt-2 text-center text-sm text-red-600">{googleConfigError}</p>}
 
               {/* Register */}
 

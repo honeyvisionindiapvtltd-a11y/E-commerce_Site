@@ -1,8 +1,7 @@
-import { lazy, Suspense, useEffect, useState } from 'react'
-import { ArrowUp } from 'lucide-react'
+import { lazy, Suspense, useCallback, useEffect, useState } from 'react'
+import { ArrowUp, MessageCircle } from 'lucide-react'
 import { Routes, Route, useLocation, useNavigate, Navigate } from 'react-router-dom'
-import { useCommerce } from './context/index.js'
-import { APIProvider } from '@vis.gl/react-google-maps'
+import { useAuth } from './context/useAuth.js'
 import { Capacitor } from '@capacitor/core'
 import { NotificationContainer } from './components/Notifications/NotificationComponents.jsx'
 import useNotifications from './hooks/useNotifications.js'
@@ -12,6 +11,8 @@ import Navbar from './components/Navbar.jsx'
 import Footer from './components/Footer.jsx'
 import WebLoginPrompt from './components/WebLoginPrompt.jsx'
 const Home = lazy(() => import('./Home.jsx'));
+const ChatWidget = lazy(() => import('./components/chat/ChatWidget.jsx'));
+const GoogleMapsProvider = lazy(() => import('./components/GoogleMapsProvider.jsx'));
 const About = lazy(() => import('./pages/About.jsx'));
 const Products = lazy(() => import('./pages/Products.jsx'));
 const Categories = lazy(() => import('./pages/Categories.jsx'));
@@ -67,15 +68,12 @@ const InformationPage = lazy(() => import('./pages/InformationPage.jsx'));
 const Register = lazy(() => import('./pages/Register.jsx'));
 const AdminRoutes = lazy(() => import('./pages/admin/AdminRoutes.jsx'));
 const TrackOrder = lazy(() => import('./pages/TrackOrder.jsx'));
-import ChatWidget from "./components/chat/ChatWidget.jsx";
 import NotificationCenter from "./components/Notifications/NotificationCenter.jsx";
 import './App.css'
 import { getCanonicalUrl, removeJsonLd, SEO_DEFAULTS, setPageMetadata } from './utils/seoMetadata';
 
-const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
-
 function RoleRoute({ roles, children }) {
-  const { isLoggedIn, user } = useCommerce();
+  const { isLoggedIn, user } = useAuth();
   const location = useLocation();
   if (!isLoggedIn) return <Navigate to="/login" replace state={{ from: location }} />;
   const canUseCustomerExperience = user?.role === "admin" && roles.includes("customer");
@@ -86,23 +84,46 @@ function RoleRoute({ roles, children }) {
 function App() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { isLoggedIn, user } = useCommerce();
+  const { isLoggedIn, user } = useAuth();
   const { notifications, removeNotification } = useNotifications();
+  const [isChatWidgetLoaded, setIsChatWidgetLoaded] = useState(false);
+  const [openChatOnMount, setOpenChatOnMount] = useState(false);
   const [isOffline, setIsOffline] = useState(() => !navigator.onLine);
   const [showBackToTop, setShowBackToTop] = useState(() => window.scrollY > 300);
   const [isDarkTheme, setIsDarkTheme] = useState(() => localStorage.getItem('honey-vision-theme') === 'dark');
   const isWebLoginPage = ['/login', '/register', '/forgot-password', '/reset-password'].includes(location.pathname)
     || location.pathname.startsWith('/reset-password/');
-  const [isWebLoginPromptDismissed, setIsWebLoginPromptDismissed] = useState(() => (
-    Boolean(sessionStorage.getItem('honey-vision-login-prompt-dismissed'))
+  const [isEntryLoginPromptDismissed, setIsEntryLoginPromptDismissed] = useState(() => (
+    !Capacitor.isNativePlatform()
+    && Boolean(sessionStorage.getItem('honey-vision-login-prompt-dismissed'))
   ));
-  const showWebLoginPrompt = !Capacitor.isNativePlatform()
-    && !isLoggedIn
+  const showEntryLoginPrompt = !isLoggedIn
     && !isWebLoginPage
-    && !isWebLoginPromptDismissed;
+    && !isEntryLoginPromptDismissed;
   const isAdminRoute = location.pathname.startsWith('/admin');
   const isDeliveryAgentRoute = location.pathname.startsWith('/delivery-agent');
   const isCheckoutRoute = ['/checkout', '/payment', '/payment-methods'].includes(location.pathname);
+  const normalizedPath = location.pathname.replace(/\/+$/, '') || '/';
+  const needsGoogleMaps = import.meta.env.VITE_GOOGLE_MAPS_API_KEY && (
+    normalizedPath === '/addresses'
+    || normalizedPath === '/delivery-agent'
+    || /^\/orders\/[^/]+\/tracking$/.test(normalizedPath)
+    || ['/order-tracking', '/track-order', '/tracking'].includes(normalizedPath)
+  );
+
+  useEffect(() => {
+    const requestChat = () => {
+      if (isChatWidgetLoaded) return;
+      setOpenChatOnMount(true);
+      setIsChatWidgetLoaded(true);
+    };
+    window.addEventListener('honeyvision:open-chat', requestChat);
+    return () => window.removeEventListener('honeyvision:open-chat', requestChat);
+  }, [isChatWidgetLoaded]);
+
+  const handleChatReady = useCallback(() => {
+    setOpenChatOnMount(false);
+  }, []);
 
   useEffect(() => {
     const updateBrowserNetworkStatus = () => setIsOffline(!navigator.onLine);
@@ -121,8 +142,10 @@ function App() {
   }, [navigate]);
 
   const handleDismissWebLoginPrompt = () => {
-    sessionStorage.setItem('honey-vision-login-prompt-dismissed', 'true');
-    setIsWebLoginPromptDismissed(true);
+    if (!Capacitor.isNativePlatform()) {
+      sessionStorage.setItem('honey-vision-login-prompt-dismissed', 'true');
+    }
+    setIsEntryLoginPromptDismissed(true);
   };
 
   useEffect(() => {
@@ -331,21 +354,43 @@ function App() {
           <NotificationCenter />
         </div>
       )}
-      {!isAdminRoute && !isDeliveryAgentRoute && !isCheckoutRoute && <ChatWidget />}
+      {!isAdminRoute && !isDeliveryAgentRoute && !isCheckoutRoute && (
+        isChatWidgetLoaded ? (
+          <Suspense fallback={null}>
+            <ChatWidget initialOpen={openChatOnMount} onReady={handleChatReady} />
+          </Suspense>
+        ) : (
+          <button
+            type="button"
+            onClick={() => {
+              setOpenChatOnMount(true);
+              setIsChatWidgetLoaded(true);
+            }}
+            className="chat-widget-launcher fixed bottom-20 right-5 z-40 grid h-14 w-14 place-items-center rounded-full bg-[#f4b400] text-[#071426] shadow-xl shadow-[#071426]/25 transition hover:scale-105 focus:outline-none focus:ring-4 focus:ring-[#f4b400]/40 sm:bottom-5"
+            aria-label="Open Honey Vision support chat"
+          >
+            <MessageCircle size={25} />
+          </button>
+        )
+      )}
     </div>
   );
 
   const content = (
     <>
-      {showWebLoginPrompt && !isLoggedIn && !isWebLoginPage ? (
+      {showEntryLoginPrompt ? (
         <WebLoginPrompt onClose={handleDismissWebLoginPrompt} />
       ) : null}
       {appContent}
     </>
   );
 
-  return GOOGLE_MAPS_API_KEY
-    ? <APIProvider apiKey={GOOGLE_MAPS_API_KEY} libraries={["places", "geocoding", "routes"]}>{content}</APIProvider>
+  return needsGoogleMaps
+    ? (
+      <Suspense fallback={<div className="flex min-h-[50vh] items-center justify-center text-sm font-semibold text-slate-500" role="status">Loading page…</div>}>
+        <GoogleMapsProvider>{content}</GoogleMapsProvider>
+      </Suspense>
+    )
     : content;
 }
 

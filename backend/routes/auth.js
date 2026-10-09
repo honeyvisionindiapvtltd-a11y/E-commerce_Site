@@ -27,6 +27,11 @@ const getSafeUser = (user) => ({
   lastLoginAt: user.lastLoginAt || null,
 });
 
+router.get('/google/config', (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  res.json({ clientId: process.env.GOOGLE_CLIENT_ID || '' });
+});
+
 const getProfile = (user) => ({
   ...(user.profile || {}),
   memberSince: user.profile?.memberSince || new Date().getFullYear().toString(),

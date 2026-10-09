@@ -1,10 +1,10 @@
 import { ArrowRight, Star } from "lucide-react";
 import { Link } from "react-router-dom";
-import { useCommerce } from "../context/index.js";
+import { useCatalog } from "../context/CatalogContext.jsx";
 import { money, normalizeProduct } from "../lib/products";
 
 export default function AutoProductShowcase() {
-  const { products } = useCommerce();
+  const { products } = useCatalog();
   const showcaseProducts = (Array.isArray(products) ? products : [])
     .map(normalizeProduct)
     .filter((product) => product?.id)

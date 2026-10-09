@@ -62,7 +62,9 @@ export default function Navbar({ isDarkTheme = false, onToggleTheme }) {
   const [isCompact, setIsCompact] = useState(() =>
     typeof window !== "undefined" && window.scrollY > 96
   );
+  const isCompactRef = useRef(isCompact);
   const [isHiddenOnMobile, setIsHiddenOnMobile] = useState(false);
+  const isHiddenOnMobileRef = useRef(isHiddenOnMobile);
   const [query, setQuery] = useState("");
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [showCategories, setShowCategories] = useState(false);
@@ -136,35 +138,52 @@ export default function Navbar({ isDarkTheme = false, onToggleTheme }) {
 
   useEffect(() => {
     let previousScrollY = window.scrollY;
+    let animationFrameId = null;
     const mobileViewport = window.matchMedia("(max-width: 767px)");
 
     const handleScroll = () => {
-      const currentScrollY = window.scrollY;
+      if (animationFrameId !== null) return;
 
-      if (currentScrollY < 48) {
-        setIsCompact(false);
-      } else if (currentScrollY > 96) {
-        setIsCompact(true);
-      }
+      animationFrameId = window.requestAnimationFrame(() => {
+        animationFrameId = null;
+        const currentScrollY = window.scrollY;
 
-      if (!mobileViewport.matches || currentScrollY <= 24 || menuOpen) {
-        setIsHiddenOnMobile(false);
-      } else if (currentScrollY > previousScrollY) {
-        setIsHiddenOnMobile(true);
-      } else if (currentScrollY < previousScrollY) {
-        setIsHiddenOnMobile(false);
-      }
+        if (currentScrollY < 48 && isCompactRef.current) {
+          isCompactRef.current = false;
+          setIsCompact(false);
+        } else if (currentScrollY > 96 && !isCompactRef.current) {
+          isCompactRef.current = true;
+          setIsCompact(true);
+        }
 
-      previousScrollY = currentScrollY;
+        let nextHiddenOnMobile = isHiddenOnMobileRef.current;
+        if (!mobileViewport.matches || currentScrollY <= 24 || menuOpen) {
+          nextHiddenOnMobile = false;
+        } else if (currentScrollY > previousScrollY) {
+          nextHiddenOnMobile = true;
+        } else if (currentScrollY < previousScrollY) {
+          nextHiddenOnMobile = false;
+        }
+
+        if (nextHiddenOnMobile !== isHiddenOnMobileRef.current) {
+          isHiddenOnMobileRef.current = nextHiddenOnMobile;
+          setIsHiddenOnMobile(nextHiddenOnMobile);
+        }
+
+        previousScrollY = currentScrollY;
+      });
     };
 
     window.addEventListener("scroll", handleScroll, { passive: true });
     window.addEventListener("resize", handleScroll);
     return () => {
+      if (animationFrameId !== null) {
+        window.cancelAnimationFrame(animationFrameId);
+      }
       window.removeEventListener("scroll", handleScroll);
       window.removeEventListener("resize", handleScroll);
     };
-  }, [location.pathname, menuOpen]);
+  }, [menuOpen]);
 
   useEffect(() => {
     const handleOutsideClick = (event) => {

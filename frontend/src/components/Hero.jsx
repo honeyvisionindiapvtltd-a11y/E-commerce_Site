@@ -7,7 +7,7 @@ import {
 } from "lucide-react";
 import { Link } from "react-router-dom";
 
-const heroImage = "https://res.cloudinary.com/vhrkwyzs/image/upload/v1786269627/hero_dgn7no.jpg";
+const heroImage = (width) => `https://res.cloudinary.com/vhrkwyzs/image/upload/f_auto,q_auto,w_${width}/v1786269627/hero_dgn7no.jpg`;
 
 export default function Hero() {
   return (
@@ -19,8 +19,12 @@ export default function Hero() {
         <div className="float-slow absolute -right-10 top-8 h-40 w-40 rounded-full bg-violet-500/25 blur-3xl sm:h-48 sm:w-48 lg:-right-10 lg:top-16 lg:h-56 lg:w-56" />
         <div className="float-slow absolute right-10 top-16 h-48 w-48 rounded-full bg-sky-500/20 blur-3xl sm:right-24 sm:top-20 sm:h-64 sm:w-64 lg:right-24 lg:top-28 lg:h-72 lg:w-72" />
         <img
-          src={heroImage}
+          src={heroImage(1440)}
+          srcSet={`${heroImage(640)} 640w, ${heroImage(960)} 960w, ${heroImage(1440)} 1440w`}
+          sizes="(min-width: 1024px) 68vw, 100vw"
           alt="IT products and security solutions"
+          fetchPriority="high"
+          decoding="async"
           className="h-full w-full object-cover object-center opacity-90 lg:h-full"
         />
         <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(7,12,24,0.15)_0%,rgba(7,12,24,0.35)_35%,rgba(7,12,24,0.8)_100%)] lg:bg-[linear-gradient(90deg,rgba(7,12,24,1)_0%,rgba(7,12,24,0.96)_8%,rgba(7,12,24,0.85)_22%,rgba(7,12,24,0.38)_52%,rgba(7,12,24,0.10)_100%)]" />

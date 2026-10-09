@@ -5554,6 +5554,71 @@ html.dark-theme .home-shell::after {
   }
 }
 
+html.capacitor-native .home-ambient,
+html.capacitor-native .float-slow,
+html.capacitor-native .mobile-offer-card::before {
+  animation: none !important;
+}
+
+html.capacitor-native .home-ambient {
+  filter: blur(48px);
+}
+
+html.capacitor-native .home-shell::after {
+  animation: none !important;
+}
+
+html.capacitor-native .mobile-benefits-shell {
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  box-shadow: none;
+}
+
+html.capacitor-native.dark-theme .app-shell,
+html.capacitor-native.dark-theme .home-shell {
+  animation: none;
+  background-size: 100% 100%;
+}
+
+html.capacitor-native .product-marquee {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  mask-image: none;
+}
+
+html.capacitor-native .product-marquee-track {
+  animation: productMarqueeSlide 75s linear infinite;
+}
+
+html.capacitor-native .product-marquee:active .product-marquee-track,
+html.capacitor-native .product-marquee:focus-within .product-marquee-track {
+  animation-play-state: paused;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html.capacitor-native .product-marquee-track {
+    animation: none;
+  }
+}
+
+@media (max-width: 767.98px) {
+  html.capacitor-native .mobile-benefits-track {
+    width: 100%;
+    flex-wrap: wrap;
+    justify-content: center;
+    animation: none;
+  }
+
+  html.capacitor-native .mobile-benefit-item {
+    width: calc(50% - 0.25rem);
+    flex: 0 0 calc(50% - 0.25rem);
+  }
+
+  html.capacitor-native .mobile-benefit-item:nth-child(n + 7) {
+    display: none;
+  }
+}
+
 @media (min-width: 768px) {
   .about-page h1,
   .services-page .services-hero-content h1 {

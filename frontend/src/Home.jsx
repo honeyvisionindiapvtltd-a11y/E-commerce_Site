@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { ArrowRight } from "lucide-react";
 import { Link } from "react-router-dom";
-import { useCommerce } from "./context/index.js";
+import { useAuth } from "./context/useAuth.js";
+import { useCatalog } from "./context/CatalogContext.jsx";
 import { money, normalizeProduct } from "./lib/products";
 import { getRecentlyViewed, RECENTLY_VIEWED_EVENT } from "./lib/recentlyViewed";
 import Hero from "./components/Hero";
@@ -18,7 +19,8 @@ import PromotionalBanners from "./components/PromotionalBanners";
 
 
 function RecentlyViewedSection() {
-  const { products, user } = useCommerce();
+  const { products } = useCatalog();
+  const { user } = useAuth();
   const userId = user?.id || user?._id || null;
   const viewedScope = userId == null ? "guest" : String(userId);
   const [viewedState, setViewedState] = useState({ scope: viewedScope, ids: [] });
