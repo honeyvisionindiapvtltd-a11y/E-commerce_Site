@@ -15,6 +15,7 @@ export const resolveImageVisionConfig = (env = process.env) => {
     model: String(env.IMAGE_RECOGNITION_MODEL || env.AI_MODEL || 'gpt-4o-mini').trim(),
     timeout: Math.min(Math.max(Number(env.AI_TIMEOUT_MS) || 20000, 5000), 60000),
   };
+
 };
 
 const imageVisionConfig = resolveImageVisionConfig();
@@ -27,14 +28,16 @@ const IMAGE_VISION_CLIENT = imageVisionConfig.enabled
   })
   : null;
 const INDEX_VERSION = 'product-image-index-v1';
-const DEFAULT_CANDIDATE_LIMIT = 60;
+const IMAGE_EMBEDDING_MODEL = String(process.env.IMAGE_EMBEDDING_MODEL || 'Xenova/clip-vit-base-patch32').trim();
+const IMAGE_EMBEDDING_VERSION = `clip:${IMAGE_EMBEDDING_MODEL}`;
+const DEFAULT_CANDIDATE_LIMIT = 1000;
 const DEFAULT_RESULTS_LIMIT = 5;
-const VISUAL_CANDIDATE_LIMIT = 8;
+const MAX_IMAGES_PER_PRODUCT = 3;
 let imageIndexTask = null;
+let imageEmbedderTask = null;
 
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
 const normalizeText = (value = '') => String(value || '').trim().toLowerCase();
-const escapeRegex = (value = '') => String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 const roundValue = (value) => Number((value || 0).toFixed(4));
 
 const coerceString = (...values) => values
@@ -42,13 +45,81 @@ const coerceString = (...values) => values
   .filter(Boolean)
   .join(' ');
 
+const getReferenceName = (value) => (
+  value && typeof value === 'object' && !(value instanceof Date)
+    ? coerceString(value.name, value.title, value.slug)
+    : String(value ?? '').trim()
+);
+
+const normalizeIdentifier = (value = '') => normalizeText(value).replace(/[^a-z0-9]/g, '');
+
 const hashString = (value) => crypto.createHash('sha256').update(String(value || '')).digest('hex');
+
+export const normalizeEmbeddingVector = (values = []) => {
+  const vector = Array.from(values, Number);
+  const magnitude = Math.sqrt(vector.reduce((sum, value) => sum + (value * value), 0));
+  if (!vector.length || !Number.isFinite(magnitude) || magnitude === 0) return [];
+  return vector.map((value) => value / magnitude);
+};
+
+export const cosineSimilarity = (vectorA = [], vectorB = []) => {
+  if (!Array.isArray(vectorA) || !Array.isArray(vectorB) || vectorA.length === 0 || vectorA.length !== vectorB.length) return 0;
+  return roundValue(clamp(
+    vectorA.reduce((sum, value, index) => sum + (Number(value) * Number(vectorB[index])), 0),
+    -1,
+    1
+  ));
+};
+
+const getImageEmbedder = async () => {
+  if (!imageEmbedderTask) {
+    imageEmbedderTask = (async () => {
+      const { pipeline } = await import('@huggingface/transformers');
+      return pipeline('image-feature-extraction', IMAGE_EMBEDDING_MODEL, { dtype: 'q8' });
+    })();
+  }
+  return imageEmbedderTask;
+};
+
+export const createImageEmbedding = async (imageBuffer, mimeType = 'image/jpeg', embedder = null) => {
+  const extractor = embedder || await getImageEmbedder();
+  const tensor = await extractor(new Blob([imageBuffer], { type: mimeType }));
+  return normalizeEmbeddingVector(tensor?.data || []);
+};
+
+const fetchCatalogImageEmbedding = async (imageUrl) => {
+  const response = await fetch(imageUrl, { signal: AbortSignal.timeout(15000) });
+  if (!response.ok) throw new Error(`Image download failed with HTTP ${response.status}`);
+  const mimeType = String(response.headers.get('content-type') || '').split(';')[0].trim().toLowerCase();
+  if (!mimeType.startsWith('image/')) throw new Error('Catalog URL did not return an image');
+  const imageBuffer = Buffer.from(await response.arrayBuffer());
+  if (imageBuffer.length === 0 || imageBuffer.length > 10 * 1024 * 1024) throw new Error('Catalog image size is outside the supported range');
+  return createImageEmbedding(imageBuffer, mimeType);
+};
+
+export const getCatalogEmbeddingSimilarity = (queryEmbedding, imageEmbeddings = []) => {
+  const vectors = Array.isArray(imageEmbeddings) ? imageEmbeddings : [];
+  return roundValue(Math.max(0, ...vectors.map((vector) => cosineSimilarity(queryEmbedding, vector))));
+};
+
+const hasValidImageEmbeddings = (imageEmbeddings = []) => {
+  if (!Array.isArray(imageEmbeddings) || imageEmbeddings.length === 0) return false;
+  const dimensions = imageEmbeddings[0]?.length;
+  return Number.isInteger(dimensions)
+    && dimensions > 0
+    && imageEmbeddings.every((vector) => (
+      Array.isArray(vector)
+      && vector.length === dimensions
+      && vector.every((value) => typeof value === 'number' && Number.isFinite(value))
+      && Math.sqrt(vector.reduce((sum, value) => sum + (value ** 2), 0)) > 0
+    ));
+};
 
 const getProductImageUrls = (product = {}) => {
   const images = [
-    ...(Array.isArray(product.images) ? product.images : []),
     product.thumbnail || '',
     product.image || '',
+    ...(Array.isArray(product.images) ? product.images : []),
   ]
     .map((value) => String(value || '').trim())
     .filter(Boolean);
@@ -60,8 +131,8 @@ const buildSearchableText = (product = {}) => {
   const textParts = [
     product.name,
     product.brand,
-    product.category,
-    product.subCategory,
+    getReferenceName(product.categoryName || product.category),
+    getReferenceName(product.subCategoryName || product.subCategory),
     product.series,
     product.productFamily,
     product.model,
@@ -109,17 +180,44 @@ const similarityScore = (valueA, valueB) => {
   return roundValue(overlap / union);
 };
 
+const normalizeCategoryText = (value = '') => String(value || '')
+  .toLowerCase()
+  .replace(/[^a-z0-9\s]/g, ' ')
+  .split(/\s+/)
+  .filter(Boolean)
+  .map((token) => token.endsWith('ies') ? `${token.slice(0, -3)}y` : (token.endsWith('s') && token.length > 4 ? token.slice(0, -1) : token))
+  .join(' ');
+
+const categorySimilarityScore = (valueA, valueB) => (
+  similarityScore(normalizeCategoryText(valueA), normalizeCategoryText(valueB))
+);
+
+const normalizeCategoryKey = (value = '') => normalizeCategoryText(value)
+  .split(/\s+/)
+  .filter(Boolean)
+  .sort()
+  .join(' ');
+
 const normalizeProductType = (value = '') => String(value || '').trim().toLowerCase();
 
 export const getProductImageIndexSummary = async () => {
-  const [totalProducts, indexedProducts, pendingProducts, failedProducts, outdatedProducts, lastIndexed] = await Promise.all([
+  const [totalProducts, indexedProducts, pendingProducts, failedProducts, outdatedProducts, imageIndexEntries, lastIndexed] = await Promise.all([
     Product.countDocuments({ isActive: { $ne: false } }),
     ProductImageIndex.countDocuments({ indexingStatus: 'indexed' }),
     ProductImageIndex.countDocuments({ indexingStatus: 'pending' }),
     ProductImageIndex.countDocuments({ indexingStatus: 'failed' }),
     ProductImageIndex.countDocuments({ indexingStatus: 'outdated' }),
+    ProductImageIndex.find({ cloudinaryUrls: { $exists: true, $ne: [] } })
+      .select('indexingStatus embeddingModel imageEmbeddings')
+      .lean(),
     ProductImageIndex.findOne({ indexingStatus: 'indexed' }).sort({ indexedAt: -1 }).select('indexedAt').lean(),
   ]);
+  const imageProducts = imageIndexEntries.length;
+  const embeddedProducts = imageIndexEntries.filter((entry) => (
+    entry.indexingStatus === 'indexed'
+    && entry.embeddingModel === IMAGE_EMBEDDING_VERSION
+    && hasValidImageEmbeddings(entry.imageEmbeddings)
+  )).length;
 
   return {
     totalProducts,
@@ -127,6 +225,9 @@ export const getProductImageIndexSummary = async () => {
     pendingProducts,
     failedProducts,
     outdatedProducts,
+    imageProducts,
+    embeddedProducts,
+    productsMissingEmbeddings: Math.max(0, imageProducts - embeddedProducts),
     lastIndexedAt: lastIndexed?.indexedAt || null,
   };
 };
@@ -148,8 +249,8 @@ export const buildProductImageIndexEntry = (product = {}) => {
     sku: product.sku || '',
     name: product.name || '',
     brand: product.brand || '',
-    category: product.categoryName || product.category || '',
-    subCategory: product.subCategoryName || product.subCategory || '',
+    category: getReferenceName(product.categoryName || product.category),
+    subCategory: getReferenceName(product.subCategoryName || product.subCategory),
     modelNumber: product.model || product.modelNumber || '',
     productCode: product.productCode || product.barcode || '',
     cloudinaryUrls: imageUrls,
@@ -171,11 +272,17 @@ export const shouldReindexImageProduct = ({
   reindexAll = false,
   reindexFailed = false,
   reindexOutdated = false,
+  reindexEmbeddings = false,
 } = {}) => {
   if (reindexAll || !doc) return true;
   if (doc.imageHash !== imageHash || doc.searchableText !== searchableText || doc.embeddingVersion !== INDEX_VERSION) return true;
   if (doc.indexingStatus === 'pending') return true;
   if (reindexFailed && doc.indexingStatus === 'failed') return true;
+  if (reindexEmbeddings && (
+    doc.embeddingModel !== IMAGE_EMBEDDING_VERSION
+    || (Array.isArray(doc.cloudinaryUrls) && doc.cloudinaryUrls.length > 0
+      && !hasValidImageEmbeddings(doc.imageEmbeddings))
+  )) return true;
   return reindexOutdated && doc.indexingStatus === 'outdated';
 };
 
@@ -183,10 +290,14 @@ export const indexProductImageCatalog = async ({
   reindexAll = false,
   reindexFailed = false,
   reindexOutdated = false,
+  reindexEmbeddings = false,
   limit = 0,
 } = {}) => {
   const filters = { isActive: { $ne: false } };
-  const productQuery = Product.find(filters).sort({ updatedAt: -1, createdAt: -1 });
+  const productQuery = Product.find(filters)
+    .populate('category', 'name title slug')
+    .populate('subCategory', 'name title slug')
+    .sort({ updatedAt: -1, createdAt: -1 });
   if (limit > 0) productQuery.limit(limit);
 
   const products = await productQuery.lean();
@@ -196,7 +307,13 @@ export const indexProductImageCatalog = async ({
     const imageUrls = getProductImageUrls(product);
     const searchableText = buildSearchableText(product);
     const imageHash = hashString(JSON.stringify(imageUrls));
-    const doc = await ProductImageIndex.findOne({ product: product._id }).lean();
+    const doc = await ProductImageIndex.findOne({
+      $or: [
+        { product: product._id },
+        { productId: String(product._id) },
+      ],
+    }).lean();
+    const indexFilter = doc ? { _id: doc._id } : { productId: String(product._id) };
     const shouldReindex = shouldReindexImageProduct({
       doc,
       imageHash,
@@ -204,6 +321,7 @@ export const indexProductImageCatalog = async ({
       reindexAll,
       reindexFailed,
       reindexOutdated,
+      reindexEmbeddings,
     });
 
     if (!shouldReindex) {
@@ -217,22 +335,52 @@ export const indexProductImageCatalog = async ({
         imageHash,
         searchableText,
       };
+      if (reindexEmbeddings) {
+        const imageEmbeddings = [];
+        let embeddingErrors = 0;
+        for (const imageUrl of imageUrls.slice(0, MAX_IMAGES_PER_PRODUCT)) {
+          try {
+            const embedding = await fetchCatalogImageEmbedding(imageUrl);
+            if (embedding.length) imageEmbeddings.push(embedding);
+          } catch (error) {
+            embeddingErrors += 1;
+            console.warn(JSON.stringify({
+              event: 'product-image-embedding-error',
+              productId: String(product._id),
+              errorName: error?.name || 'Error',
+              status: Number(error?.status) || 0,
+            }));
+          }
+        }
+        nextEntry.imageEmbeddings = imageEmbeddings;
+        nextEntry.embedding = imageEmbeddings.length
+          ? normalizeEmbeddingVector(imageEmbeddings[0].map((_, index) => (
+            imageEmbeddings.reduce((sum, vector) => sum + (vector[index] || 0), 0) / imageEmbeddings.length
+          )))
+          : [];
+        nextEntry.embeddingModel = IMAGE_EMBEDDING_VERSION;
+        nextEntry.errorMessage = embeddingErrors > 0 ? `${embeddingErrors} catalog image embedding(s) could not be generated.` : '';
+      } else if (doc?.imageHash !== imageHash) {
+        nextEntry.imageEmbeddings = [];
+        nextEntry.embedding = [];
+        nextEntry.embeddingModel = '';
+      }
 
       await ProductImageIndex.findOneAndUpdate(
-        { product: product._id },
+        indexFilter,
         {
           ...nextEntry,
           indexingStatus: 'indexed',
-          errorMessage: '',
+          errorMessage: nextEntry.errorMessage,
           updatedAt: new Date(),
         },
-        { upsert: true, new: true, setDefaultsOnInsert: true }
+        { upsert: true, returnDocument: 'after', setDefaultsOnInsert: true }
       );
 
       totals.indexed += 1;
     } catch (error) {
       await ProductImageIndex.findOneAndUpdate(
-        { product: product._id },
+        indexFilter,
         {
           product: product._id,
           productId: String(product._id),
@@ -245,7 +393,7 @@ export const indexProductImageCatalog = async ({
           errorMessage: error?.message || 'Indexing failed',
           updatedAt: new Date(),
         },
-        { upsert: true, new: true, setDefaultsOnInsert: true }
+        { upsert: true, returnDocument: 'after', setDefaultsOnInsert: true }
       );
 
       totals.failed += 1;
@@ -300,15 +448,6 @@ export const extractVisibleTextSignals = async (imageBuffer, mimeType = 'image/j
   return parseImageRecognitionResponse(completion?.output_text || '{}');
 };
 
-const exactMatchCandidates = (signals = {}) => {
-  const expressions = [];
-  if (signals.barcode) expressions.push({ productCode: { $regex: escapeRegex(signals.barcode), $options: 'i' } });
-  if (signals.sku) expressions.push({ sku: { $regex: escapeRegex(signals.sku), $options: 'i' } });
-  if (signals.model) expressions.push({ modelNumber: { $regex: escapeRegex(signals.model), $options: 'i' } });
-  if (signals.brand) expressions.push({ brand: { $regex: escapeRegex(signals.brand), $options: 'i' } });
-  return expressions;
-};
-
 export const hasProductRecognitionSignals = (signals = {}) => [
   signals.brand,
   signals.model,
@@ -324,7 +463,10 @@ export const scoreProductCandidate = (candidate = {}, signals = {}) => {
   const brandSimilarity = similarityScore(candidate.brand, signals.brand || '');
   const modelSimilarity = similarityScore(candidate.modelNumber || candidate.name, signals.model || signals.name || '');
   const skuSimilarity = similarityScore(candidate.sku, signals.sku || '');
-  const categorySimilarity = similarityScore(candidate.category, signals.category || '');
+  const categorySimilarity = Math.max(
+    categorySimilarityScore(candidate.category, signals.category || ''),
+    categorySimilarityScore(candidate.subCategory, signals.category || '')
+  );
   const queryText = coerceString(
     signals.brand,
     signals.model,
@@ -338,17 +480,57 @@ export const scoreProductCandidate = (candidate = {}, signals = {}) => {
   const productTokens = new Set(productText.toLowerCase().replace(/[^a-z0-9\s]/g, ' ').split(/\s+/).filter((token) => token.length > 1));
   const matchedTokens = [...queryTokens].filter((token) => productTokens.has(token)).length;
   const textCoverage = queryTokens.size ? matchedTokens / queryTokens.size : 0;
-  const normalizedProductCode = normalizeText(candidate.productCode);
-  const normalizedSku = normalizeText(candidate.sku);
-  const normalizedModel = normalizeText(candidate.modelNumber);
-  const exactIdentifierMatch = Boolean(
-    (signals.barcode && normalizeText(signals.barcode) === normalizedProductCode)
-    || (signals.sku && normalizeText(signals.sku) === normalizedSku)
-    || (signals.model && normalizeText(signals.model) === normalizedModel)
+  const productCode = normalizeIdentifier(candidate.productCode);
+  const candidateSku = normalizeIdentifier(candidate.sku);
+  const candidateModel = normalizeIdentifier(candidate.modelNumber);
+  const barcode = normalizeIdentifier(signals.barcode);
+  const signalSku = normalizeIdentifier(signals.sku);
+  const signalModel = normalizeIdentifier(signals.model);
+  const exactBarcodeMatch = Boolean(barcode && productCode && barcode === productCode);
+  const exactSkuMatch = Boolean(signalSku && candidateSku && signalSku === candidateSku);
+  const exactModelMatch = Boolean(signalModel && candidateModel && signalModel === candidateModel);
+  const exactIdentifierMatch = exactBarcodeMatch || exactSkuMatch || exactModelMatch;
+  const identifierConflicts = [
+    Boolean(barcode && productCode && barcode !== productCode),
+    Boolean(signalSku && candidateSku && signalSku !== candidateSku),
+    Boolean(signalModel && candidateModel && signalModel !== candidateModel),
+  ].filter(Boolean).length;
+  const brandConflict = Boolean(
+    signals.brand
+    && candidate.brand
+    && brandSimilarity === 0
   );
-  const confidence = exactIdentifierMatch
+  const categoryConflict = Boolean(
+    signals.category
+    && candidate.category
+    && categorySimilarity === 0
+  );
+  const matchReasons = [];
+
+  if (exactBarcodeMatch) matchReasons.push('exact-barcode');
+  if (exactSkuMatch) matchReasons.push('exact-sku');
+  if (exactModelMatch) matchReasons.push('exact-model');
+  if (brandSimilarity > 0) matchReasons.push('brand-agreement');
+  if (categorySimilarity > 0) matchReasons.push('category-compatible');
+  if (textCoverage > 0) matchReasons.push('description-token-overlap');
+  if (identifierConflicts) matchReasons.push('conflicting-identifier');
+  if (brandConflict) matchReasons.push('conflicting-brand');
+  if (categoryConflict) matchReasons.push('conflicting-category');
+  const rawConfidence = clamp(
+    (textCoverage * 0.48)
+      + (brandSimilarity * 0.17)
+      + (modelSimilarity * 0.2)
+      + (categorySimilarity * 0.15)
+      + ((exactModelMatch ? 0.28 : 0) + (exactSkuMatch ? 0.32 : 0) + (exactBarcodeMatch ? 0.36 : 0))
+      - (identifierConflicts * 0.22)
+      - (brandConflict ? 0.14 : 0)
+      - (categoryConflict ? 0.08 : 0),
+    0,
+    1
+  );
+  const confidence = exactIdentifierMatch && identifierConflicts === 0 && !brandConflict
     ? 0.99
-    : clamp((textCoverage * 0.55) + (brandSimilarity * 0.2) + (modelSimilarity * 0.2) + (categorySimilarity * 0.05), 0, 0.79);
+    : rawConfidence;
 
   return {
     confidence: roundValue(confidence),
@@ -358,32 +540,85 @@ export const scoreProductCandidate = (candidate = {}, signals = {}) => {
     categorySimilarity,
     semanticSimilarity: roundValue(textCoverage),
     exactIdentifierMatch,
+    identifierConflicts,
+    brandConflict,
+    categoryConflict,
+    matchReasons,
   };
 };
 
-const ensureImageIndexCoverage = async () => {
+export const combineImageAndCatalogScores = (candidate, signals, visualMatch = {}) => {
+  const catalogScore = scoreProductCandidate(candidate, signals);
+  const visualSimilarity = roundValue(clamp(Number(visualMatch.confidence) || 0, 0, 1));
+  const confidence = roundValue(clamp(
+    (visualSimilarity * 0.82)
+      + (catalogScore.confidence * 0.18)
+      - (catalogScore.identifierConflicts * 0.24)
+      - (catalogScore.brandConflict ? 0.12 : 0)
+      - (catalogScore.categoryConflict ? 0.06 : 0),
+    0,
+    1
+  ));
+  const matchReasons = [...catalogScore.matchReasons];
+  if (visualSimilarity > 0) matchReasons.push('visual-image-similarity');
+
+  return {
+    ...catalogScore,
+    visualSimilarity,
+    confidence,
+    matchReasons: [...new Set(matchReasons)],
+  };
+};
+
+const ensureImageIndexCoverage = async (requestId) => {
   if (imageIndexTask) return imageIndexTask;
 
   imageIndexTask = (async () => {
     const summary = await getProductImageIndexSummary();
     const accountedFor = summary.indexedProducts + summary.pendingProducts + summary.failedProducts + summary.outdatedProducts;
-    if (
+    const indexNeedsRefresh = !(
       accountedFor >= summary.totalProducts
       && summary.pendingProducts === 0
       && summary.failedProducts === 0
       && summary.outdatedProducts === 0
-    ) return;
+    );
+    const embeddingsNeedRefresh = summary.productsMissingEmbeddings > 0;
+    if (!indexNeedsRefresh && !embeddingsNeedRefresh) return;
 
+    console.info(JSON.stringify({
+      event: 'product-image-index-repair-start',
+      requestId,
+      catalogProducts: summary.totalProducts,
+      imageProducts: summary.imageProducts,
+      missingEmbeddings: summary.productsMissingEmbeddings,
+      refreshEmbeddings: embeddingsNeedRefresh,
+    }));
     await indexProductImageCatalog({
       reindexFailed: summary.failedProducts > 0,
       reindexOutdated: summary.outdatedProducts > 0,
+      reindexEmbeddings: embeddingsNeedRefresh,
     });
+    const repairedSummary = await getProductImageIndexSummary();
+    console.info(JSON.stringify({
+      event: 'product-image-index-repair-complete',
+      requestId,
+      indexedProducts: repairedSummary.indexedProducts,
+      imageProducts: repairedSummary.imageProducts,
+      embeddedProducts: repairedSummary.embeddedProducts,
+      productsMissingEmbeddings: repairedSummary.productsMissingEmbeddings,
+    }));
   })();
 
   try {
     await imageIndexTask;
   } catch (error) {
-    console.warn('Product image index refresh failed; searching the available index:', error.message);
+    console.warn(JSON.stringify({
+      event: 'product-image-search-stage-error',
+      requestId,
+      stage: 'index-repair',
+      errorName: error?.name || 'Error',
+      status: Number(error?.status) || 0,
+    }));
   } finally {
     imageIndexTask = null;
   }
@@ -406,110 +641,292 @@ export const parseImageRecognitionResponse = (content = '{}') => {
 export const parseVisualProductMatchResponse = (content = '{}') => {
   const parsed = JSON.parse(content || '{}');
   const confidence = Number(parsed.confidence);
+  const matches = Array.isArray(parsed.matches)
+    ? parsed.matches.map((match) => {
+      const matchConfidence = Number(match.confidence);
+      return {
+        productId: String(match.productId || match.id || '').trim(),
+        confidence: Number.isFinite(matchConfidence) ? roundValue(clamp(matchConfidence, 0, 1)) : 0,
+        reason: String(match.reason || '').trim(),
+      };
+    }).filter((match) => match.productId)
+    : [];
+  const productId = String(parsed.productId || parsed.matchedProductId || '').trim();
+
   return {
-    productId: String(parsed.productId || parsed.matchedProductId || '').trim(),
+    productId,
     confidence: Number.isFinite(confidence) ? roundValue(clamp(confidence, 0, 1)) : 0,
     reason: String(parsed.reason || '').trim(),
+    matches: matches.length ? matches : (productId ? [{
+      productId,
+      confidence: Number.isFinite(confidence) ? roundValue(clamp(confidence, 0, 1)) : 0,
+      reason: String(parsed.reason || '').trim(),
+    }] : []),
   };
 };
 
-const buildVisualCandidateTerms = (signals = {}) => {
-  const ignoredTerms = new Set([
-    'about', 'across', 'also', 'and', 'are', 'black', 'blue', 'brown', 'camera',
-    'from', 'gray', 'green', 'image', 'lens', 'looks', 'object', 'photo',
-    'product', 'that', 'this', 'there', 'they', 'with', 'white',
-  ]);
-  const text = coerceString(
-    signals.brand,
-    signals.model,
-    signals.sku,
-    signals.barcode,
-    signals.category,
-    signals.text,
-    signals.visualDescription,
-  );
+export const buildImageSearchDiagnostics = ({
+  requestId = '',
+  index = {},
+  queryEmbeddingDimensions = 0,
+  thresholds = {},
+  candidates = [],
+  selectedProductId = null,
+  outcome = 'no-match',
+} = {}) => ({
+  event: 'product-image-search',
+  requestId,
+  outcome,
+  index,
+  queryEmbeddingDimensions,
+  thresholds,
+  candidates: candidates.map(({ product, scores, imageCount = 0, embeddingCount = 0, rejectionReason = '' }) => ({
+    productId: String(product?._id || product?.product || ''),
+    scores: {
+      visualSimilarity: scores?.visualSimilarity || 0,
+      modelSimilarity: scores?.modelSimilarity || 0,
+      brandSimilarity: scores?.brandSimilarity || 0,
+      categorySimilarity: scores?.categorySimilarity || 0,
+      semanticSimilarity: scores?.semanticSimilarity || 0,
+      exactIdentifierMatch: Boolean(scores?.exactIdentifierMatch),
+      identifierConflicts: scores?.identifierConflicts || 0,
+      brandConflict: Boolean(scores?.brandConflict),
+      categoryConflict: Boolean(scores?.categoryConflict),
+      confidence: scores?.confidence || 0,
+    },
+    matchReasons: scores?.matchReasons || [],
+    imageCount,
+    embeddingCount,
+    rejectionReason,
+  })),
+  selectedProductId: selectedProductId ? String(selectedProductId) : null,
+});
 
-  return [...new Set(
-    text.toLowerCase()
-      .replace(/[^a-z0-9\s-]/g, ' ')
-      .split(/\s+/)
-      .filter((token) => token.length >= 3 && !ignoredTerms.has(token))
-  )].slice(0, 10);
+const logImageSearchDiagnostics = (diagnostics) => {
+  console.info(JSON.stringify(diagnostics));
 };
 
-const matchCatalogCandidatesByImage = async (imageBuffer, mimeType, candidates) => {
-  const comparableCandidates = candidates
-    .map(({ product, confidence }) => ({
-      id: String(product._id),
-      name: String(product.name || ''),
-      brand: String(product.brand || ''),
-      sku: String(product.sku || ''),
-      category: String(product.categoryName || ''),
-      confidence,
-      image: product.thumbnail || product.images?.[0] || product.image || '',
-    }))
-    .filter((candidate) => candidate.image);
+const getProductImageCount = (candidate) => new Set([
+  candidate?.thumbnail,
+  ...(Array.isArray(candidate?.cloudinaryUrls) ? candidate.cloudinaryUrls : []),
+].map((value) => String(value || '').trim()).filter(Boolean)).size;
 
-  if (!comparableCandidates.length) {
-    return { productId: '', confidence: 0, reason: '' };
+export const rankImageSearchCandidates = (candidates = [], signals = {}, queryEmbedding = []) => candidates
+  .map((candidate) => {
+    const imageEmbeddings = candidate.productMatch?.imageEmbeddings || [];
+    const embeddingCompatible = Array.isArray(queryEmbedding)
+      && queryEmbedding.length > 0
+      && hasValidImageEmbeddings(imageEmbeddings)
+      && imageEmbeddings[0].length === queryEmbedding.length;
+    const visualSimilarity = embeddingCompatible
+      ? getCatalogEmbeddingSimilarity(queryEmbedding, imageEmbeddings)
+      : 0;
+    const scores = combineImageAndCatalogScores(candidate.productMatch, signals, { confidence: visualSimilarity });
+    if (!hasValidImageEmbeddings(imageEmbeddings)) scores.matchReasons.push('catalog-image-embedding-unavailable');
+    else if (!embeddingCompatible) scores.matchReasons.push('embedding-dimension-mismatch');
+    return {
+      ...candidate,
+      ...scores,
+      visualSimilarity,
+      imageCount: getProductImageCount(candidate.productMatch),
+      embeddingCount: Array.isArray(imageEmbeddings) ? imageEmbeddings.length : 0,
+      embeddingCompatible,
+    };
+  })
+  .sort((left, right) => (
+    right.confidence - left.confidence
+    || left.identifierConflicts - right.identifierConflicts
+    || right.visualSimilarity - left.visualSimilarity
+    || right.modelSimilarity - left.modelSimilarity
+    || String(left.product?._id || '').localeCompare(String(right.product?._id || ''))
+  ));
+
+export const filterPossibleImageMatches = (
+  rankedCandidates = [],
+  { selectedMatch = null, categorySignal = '', minimumSimilarity = 0.65, limit = 3 } = {}
+) => {
+  const categoryAnchor = selectedMatch?.productMatch?.category
+    || selectedMatch?.productMatch?.subCategory
+    || rankedCandidates.find((candidate) => (
+      candidate.imageCount > 0
+      && candidate.visualSimilarity >= minimumSimilarity
+      && (candidate.productMatch?.category || candidate.productMatch?.subCategory)
+    ))?.productMatch?.category
+    || rankedCandidates.find((candidate) => (
+      candidate.imageCount > 0
+      && candidate.visualSimilarity >= minimumSimilarity
+      && candidate.productMatch?.subCategory
+    ))?.productMatch?.subCategory
+    || '';
+
+  return rankedCandidates
+    .filter((candidate) => {
+      if (candidate.imageCount === 0 || candidate.visualSimilarity < minimumSimilarity) return false;
+      if (categorySignal && candidate.categorySimilarity === 0) return false;
+      if (
+        categoryAnchor
+        && (candidate.productMatch?.category || candidate.productMatch?.subCategory)
+        && normalizeCategoryKey(categoryAnchor) !== normalizeCategoryKey(candidate.productMatch.category || candidate.productMatch.subCategory)
+      ) return false;
+      if (selectedMatch && String(candidate.product?._id) === String(selectedMatch.product._id)) return false;
+      return true;
+    })
+    .slice(0, limit);
+};
+
+export const selectConfidentImageMatch = (
+  rankedCandidates = [],
+  {
+    visualThreshold = 0.94,
+    confidenceThreshold = 0.72,
+    marginThreshold = 0.06,
+  } = {}
+) => {
+  const eligibleCandidates = rankedCandidates.filter((candidate) => (
+    candidate.imageCount > 0
+    && candidate.visualSimilarity >= visualThreshold
+    && candidate.confidence >= confidenceThreshold
+    && candidate.identifierConflicts === 0
+    && !candidate.brandConflict
+  ));
+  const top = eligibleCandidates[0];
+  if (!top) return null;
+
+  const runnerUp = eligibleCandidates[1];
+  if (runnerUp && top.confidence - runnerUp.confidence < marginThreshold) return null;
+  return top;
+};
+
+export const buildScanProductResponse = (product, confidence) => ({
+  id: String(product._id),
+  name: product.name,
+  sku: product.sku,
+  brand: product.brand,
+  price: product.price,
+  mrp: product.mrp,
+  stock: product.stock,
+  stockStatus: product.stockStatus,
+  availability: product.isActive !== false && product.stock > 0,
+  confidence,
+  thumbnail: product.thumbnail || product.images?.[0] || '',
+});
+
+export const buildImageSearchResultResponse = ({
+  verifiedMatch = null,
+  possibleMatches = [],
+  requestId = '',
+  recognitionWarning = '',
+} = {}) => {
+  const matchType = verifiedMatch
+    ? (verifiedMatch.exactIdentifierMatch ? 'exact-identifier' : 'visual-image-match')
+    : (possibleMatches.length ? 'possible-match' : 'no-match');
+
+  return {
+    success: true,
+    matched: Boolean(verifiedMatch),
+    confidence: verifiedMatch?.confidence || 0,
+    matchType,
+    message: verifiedMatch
+      ? 'Product matched against the HoneyVision catalog.'
+      : "We couldn't confidently identify this product. Review the closest catalog matches below.",
+    product: verifiedMatch ? buildScanProductResponse(verifiedMatch.product, verifiedMatch.confidence) : null,
+    possibleMatches,
+    requestId,
+    ...(recognitionWarning ? { recognitionWarning } : {}),
+  };
+};
+
+const toPossibleMatch = ({ product, confidence, visualSimilarity, matchReasons }) => ({
+  id: String(product._id),
+  name: product.name,
+  sku: product.sku,
+  brand: product.brand,
+  price: product.price,
+  stock: product.stock,
+  confidence,
+  visualSimilarity,
+  matchReasons,
+  thumbnail: product.thumbnail || product.images?.[0] || '',
+});
+
+const getCandidateRejectionReason = (
+  candidate,
+  { visualThreshold, confidenceThreshold, marginThreshold, possibleMatchThreshold, categorySignal = '', alternativeCategory = '' },
+  selected,
+  rankedCandidates
+) => {
+  if (selected && String(candidate.product?._id) === String(selected.product._id)) return 'selected-confident-match';
+  if (candidate.imageCount === 0) return 'catalog-image-missing';
+  if (candidate.embeddingCount === 0) return 'catalog-embedding-missing';
+  if (!candidate.embeddingCompatible) return 'embedding-dimension-mismatch';
+  if (candidate.identifierConflicts > 0) return 'conflicting-identifier';
+  if (candidate.brandConflict) return 'conflicting-brand';
+  if (categorySignal && candidate.categorySimilarity === 0) return 'category-incompatible';
+  if (
+    alternativeCategory
+    && (candidate.productMatch?.category || candidate.productMatch?.subCategory)
+    && normalizeCategoryKey(candidate.productMatch.category || candidate.productMatch.subCategory) !== normalizeCategoryKey(alternativeCategory)
+  ) return 'category-incompatible';
+  if (candidate.visualSimilarity < visualThreshold) {
+    return candidate.visualSimilarity >= possibleMatchThreshold
+      ? 'below-verified-visual-threshold'
+      : 'below-possible-match-threshold';
   }
+  if (candidate.confidence < confidenceThreshold) return 'below-confidence-threshold';
 
-  const candidateContent = comparableCandidates.flatMap((candidate) => [
-    {
-      type: 'input_text',
-      text: `Catalog candidate ID: ${candidate.id}. Name: ${candidate.name}. Brand: ${candidate.brand}. SKU: ${candidate.sku}. Category: ${candidate.category}.`,
-    },
-    {
-      type: 'input_image',
-      image_url: candidate.image,
-      detail: 'low',
-    },
-  ]);
-  const completion = await IMAGE_VISION_CLIENT.responses.create({
-    model: imageVisionConfig.model,
-    instructions: 'Compare the uploaded reference photo with the catalog candidate photos. Select a candidate only when the physical product appears to be the same product/model, not merely the same broad category. Never infer a match from text alone. If no candidate is visually the same or the photos are insufficient, return an empty productId and confidence 0. Return JSON with productId, confidence from 0 to 1, and a brief reason.',
-    input: [{
-      role: 'user',
-      content: [
-        {
-          type: 'input_text',
-          text: 'Reference product photo:',
-        },
-        {
-          type: 'input_image',
-          image_url: `data:${mimeType};base64,${imageBuffer.toString('base64')}`,
-          detail: 'high',
-        },
-        {
-          type: 'input_text',
-          text: 'Compare it against each catalog candidate below. Return the single visually matching candidate ID, or an empty productId if none is the same product.',
-        },
-        ...candidateContent,
-      ],
-    }],
-    text: { format: { type: 'json_object' } },
-    max_output_tokens: 250,
-  });
-
-  const result = parseVisualProductMatchResponse(completion?.output_text || '{}');
-  const validCandidate = comparableCandidates.some((candidate) => candidate.id === result.productId);
-  return validCandidate ? result : { productId: '', confidence: 0, reason: result.reason };
+  const eligible = rankedCandidates.filter((item) => (
+    item.imageCount > 0
+    && item.embeddingCompatible
+    && item.visualSimilarity >= visualThreshold
+    && item.confidence >= confidenceThreshold
+    && item.identifierConflicts === 0
+    && !item.brandConflict
+  ));
+  if (eligible.length > 1 && eligible[0].confidence - eligible[1].confidence < marginThreshold) {
+    return 'ambiguous-confidence-margin';
+  }
+  return 'not-selected';
 };
 
 export const searchProductsByImage = async (fileBuffer, mimeType, metadata = {}) => {
-  if (!IMAGE_VISION_CLIENT) {
-    return {
-      success: true,
-      matched: false,
-      confidence: 0,
-      matchType: 'vision-unavailable',
-      message: 'Image product matching is not configured. Please contact support or try again later.',
-      product: null,
-      possibleMatches: [],
-    };
-  }
+  const requestId = String(metadata.requestId || crypto.randomUUID());
+  const emptyResult = (matchType, message) => ({
+    success: true,
+    matched: false,
+    confidence: 0,
+    matchType,
+    message,
+    product: null,
+    possibleMatches: [],
+  });
 
-  const processedSignals = await extractVisibleTextSignals(fileBuffer, mimeType);
+  let processedSignals = {
+    brand: '',
+    model: '',
+    sku: '',
+    barcode: '',
+    category: '',
+    text: '',
+    visualDescription: '',
+    source: 'fallback',
+  };
+  let recognitionWarning = '';
+  if (IMAGE_VISION_CLIENT) {
+    try {
+      processedSignals = await extractVisibleTextSignals(fileBuffer, mimeType);
+    } catch (error) {
+      recognitionWarning = 'Visible label recognition is temporarily unavailable; matching is based on product-image similarity.';
+      console.warn(JSON.stringify({
+        event: 'product-image-search-stage-error',
+        requestId,
+        stage: 'ocr-vision',
+        errorName: error?.name || 'Error',
+        status: Number(error?.status) || 0,
+      }));
+    }
+  } else {
+    recognitionWarning = 'Visible label recognition is not configured; matching is based on product-image similarity.';
+  }
   const finalSignals = {
     ...processedSignals,
     name: metadata?.name || '',
@@ -522,59 +939,49 @@ export const searchProductsByImage = async (fileBuffer, mimeType, metadata = {})
     visualDescription: processedSignals.visualDescription || '',
   };
 
-  if (!hasProductRecognitionSignals(finalSignals)) {
-    return {
-      success: true,
-      matched: false,
-      confidence: 0,
-      matchType: 'no-readable-product-details',
-      message: 'We could not read a brand, model, barcode, or product label. Try a closer, well-lit photo of the product label.',
-      product: null,
-      possibleMatches: [],
-    };
-  }
-
-  await ensureImageIndexCoverage();
-  const exactFilters = exactMatchCandidates(finalSignals);
-  const candidateFilters = [];
-
-  if (exactFilters.length > 0) {
-    candidateFilters.push({ $or: exactFilters });
-  }
-
-  if (finalSignals.brand) {
-    candidateFilters.push({ brand: { $regex: escapeRegex(finalSignals.brand), $options: 'i' } });
-  }
-
-  if (finalSignals.category) {
-    candidateFilters.push({ category: { $regex: escapeRegex(finalSignals.category), $options: 'i' } });
-  }
-
-  if (finalSignals.model) {
-    candidateFilters.push({ modelNumber: { $regex: escapeRegex(finalSignals.model), $options: 'i' } });
-  }
-
-  const visualTerms = buildVisualCandidateTerms(finalSignals);
-  if (visualTerms.length) {
-    candidateFilters.push({
-      $or: visualTerms.map((term) => ({
-        searchableText: { $regex: escapeRegex(term), $options: 'i' },
-      })),
-    });
-  }
-
-  const filter = candidateFilters.length > 0 ? { $and: [{ indexingStatus: { $in: ['indexed', 'outdated'] } }, { $or: candidateFilters }] } : { indexingStatus: { $in: ['indexed', 'outdated'] } };
-
-  const candidates = await ProductImageIndex.find(filter)
+  await ensureImageIndexCoverage(requestId);
+  const queryEmbedding = await createImageEmbedding(fileBuffer, mimeType);
+  if (!queryEmbedding.length) throw new Error('Image embedding model returned an empty vector');
+  console.info(JSON.stringify({
+    event: 'product-image-query-embedding',
+    requestId,
+    mimeType,
+    embeddingDimensions: queryEmbedding.length,
+  }));
+  const candidates = await ProductImageIndex.find({ indexingStatus: { $in: ['indexed', 'outdated'] } })
     .sort({ updatedAt: -1 })
     .limit(DEFAULT_CANDIDATE_LIMIT)
     .lean();
-  const candidateProductIds = candidates.map((candidate) => candidate.product).filter(Boolean);
+  const imageBearingCandidates = candidates.filter((candidate) => Array.isArray(candidate.cloudinaryUrls) && candidate.cloudinaryUrls.length > 0);
+  const missingEmbeddingCount = imageBearingCandidates.filter((candidate) => (
+    candidate.embeddingModel !== IMAGE_EMBEDDING_VERSION
+    || !hasValidImageEmbeddings(candidate.imageEmbeddings)
+  )).length;
+  if (missingEmbeddingCount > 0) {
+    const coverageWarning = 'The catalog image index is incomplete. Ask an administrator to run the product image indexing job.';
+    recognitionWarning = [recognitionWarning, coverageWarning].filter(Boolean).join(' ');
+    console.warn(JSON.stringify({
+      event: 'product-image-search-index-incomplete',
+      requestId,
+      productsWithImages: imageBearingCandidates.length,
+      productsMissingEmbeddings: missingEmbeddingCount,
+    }));
+  }
+  const candidateProductIds = [...new Set(candidates.map((candidate) => candidate.product).filter(Boolean).map(String))];
   const products = await Product.find({
     _id: { $in: candidateProductIds },
     isActive: { $ne: false },
   }).lean();
   const productsById = new Map(products.map((product) => [String(product._id), product]));
+  console.info(JSON.stringify({
+    event: 'product-image-candidate-retrieval',
+    requestId,
+    indexedImageProducts: imageBearingCandidates.length,
+    candidatesReturned: candidates.length,
+    activeProductsResolved: products.length,
+    queryEmbeddingDimensions: queryEmbedding.length,
+    productsMissingEmbeddings: missingEmbeddingCount,
+  }));
 
   const evaluatedResults = [];
 
@@ -594,97 +1001,92 @@ export const searchProductsByImage = async (fileBuffer, mimeType, metadata = {})
     });
   }
 
-  evaluatedResults.sort((left, right) => right.confidence - left.confidence);
-
-  const mediumThreshold = Number(process.env.IMAGE_MATCH_MEDIUM_THRESHOLD || 0.65);
-  const visualThreshold = Number(process.env.IMAGE_MATCH_VISUAL_THRESHOLD || 0.88);
-
-  const exactIdentifierMatches = evaluatedResults.filter(({ exactIdentifierMatch }) => exactIdentifierMatch);
-
-  if (exactIdentifierMatches.length === 1 && exactIdentifierMatches[0].confidence >= mediumThreshold) {
-    const top = exactIdentifierMatches[0];
-    return {
-      success: true,
-      matched: true,
-      confidence: top.confidence,
-      matchType: 'exact-identifier',
-      message: 'Product matched against the HoneyVision catalog.',
-      product: {
-        id: String(top.product._id),
-        name: top.product.name,
-        sku: top.product.sku,
-        brand: top.product.brand,
-        price: top.product.price,
-        mrp: top.product.mrp,
-        stock: top.product.stock,
-        stockStatus: top.product.stockStatus,
-        availability: top.product.isActive !== false && top.product.stock > 0,
-        thumbnail: top.product.thumbnail || top.product.images?.[0] || '',
-      },
-      possibleMatches: evaluatedResults.slice(0, 3).map(({ product, confidence }) => ({
-        id: String(product._id),
-        name: product.name,
-        sku: product.sku,
-        brand: product.brand,
-        price: product.price,
-        stock: product.stock,
-        confidence,
-        thumbnail: product.thumbnail || product.images?.[0] || '',
+  if (evaluatedResults.length === 0) {
+    const result = {
+      ...emptyResult('no-match', "We couldn't confidently identify this product."),
+      requestId,
+      ...(recognitionWarning ? { recognitionWarning } : {}),
+    };
+    logImageSearchDiagnostics(buildImageSearchDiagnostics({
+      requestId,
+      candidates: candidates.slice(0, DEFAULT_RESULTS_LIMIT).map((candidate) => ({
+        product: { _id: candidate.product },
+        scores: {},
+        imageCount: getProductImageCount(candidate),
+        embeddingCount: candidate.imageEmbeddings?.length || 0,
+        rejectionReason: 'product-document-not-resolved',
       })),
-    };
+      index: {
+        indexedImageProducts: imageBearingCandidates.length,
+        candidatesReturned: candidates.length,
+        activeProductsResolved: products.length,
+        productsMissingEmbeddings: missingEmbeddingCount,
+      },
+      queryEmbeddingDimensions: queryEmbedding.length,
+      outcome: result.matchType,
+    }));
+    return result;
   }
 
-  const topMatches = evaluatedResults.slice(0, Math.max(DEFAULT_RESULTS_LIMIT, VISUAL_CANDIDATE_LIMIT));
-
-  if (topMatches.length === 0) {
-    return {
-      success: true,
-      matched: false,
-      confidence: 0,
-      matchType: 'no-match',
-      message: "We couldn't confidently identify this product.",
-      product: null,
-      possibleMatches: [],
-    };
-  }
-
-  const visualCandidates = topMatches.slice(0, VISUAL_CANDIDATE_LIMIT);
-  const visualMatch = await matchCatalogCandidatesByImage(fileBuffer, mimeType, visualCandidates);
-  const verifiedMatch = visualMatch.confidence >= visualThreshold
-    ? visualCandidates.find(({ product }) => String(product._id) === visualMatch.productId)
+  const rankedResults = rankImageSearchCandidates(evaluatedResults, finalSignals, queryEmbedding);
+  const visualThreshold = Number(process.env.IMAGE_MATCH_VISUAL_THRESHOLD) || 0.94;
+  const confidenceThreshold = Number(process.env.IMAGE_MATCH_CONFIDENCE_THRESHOLD) || 0.72;
+  const marginThreshold = Number(process.env.IMAGE_MATCH_MARGIN_THRESHOLD) || 0.06;
+  const confidenceCandidate = selectConfidentImageMatch(rankedResults, {
+    visualThreshold,
+    confidenceThreshold,
+    marginThreshold,
+  });
+  const verifiedMatch = confidenceCandidate
+    ? rankedResults.find(({ product }) => String(product._id) === String(confidenceCandidate.product._id))
     : null;
-  const matched = Boolean(verifiedMatch);
-  const bestResult = verifiedMatch;
-  const bestConfidence = verifiedMatch ? visualMatch.confidence : 0;
-
-  return {
-    success: true,
-    matched,
-    confidence: bestConfidence,
-    matchType: verifiedMatch ? 'visual-image-match' : 'possible-match',
-    message: matched ? 'Product matched against the HoneyVision catalog.' : "We couldn't confidently identify this product. Review the closest catalog matches below.",
-    product: bestResult ? {
-      id: String(bestResult.product._id),
-      name: bestResult.product.name,
-      sku: bestResult.product.sku,
-      brand: bestResult.product.brand,
-      price: bestResult.product.price,
-      mrp: bestResult.product.mrp,
-      stock: bestResult.product.stock,
-      stockStatus: bestResult.product.stockStatus,
-      availability: bestResult.product.stock > 0 && bestResult.product.isActive !== false,
-      confidence: bestConfidence,
-      thumbnail: bestResult.product.thumbnail || bestResult.product.images?.[0] || '',
-    } : null,
-    possibleMatches: topMatches.slice(0, 3).map(({ product, confidence }) => ({
-      id: String(product._id),
-      name: product.name,
-      sku: product.sku,
-      brand: product.brand,
-      price: product.price,
-      stock: product.stock,
-      confidence,
-      thumbnail: product.thumbnail || product.images?.[0] || '',
+  const possibleMatchThreshold = Number(process.env.IMAGE_MATCH_POSSIBLE_THRESHOLD || 0.65);
+  const possibleCandidates = filterPossibleImageMatches(rankedResults, {
+    selectedMatch: verifiedMatch,
+    categorySignal: finalSignals.category,
+    minimumSimilarity: possibleMatchThreshold,
+  });
+  const possibleMatches = possibleCandidates.map((candidate) => toPossibleMatch(candidate));
+  const alternativeCategory = verifiedMatch?.productMatch?.category
+    || possibleCandidates[0]?.productMatch?.category
+    || '';
+  const result = buildImageSearchResultResponse({
+    verifiedMatch,
+    possibleMatches,
+    requestId,
+    recognitionWarning,
+  });
+  const diagnostics = buildImageSearchDiagnostics({
+    requestId,
+    candidates: rankedResults.slice(0, DEFAULT_RESULTS_LIMIT).map((item) => ({
+      ...item,
+      scores: item,
+      rejectionReason: getCandidateRejectionReason(item, {
+        visualThreshold,
+        confidenceThreshold,
+        marginThreshold,
+        possibleMatchThreshold,
+        categorySignal: finalSignals.category,
+        alternativeCategory,
+      }, verifiedMatch, rankedResults),
     })),
-  };
+    index: {
+      indexedImageProducts: imageBearingCandidates.length,
+      candidatesReturned: candidates.length,
+      activeProductsResolved: products.length,
+      productsMissingEmbeddings: missingEmbeddingCount,
+    },
+    queryEmbeddingDimensions: queryEmbedding.length,
+    thresholds: {
+      visualSimilarity: visualThreshold,
+      confidence: confidenceThreshold,
+      margin: marginThreshold,
+      possibleMatch: possibleMatchThreshold,
+    },
+    selectedProductId: verifiedMatch?.product._id,
+    outcome: result.matchType,
+  });
+  logImageSearchDiagnostics(diagnostics);
+
+  return result;
 };

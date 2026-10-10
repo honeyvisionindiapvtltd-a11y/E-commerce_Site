@@ -54,6 +54,15 @@ const productImageIndexSchema = new mongoose.Schema(
       trim: true,
     },
     embedding: [{ type: Number, default: 0 }],
+    imageEmbeddings: {
+      type: [[Number]],
+      default: [],
+    },
+    embeddingModel: {
+      type: String,
+      default: '',
+      trim: true,
+    },
     searchableText: {
       type: String,
       default: '',

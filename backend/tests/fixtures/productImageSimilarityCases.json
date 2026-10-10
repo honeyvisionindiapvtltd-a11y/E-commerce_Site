@@ -1,0 +1,16 @@
+[
+  {
+    "label": "same catalog photo",
+    "reference": "https://res.cloudinary.com/vhrkwyzs/image/upload/v1788148810/TP-LinkTapoC530WSOutdoorPanTiltSecurityWi-FiCamera_hwk79r.webp",
+    "candidate": "https://res.cloudinary.com/vhrkwyzs/image/upload/v1788148810/TP-LinkTapoC530WSOutdoorPanTiltSecurityWi-FiCamera_hwk79r.webp",
+    "expectedMatch": true,
+    "observedCosineSimilarity": 1
+  },
+  {
+    "label": "different camera model in same catalog category",
+    "reference": "https://res.cloudinary.com/vhrkwyzs/image/upload/v1788148810/TP-LinkTapoC530WSOutdoorPanTiltSecurityWi-FiCamera_hwk79r.webp",
+    "candidate": "https://res.cloudinary.com/vhrkwyzs/image/upload/v1788148937/Hikvision_8MP_AcuSense_Outdoor_Varifocal_Bullet_Camera_qfdxhb.webp",
+    "expectedMatch": false,
+    "observedCosineSimilarity": 0.8714
+  }
+]

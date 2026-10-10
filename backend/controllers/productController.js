@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import Product from "../models/Product.js";
 import Category from "../models/Category.js";
 import inventoryService, { isInventoryAuthorityEnabled } from "../services/inventoryService.js";
@@ -1163,6 +1164,7 @@ const refreshProductImageIndex = async (req, res) => {
       reindexAll: Boolean(payload.reindexAll),
       reindexFailed: Boolean(payload.reindexFailed),
       reindexOutdated: Boolean(payload.reindexOutdated),
+      reindexEmbeddings: Boolean(payload.reindexEmbeddings),
       limit: Number(payload.limit || 0),
     });
     res.status(200).json({ success: true, ...result });
@@ -1173,13 +1175,23 @@ const refreshProductImageIndex = async (req, res) => {
 };
 
 const searchByImage = async (req, res) => {
+  const requestId = randomUUID();
+  res.set("X-Request-Id", requestId);
+
   try {
-    if (!req.file) return res.status(400).json({ success: false, matched: false, message: "No image uploaded." });
+    if (!req.file) return res.status(400).json({ success: false, matched: false, message: "No image uploaded.", requestId });
     const acceptedTypes = ["image/jpeg", "image/png", "image/webp"];
     if (!acceptedTypes.includes(req.file.mimetype)) {
-      return res.status(400).json({ success: false, matched: false, message: "Unsupported image format. Use JPG, PNG, or WebP." });
+      return res.status(400).json({ success: false, matched: false, message: "Unsupported image format. Use JPG, PNG, or WebP.", requestId });
     }
+    console.info(JSON.stringify({
+      event: "product-image-upload-received",
+      requestId,
+      mimeType: req.file.mimetype,
+      imageBytes: req.file.size,
+    }));
     const candidate = await searchProductsByImage(req.file.buffer, req.file.mimetype, {
+      requestId,
       source: req.body?.source || "camera",
       device: req.body?.device || "web",
       brand: req.body?.brand || "",
@@ -1191,8 +1203,13 @@ const searchByImage = async (req, res) => {
     });
     return res.status(200).json({ success: true, ...candidate });
   } catch (error) {
-    console.error("SEARCH BY IMAGE ERROR:", error);
-    return res.status(500).json({ success: false, matched: false, confidence: 0, matchType: "error", message: "We could not complete the image search. Please try again.", product: null, possibleMatches: [], error: error.message });
+    console.error(JSON.stringify({
+      event: "product-image-search-error",
+      requestId,
+      errorName: error?.name || "Error",
+      status: Number(error?.status) || 500,
+    }));
+    return res.status(500).json({ success: false, matched: false, confidence: 0, matchType: "error", message: "We could not complete the image search. Please try again.", product: null, possibleMatches: [], requestId });
   }
 };
 

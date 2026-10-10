@@ -4,6 +4,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Capacitor } from '@capacitor/core';
 import { useCommerce } from '../context/index.js';
 import { cameraAndUpload } from '../services/cameraAndUpload.ts';
+import { getScanProductPresentation } from './scanProductPresentation.js';
 
 const API_BASE = import.meta.env.VITE_API_URL || '/api';
 
@@ -37,6 +38,7 @@ export default function ScanProduct() {
   const [capturing, setCapturing] = useState(false);
 
   const currentStatusLabel = statusLabels[status] || statusLabels.idle;
+  const scanProduct = getScanProductPresentation(result?.product);
 
   const triggerFilePicker = () => {
     if (!uploading && !capturing) inputRef.current?.click();
@@ -178,13 +180,13 @@ export default function ScanProduct() {
   };
 
   const addDetectedToCart = () => {
-    if (!result?.product || !result.product.availability) return;
-    addToCart(result.product.id, 1, false, result.product);
-    navigate(`/products/${result.product.id}`);
+    if (!scanProduct || !scanProduct.availability) return;
+    addToCart(scanProduct.id, 1, false, result.product);
+    navigate(scanProduct.href);
   };
 
   const isHighConfidence = ['visual-image-match', 'exact-identifier'].includes(result?.matchType);
-  const productAvailable = Boolean(result?.product?.availability ?? safeNumber(result?.product?.stock, 0) > 0);
+  const productAvailable = Boolean(scanProduct?.availability ?? safeNumber(scanProduct?.stock, 0) > 0);
   const availabilityText = productAvailable ? 'In Stock' : 'Out of Stock';
 
   return (
@@ -259,7 +261,7 @@ export default function ScanProduct() {
               </div>
             )}
 
-            {result?.product && (
+            {scanProduct && (
               <div className="space-y-5">
                 <div className="flex items-center gap-2 text-emerald-700">
                   {isHighConfidence ? <CheckCircle2 className="h-5 w-5" /> : <AlertTriangle className="h-5 w-5" />}
@@ -269,22 +271,22 @@ export default function ScanProduct() {
                 </div>
 
                 <div className="overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 p-3">
-                  {result.product?.thumbnail ? (
-                    <img src={result.product.thumbnail} alt={result.product?.name || 'Matched product'} className="h-52 w-full rounded-xl object-contain bg-white" />
+                  {scanProduct.thumbnail ? (
+                    <img src={scanProduct.thumbnail} alt={scanProduct.name || 'Matched product'} className="h-52 w-full rounded-xl object-contain bg-white" />
                   ) : (
                     <div className="flex h-52 items-center justify-center rounded-xl bg-white text-sm text-slate-500">Catalog image unavailable</div>
                   )}
                 </div>
 
                 <div>
-                  <h3 className="text-2xl font-black text-[#071426]">{result.product?.name || 'Possible match'}</h3>
-                  <p className="mt-1 text-sm text-slate-500">{result.product?.brand || 'HoneyVision'} • SKU {result.product?.sku || '---'}</p>
+                  <h3 className="text-2xl font-black text-[#071426]">{scanProduct.name || 'Possible match'}</h3>
+                  <p className="mt-1 text-sm text-slate-500">{scanProduct.brand || 'HoneyVision'} • SKU {scanProduct.sku || '---'}</p>
                 </div>
 
                 <div className="flex items-center justify-between rounded-2xl bg-slate-50 px-4 py-3">
                   <div>
                     <p className="text-xs uppercase tracking-[0.12em] text-slate-500">Confidence</p>
-                    <p className="text-lg font-black text-[#071426]">{Math.round(safeNumber(result.confidence, 0) * 100)}%</p>
+                    <p className="text-lg font-black text-[#071426]">{Math.round(safeNumber(scanProduct.confidence ?? result.confidence, 0) * 100)}%</p>
                   </div>
                   <div className="text-right">
                     <p className="text-xs uppercase tracking-[0.12em] text-slate-500">Availability</p>
@@ -293,16 +295,16 @@ export default function ScanProduct() {
                 </div>
 
                 <div className="space-y-2 text-sm text-slate-600">
-                  <p><span className="font-semibold text-slate-700">Price:</span> {money(result.product?.price || 0)}</p>
-                  {result.product?.mrp > 0 && <p><span className="font-semibold text-slate-700">MRP:</span> <span className="line-through">{money(result.product?.mrp || 0)}</span></p>}
-                  <p><span className="font-semibold text-slate-700">Stock:</span> {safeNumber(result.product?.stock, 0)} units</p>
+                  <p><span className="font-semibold text-slate-700">Price:</span> {money(scanProduct.price || 0)}</p>
+                  {scanProduct.mrp > 0 && <p><span className="font-semibold text-slate-700">MRP:</span> <span className="line-through">{money(scanProduct.mrp || 0)}</span></p>}
+                  <p><span className="font-semibold text-slate-700">Stock:</span> {safeNumber(scanProduct.stock, 0)} units</p>
                 </div>
 
                 <div className="flex flex-col gap-3 sm:flex-row">
-                  <Link to={result.product ? `/products/${result.product.id}` : '#'} className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-[#071426] hover:bg-slate-50">
+                  <Link to={scanProduct.href} className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-[#071426] hover:bg-slate-50">
                     View Product <ArrowRight size={16} />
                   </Link>
-                  {result.product && (
+                  {scanProduct && (
                     <button
                       type="button"
                       onClick={addDetectedToCart}
@@ -320,7 +322,11 @@ export default function ScanProduct() {
               <div className="flex min-h-[300px] flex-col items-center justify-center text-center">
                 <AlertTriangle className="h-10 w-10 text-amber-500" />
                 <h2 className="mt-4 text-xl font-black text-[#071426]">No confident product match</h2>
-                <p className="mt-2 max-w-md text-sm leading-6 text-slate-600">{result.message || 'Try a closer, well-lit photo of the product label or model number.'}</p>
+                <p className="mt-2 max-w-md text-sm leading-6 text-slate-600">
+                  {possibleMatches.length
+                    ? result.message || 'These are possible visual matches, not verified exact matches.'
+                    : 'No relevant catalog image match was found. Try a closer, well-lit photo of the product or its label.'}
+                </p>
                 <button type="button" onClick={resetState} className="mt-5 rounded-xl bg-[#071426] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#132b47]">Scan another product</button>
               </div>
             )}
@@ -334,9 +340,17 @@ export default function ScanProduct() {
                       {match.thumbnail && <img src={match.thumbnail} alt={match.name} className="h-14 w-14 rounded-xl object-contain bg-white" />}
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-sm font-bold text-[#071426]">{match.name}</p>
-                        <p className="text-xs text-slate-500">{match.brand} • {money(match.price)}</p>
+                        <p className="truncate text-xs text-slate-500">{match.brand} • SKU {match.sku || '---'}</p>
+                        <p className="text-xs text-slate-600">{money(match.price)} • {safeNumber(match.stock, 0)} in stock</p>
+                        {Array.isArray(match.matchReasons) && match.matchReasons.length > 0 && (
+                          <p className="mt-1 truncate text-[11px] text-slate-500">
+                            {match.matchReasons.filter((reason) => reason !== 'visual-image-similarity').join(' · ') || 'Visual similarity'}
+                          </p>
+                        )}
                       </div>
-                      <span className="text-xs font-semibold text-amber-700">{Math.round(safeNumber(match.confidence, 0) * 100)}%</span>
+                      <span className="text-right text-xs font-semibold text-amber-700">
+                        Possible<br />{Math.round(safeNumber(match.visualSimilarity ?? match.confidence, 0) * 100)}%
+                      </span>
                     </Link>
                   ))}
                 </div>

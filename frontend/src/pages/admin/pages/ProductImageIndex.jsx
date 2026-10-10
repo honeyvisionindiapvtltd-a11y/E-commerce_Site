@@ -9,6 +9,8 @@ export default function ProductImageIndex() {
     pendingProducts: 0,
     failedProducts: 0,
     outdatedProducts: 0,
+    embeddedProducts: 0,
+    productsMissingEmbeddings: 0,
     lastIndexedAt: null,
   });
   const [loading, setLoading] = useState(true);
@@ -25,6 +27,8 @@ export default function ProductImageIndex() {
           pendingProducts: data.pendingProducts || 0,
           failedProducts: data.failedProducts || 0,
           outdatedProducts: data.outdatedProducts || 0,
+          embeddedProducts: data.embeddedProducts || 0,
+          productsMissingEmbeddings: data.productsMissingEmbeddings || 0,
           lastIndexedAt: data.lastIndexedAt || null,
         });
       }
@@ -75,14 +79,20 @@ export default function ProductImageIndex() {
         {loading ? (
           <p className="mt-6 text-sm text-slate-500">Loading index summary...</p>
         ) : (
-          <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+          <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-7">
             <Stat label="Total" value={summary.totalProducts} />
             <Stat label="Indexed" value={summary.indexedProducts} />
+            <Stat label="Image embeddings" value={summary.embeddedProducts} />
+            <Stat label="Missing embeddings" value={summary.productsMissingEmbeddings} />
             <Stat label="Pending" value={summary.pendingProducts} />
             <Stat label="Failed" value={summary.failedProducts} />
             <Stat label="Outdated" value={summary.outdatedProducts} />
           </div>
         )}
+
+        <p className="mt-4 text-sm text-slate-600">
+          Generate local CLIP embeddings for catalog images with <code>npm run products:index-images</code> from the backend directory. This offline index job may take several minutes for a full catalog.
+        </p>
 
         <div className="mt-6 rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-4">
           <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Last indexing time</p>
@@ -92,7 +102,7 @@ export default function ProductImageIndex() {
         <div className="mt-6 flex flex-wrap gap-3">
           <ActionButton label="Re-index Failed" onClick={() => runRefresh({ reindexFailed: true })} disabled={busy} />
           <ActionButton label="Re-index Outdated" onClick={() => runRefresh({ reindexOutdated: true })} disabled={busy} />
-          <ActionButton label="Re-index All" onClick={() => runRefresh({ reindexAll: true })} disabled={busy} />
+          <ActionButton label="Re-index All" onClick={() => runRefresh({ reindexAll: true, reindexEmbeddings: true })} disabled={busy} />
         </div>
       </div>
     </div>
