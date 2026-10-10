@@ -285,8 +285,9 @@ export default function ScanProduct() {
 
                 <div className="flex items-center justify-between rounded-2xl bg-slate-50 px-4 py-3">
                   <div>
-                    <p className="text-xs uppercase tracking-[0.12em] text-slate-500">Confidence</p>
-                    <p className="text-lg font-black text-[#071426]">{Math.round(safeNumber(scanProduct.confidence ?? result.confidence, 0) * 100)}%</p>
+                    <p className="text-xs uppercase tracking-[0.12em] text-slate-500">Match score (0-1)</p>
+                    <p className="text-lg font-black text-[#071426]">{safeNumber(scanProduct.confidence ?? result.confidence, 0).toFixed(2)}</p>
+                    <p className="text-[10px] text-slate-500">Ranking score, not a probability</p>
                   </div>
                   <div className="text-right">
                     <p className="text-xs uppercase tracking-[0.12em] text-slate-500">Availability</p>
@@ -349,7 +350,7 @@ export default function ScanProduct() {
                         )}
                       </div>
                       <span className="text-right text-xs font-semibold text-amber-700">
-                        Possible<br />{Math.round(safeNumber(match.visualSimilarity ?? match.confidence, 0) * 100)}%
+                        Visual similarity<br />{safeNumber(match.visualSimilarity ?? match.confidence, 0).toFixed(2)}
                       </span>
                     </Link>
                   ))}

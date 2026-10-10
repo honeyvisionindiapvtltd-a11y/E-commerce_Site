@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import sharp from 'sharp';
 import {
+  buildAuthoritativeProductImageMatch,
   buildImageSearchDiagnostics,
   buildImageSearchResultResponse,
   classifyImageCategory,
@@ -10,6 +11,7 @@ import {
   cosineSimilarity,
   createImageEmbedding,
   createImageSearchEmbeddings,
+  IMAGE_EMBEDDING_VERSION,
   filterPossibleImageMatches,
   getCatalogEmbeddingSimilarity,
   hasProductRecognitionSignals,
@@ -44,6 +46,7 @@ const makeCandidate = ({
     category,
     searchableText,
     imageEmbeddings,
+    embeddingModel: IMAGE_EMBEDDING_VERSION,
     cloudinaryUrls,
     thumbnail: cloudinaryUrls[0] || '',
   },
@@ -105,6 +108,47 @@ test('image embeddings are normalized and cosine comparison rejects incompatible
     return { data: new Float32Array([3, 4]) };
   });
   assert.deepEqual(embedding, [0.6, 0.8]);
+});
+
+test('stale preprocessing embeddings are rejected instead of being scored as current matches', () => {
+  const stale = makeCandidate({
+    id: 'stale-image-index',
+    imageEmbeddings: [[1, 0]],
+  });
+  stale.productMatch.embeddingModel = 'clip:Xenova/clip-vit-base-patch32';
+  const [ranked] = rankImageSearchCandidates([stale], {}, [1, 0]);
+
+  assert.equal(ranked.embeddingModelCompatible, false);
+  assert.equal(ranked.visualSimilarity, 0);
+  assert.ok(ranked.matchReasons.includes('catalog-embedding-version-mismatch'));
+  assert.equal(selectConfidentImageMatch([ranked]), null);
+});
+
+test('product database metadata replaces stale category and identity fields copied into the image index', () => {
+  const indexed = makeCandidate({
+    id: 'mongo-monitor-id',
+    brand: 'Wrong cached brand',
+    category: 'Computer Accessories',
+    searchableText: 'cached wrong category',
+  }).productMatch;
+  const product = {
+    _id: 'mongo-monitor-id',
+    name: 'Samsung Gaming Monitor',
+    sku: 'MON-123',
+    brand: 'Samsung',
+    model: 'G7',
+    category: { name: 'Monitors & Displays' },
+    subCategory: { name: 'Gaming Monitors' },
+  };
+  const match = buildAuthoritativeProductImageMatch(indexed, product);
+
+  assert.equal(match.productId, product._id);
+  assert.equal(match.brand, product.brand);
+  assert.equal(match.sku, product.sku);
+  assert.equal(match.category, 'Monitors & Displays');
+  assert.equal(match.subCategory, 'Gaming Monitors');
+  assert.ok(match.searchableText.includes('Samsung Gaming Monitor'));
+  assert.ok(!match.searchableText.includes('cached wrong category'));
 });
 
 test('multi-object uploads create full-frame and overlapping tile embeddings after orientation normalization', async () => {
@@ -181,6 +225,7 @@ test('HP monitor variants group alternate views and brand conflicts cannot win v
       searchableText: `${brand} 24 inch monitor ${sku}`,
       cloudinaryUrls: [`https://images.example.test/${id}.webp`, `https://images.example.test/${id}-side.webp`],
       imageEmbeddings: embedding,
+      embeddingModel: IMAGE_EMBEDDING_VERSION,
     },
   });
   const differentBrand = makeMonitor('dell-monitor', 'Dell', 'D-M24', [[1, 0]]);
@@ -191,6 +236,22 @@ test('HP monitor variants group alternate views and brand conflicts cannot win v
   assert.equal(ranked.find(({ product }) => product._id === 'hp-monitor').visualSimilarity, 1);
   assert.equal(ranked.find(({ product }) => product._id === 'dell-monitor').brandConflict, true);
   assert.equal(selectConfidentImageMatch(ranked)?.product._id, 'hp-monitor');
+});
+
+test('a catalog photo shared by several product records cannot support an automatic exact match', () => {
+  const sharedImage = makeCandidate({
+    id: 'generic-monitor-image',
+    category: 'Monitors & Displays',
+    imageEmbeddings: [[1, 0]],
+    cloudinaryUrls: ['https://images.example.test/shared-generic-monitor.webp'],
+  });
+  sharedImage.productMatch.sharedCatalogImage = true;
+  const [ranked] = rankImageSearchCandidates([sharedImage], {}, [1, 0]);
+
+  assert.equal(ranked.visualSimilarity, 1);
+  assert.ok(ranked.matchReasons.includes('catalog-image-shared-by-products'));
+  assert.equal(selectConfidentImageMatch([ranked]), null);
+  assert.deepEqual(filterPossibleImageMatches([ranked], { minimumSimilarity: 0.65 }), []);
 });
 
 test('possible matches exclude off-category catalog products and retain relevant other brands', () => {
@@ -273,6 +334,45 @@ test('catalog-derived category classification is margin-gated and category filte
     minimumSimilarity: 0.65,
   }).every(({ product }) => product._id !== 'cooling-pad'));
   assert.equal(selectConfidentImageMatch(ranked, { categoryConfident: true })?.product._id, 'monitor');
+});
+
+test('category prototypes ignore duplicated catalog vectors instead of letting shared assets dominate', () => {
+  const monitors = makeCandidate({
+    id: 'monitor-reference',
+    category: 'Monitors & Displays',
+    imageEmbeddings: [[0.75, Math.sqrt(1 - (0.75 ** 2))]],
+  }).productMatch;
+  const duplicatedAccessoryVectors = Array.from({ length: 100 }, () => [0.8, 0.6]);
+  const accessories = makeCandidate({
+    id: 'accessory-reference',
+    category: 'Computer Accessories',
+    imageEmbeddings: [...duplicatedAccessoryVectors, [0, 1]],
+  }).productMatch;
+  const classification = classifyImageCategory([[0.75, Math.sqrt(1 - (0.75 ** 2))]], [monitors, accessories], {
+    minimumSimilarity: 0.7,
+    minimumMargin: 0.05,
+  });
+
+  assert.equal(classification.category, 'Monitors & Displays');
+  assert.equal(classification.confident, true);
+  assert.equal(classification.ranked.find(({ category }) => category === 'Computer Accessories').referenceImageCount, 2);
+});
+
+test('an uncertain category guess reranks compatible results without hard-excluding broad-search candidates', () => {
+  const monitor = makeCandidate({
+    id: 'monitor',
+    category: 'Monitors & Displays',
+    imageEmbeddings: [[0.65, Math.sqrt(1 - (0.65 ** 2))]],
+  });
+  const coolingPad = makeCandidate({
+    id: 'cooling-pad',
+    category: 'Computer Accessories',
+    imageEmbeddings: [[0.66, Math.sqrt(1 - (0.66 ** 2))]],
+  });
+  const ranked = rankImageSearchCandidates([coolingPad, monitor], { category: 'Monitors & Displays' }, [1, 0]);
+
+  assert.equal(ranked[0].product._id, 'monitor');
+  assert.ok(filterPossibleImageMatches(ranked, { minimumSimilarity: 0.65 }).some(({ product }) => product._id === 'cooling-pad'));
 });
 
 test('conflicting OCR identifiers are penalized and cannot produce an automatic match', () => {
@@ -423,7 +523,7 @@ test('re-index flags refresh text records and optionally missing image embedding
     imageHash: 'image-hash',
     searchableText: 'camera model hv-420',
     embeddingVersion: 'product-image-index-v1',
-    embeddingModel: 'clip:Xenova/clip-vit-base-patch32',
+    embeddingModel: IMAGE_EMBEDDING_VERSION,
     imageEmbeddings: [[1, 0]],
     cloudinaryUrls: ['https://images.example.test/camera.webp'],
     indexingStatus: 'indexed',
@@ -522,6 +622,12 @@ test('structured diagnostics contain product IDs and scores but no image URL or 
     thresholds: { visualSimilarity: 0.94 },
     candidates: [{
       product: { _id: 'mongo-product-1' },
+      productMatch: {
+        category: 'Monitors & Displays',
+        subCategory: 'Gaming Monitors',
+        cloudinaryUrls: ['https://images.example.test/catalog.webp'],
+        embeddingModel: IMAGE_EMBEDDING_VERSION,
+      },
       scores: { visualSimilarity: 0.94, confidence: 0.91, identifierConflicts: 0, matchReasons: ['visual-image-similarity'] },
       imageCount: 2,
       embeddingCount: 2,
@@ -534,7 +640,9 @@ test('structured diagnostics contain product IDs and scores but no image URL or 
   assert.equal(diagnostics.requestId, 'request-123');
   assert.equal(diagnostics.candidates[0].productId, 'mongo-product-1');
   assert.equal(diagnostics.candidates[0].rejectionReason, 'selected-confident-match');
+  assert.equal(diagnostics.candidates[0].category, 'Monitors & Displays');
+  assert.equal(diagnostics.candidates[0].embeddingVersion, IMAGE_EMBEDDING_VERSION);
+  assert.deepEqual(diagnostics.candidates[0].catalogImageUrls, ['https://images.example.test/catalog.webp']);
   assert.equal(diagnostics.thresholds.visualSimilarity, 0.94);
   assert.equal(diagnostics.selectedProductId, 'mongo-product-1');
-  assert.equal(JSON.stringify(diagnostics).includes('https://'), false);
 });

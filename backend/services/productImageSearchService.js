@@ -31,7 +31,7 @@ const IMAGE_VISION_CLIENT = imageVisionConfig.enabled
 const INDEX_VERSION = 'product-image-index-v1';
 const IMAGE_EMBEDDING_MODEL = String(process.env.IMAGE_EMBEDDING_MODEL || 'Xenova/clip-vit-base-patch32').trim();
 const IMAGE_PREPROCESSING_VERSION = 'oriented-jpeg-tiles-v2';
-const IMAGE_EMBEDDING_VERSION = `clip:${IMAGE_EMBEDDING_MODEL}:${IMAGE_PREPROCESSING_VERSION}`;
+export const IMAGE_EMBEDDING_VERSION = `clip:${IMAGE_EMBEDDING_MODEL}:${IMAGE_PREPROCESSING_VERSION}`;
 const DEFAULT_CANDIDATE_LIMIT = 1000;
 const DEFAULT_RESULTS_LIMIT = 5;
 const MAX_IMAGES_PER_PRODUCT = 5;
@@ -198,18 +198,27 @@ export const classifyImageCategory = (queryEmbeddings = [], candidates = [], {
   for (const candidate of candidates) {
     const category = String(candidate.category || candidate.subCategory || '').trim();
     const key = normalizeCategoryKey(category);
-    if (!key || !hasValidImageEmbeddings(candidate.imageEmbeddings)) continue;
-    const vectors = categories.get(key) || { category, vectors: [] };
-    vectors.vectors.push(...candidate.imageEmbeddings);
+    if (
+      !key
+      || candidate.embeddingModel !== IMAGE_EMBEDDING_VERSION
+      || !hasValidImageEmbeddings(candidate.imageEmbeddings)
+    ) continue;
+    const vectors = categories.get(key) || { category, vectors: new Map() };
+    for (const vector of candidate.imageEmbeddings) {
+      const vectorKey = vector.map((value) => Number(value).toFixed(5)).join(',');
+      if (!vectors.vectors.has(vectorKey)) vectors.vectors.set(vectorKey, vector);
+    }
     categories.set(key, vectors);
   }
   const ranked = [...categories.values()].map(({ category, vectors }) => {
-    const centroid = normalizeEmbeddingVector(vectors[0].map((_, index) => (
-      vectors.reduce((sum, vector) => sum + vector[index], 0) / vectors.length
+    const uniqueVectors = [...vectors.values()];
+    const centroid = normalizeEmbeddingVector(uniqueVectors[0].map((_, index) => (
+      uniqueVectors.reduce((sum, vector) => sum + vector[index], 0) / uniqueVectors.length
     )));
     return {
       category,
       similarity: roundValue(Math.max(0, ...queries.map((query) => cosineSimilarity(query, centroid)))),
+      referenceImageCount: uniqueVectors.length,
     };
   }).sort((left, right) => right.similarity - left.similarity);
   const top = ranked[0];
@@ -350,6 +359,9 @@ export const getProductImageIndexSummary = async () => {
     imageProducts,
     embeddedProducts,
     productsMissingEmbeddings: Math.max(0, imageProducts - embeddedProducts),
+    imageIndexVersion: INDEX_VERSION,
+    embeddingModelVersion: IMAGE_EMBEDDING_VERSION,
+    imagePreprocessingVersion: IMAGE_PREPROCESSING_VERSION,
     lastIndexedAt: lastIndexed?.indexedAt || null,
   };
 };
@@ -386,6 +398,20 @@ export const buildProductImageIndexEntry = (product = {}) => {
     errorMessage: '',
   };
 };
+
+export const buildAuthoritativeProductImageMatch = (indexEntry, product) => ({
+  ...indexEntry,
+  product: product._id,
+  productId: String(product._id),
+  name: product.name || '',
+  sku: product.sku || '',
+  brand: product.brand || '',
+  modelNumber: product.model || product.modelNumber || '',
+  productCode: product.productCode || product.barcode || '',
+  category: getReferenceName(product.category),
+  subCategory: getReferenceName(product.subCategory),
+  searchableText: buildSearchableText(product),
+});
 
 export const shouldReindexImageProduct = ({
   doc,
@@ -806,8 +832,11 @@ export const buildImageSearchDiagnostics = ({
   thresholds,
   categoryClassification,
   filteredCandidateProductIds: filteredCandidateProductIds.map(String),
-  candidates: candidates.map(({ product, scores, imageCount = 0, embeddingCount = 0, rejectionReason = '' }) => ({
+  candidates: candidates.map(({ product, productMatch, scores, imageCount = 0, embeddingCount = 0, rejectionReason = '' }) => ({
     productId: String(product?._id || product?.product || ''),
+    category: String(productMatch?.category || ''),
+    subCategory: String(productMatch?.subCategory || ''),
+    catalogImageUrls: Array.isArray(productMatch?.cloudinaryUrls) ? productMatch.cloudinaryUrls.slice(0, MAX_IMAGES_PER_PRODUCT) : [],
     scores: {
       visualSimilarity: scores?.visualSimilarity || 0,
       modelSimilarity: scores?.modelSimilarity || 0,
@@ -823,6 +852,9 @@ export const buildImageSearchDiagnostics = ({
     matchReasons: scores?.matchReasons || [],
     imageCount,
     embeddingCount,
+    embeddingModelCompatible: scores?.embeddingModelCompatible ?? null,
+    sharedCatalogImage: Boolean(scores?.sharedCatalogImage),
+    embeddingVersion: productMatch?.embeddingModel || '',
     rejectionReason,
   })),
   selectedProductId: selectedProductId ? String(selectedProductId) : null,
@@ -840,10 +872,12 @@ const getProductImageCount = (candidate) => new Set([
 export const rankImageSearchCandidates = (candidates = [], signals = {}, queryEmbedding = []) => candidates
   .map((candidate) => {
     const imageEmbeddings = candidate.productMatch?.imageEmbeddings || [];
+    const embeddingModelCompatible = candidate.productMatch?.embeddingModel === IMAGE_EMBEDDING_VERSION;
     const queryEmbeddings = queryEmbedding.length && Array.isArray(queryEmbedding[0])
       ? queryEmbedding
       : queryEmbedding.length ? [queryEmbedding] : [];
     const embeddingCompatible = queryEmbeddings.length > 0
+      && embeddingModelCompatible
       && hasValidImageEmbeddings(imageEmbeddings)
       && imageEmbeddings[0].length === queryEmbeddings[0].length;
     const visualSimilarity = embeddingCompatible
@@ -851,13 +885,17 @@ export const rankImageSearchCandidates = (candidates = [], signals = {}, queryEm
       : 0;
     const scores = combineImageAndCatalogScores(candidate.productMatch, signals, { confidence: visualSimilarity });
     if (!hasValidImageEmbeddings(imageEmbeddings)) scores.matchReasons.push('catalog-image-embedding-unavailable');
+    else if (!embeddingModelCompatible) scores.matchReasons.push('catalog-embedding-version-mismatch');
     else if (!embeddingCompatible) scores.matchReasons.push('embedding-dimension-mismatch');
+    if (candidate.productMatch?.sharedCatalogImage) scores.matchReasons.push('catalog-image-shared-by-products');
     return {
       ...candidate,
       ...scores,
       visualSimilarity,
       imageCount: getProductImageCount(candidate.productMatch),
       embeddingCount: Array.isArray(imageEmbeddings) ? imageEmbeddings.length : 0,
+      embeddingModelCompatible,
+      sharedCatalogImage: Boolean(candidate.productMatch?.sharedCatalogImage),
       embeddingCompatible,
     };
   })
@@ -871,11 +909,22 @@ export const rankImageSearchCandidates = (candidates = [], signals = {}, queryEm
 
 export const filterPossibleImageMatches = (
   rankedCandidates = [],
-  { selectedMatch = null, categorySignal = '', minimumSimilarity = 0.65, limit = 3, categoryConfident = false } = {}
+  {
+    selectedMatch = null,
+    categorySignal = '',
+    minimumSimilarity = 0.65,
+    limit = 3,
+    categoryConfident = false,
+    confidentCategories = [],
+  } = {}
 ) => {
+  const categoryKeys = new Set(confidentCategories.map(normalizeCategoryKey).filter(Boolean));
   return rankedCandidates
     .filter((candidate) => {
       if (candidate.imageCount === 0 || candidate.visualSimilarity < minimumSimilarity) return false;
+      if (candidate.productMatch?.sharedCatalogImage && !candidate.exactIdentifierMatch) return false;
+      const productCategoryKey = normalizeCategoryKey(candidate.productMatch?.category || candidate.productMatch?.subCategory);
+      if (categoryKeys.size && productCategoryKey && !categoryKeys.has(productCategoryKey)) return false;
       if (categorySignal && categoryConfident && candidate.categorySimilarity === 0) return false;
       if (selectedMatch && String(candidate.product?._id) === String(selectedMatch.product._id)) return false;
       return true;
@@ -899,6 +948,7 @@ export const selectConfidentImageMatch = (
     && candidate.identifierConflicts === 0
     && !candidate.brandConflict
     && (!categoryConfident || !candidate.categoryConflict)
+    && (!candidate.productMatch?.sharedCatalogImage || candidate.exactIdentifierMatch)
   ));
   const top = eligibleCandidates[0];
   if (!top) return null;
@@ -947,14 +997,13 @@ export const buildImageSearchResultResponse = ({
   };
 };
 
-const toPossibleMatch = ({ product, confidence, visualSimilarity, matchReasons }) => ({
+const toPossibleMatch = ({ product, visualSimilarity, matchReasons }) => ({
   id: String(product._id),
   name: product.name,
   sku: product.sku,
   brand: product.brand,
   price: product.price,
   stock: product.stock,
-  confidence,
   visualSimilarity,
   matchReasons,
   thumbnail: product.thumbnail || product.images?.[0] || '',
@@ -977,10 +1026,12 @@ const getCandidateRejectionReason = (
   if (selected && String(candidate.product?._id) === String(selected.product._id)) return 'selected-confident-match';
   if (candidate.imageCount === 0) return 'catalog-image-missing';
   if (candidate.embeddingCount === 0) return 'catalog-embedding-missing';
+  if (!candidate.embeddingModelCompatible) return 'catalog-embedding-version-mismatch';
   if (!candidate.embeddingCompatible) return 'embedding-dimension-mismatch';
   if (candidate.identifierConflicts > 0) return 'conflicting-identifier';
   if (candidate.brandConflict) return 'conflicting-brand';
   if (categoryConfident && candidate.categoryConflict) return 'category-incompatible';
+  if (candidate.productMatch?.sharedCatalogImage && !candidate.exactIdentifierMatch) return 'catalog-image-shared-by-products';
   if (categorySignal && candidate.categorySimilarity === 0) return 'category-incompatible';
   if (
     alternativeCategory
@@ -1002,6 +1053,7 @@ const getCandidateRejectionReason = (
     && item.identifierConflicts === 0
     && !item.brandConflict
     && (!categoryConfident || !item.categoryConflict)
+    && (!item.productMatch?.sharedCatalogImage || item.exactIdentifierMatch)
   ));
   if (eligible.length > 1 && eligible[0].confidence - eligible[1].confidence < marginThreshold) {
     return 'ambiguous-confidence-margin';
@@ -1095,7 +1147,10 @@ export const searchProductsByImage = async (fileBuffer, mimeType, metadata = {})
   const products = await Product.find({
     _id: { $in: candidateProductIds },
     isActive: { $ne: false },
-  }).lean();
+  })
+    .populate('category', 'name title slug')
+    .populate('subCategory', 'name title slug')
+    .lean();
   const productsById = new Map(products.map((product) => [String(product._id), product]));
   console.info(JSON.stringify({
     event: 'product-image-candidate-retrieval',
@@ -1105,59 +1160,123 @@ export const searchProductsByImage = async (fileBuffer, mimeType, metadata = {})
     activeProductsResolved: products.length,
     queryEmbeddingDimensions: queryEmbedding.length,
     productsMissingEmbeddings: missingEmbeddingCount,
+    embeddingModelVersion: IMAGE_EMBEDDING_VERSION,
   }));
 
-  const categoryClassification = classifyImageCategory([queryEmbedding], imageBearingCandidates);
+  const evaluatedResults = [];
+  const catalogCandidates = [];
+  for (const candidate of candidates) {
+    const product = productsById.get(String(candidate.product));
+    if (!product) continue;
+    const productImageHash = hashString(JSON.stringify(getProductImageUrls(product)));
+    if (candidate.imageHash !== productImageHash) {
+      await markProductImageIndexOutdated(product._id);
+      console.warn(JSON.stringify({
+        event: 'product-image-search-index-image-mismatch',
+        requestId,
+        productId: String(product._id),
+        indexedImageCount: candidate.cloudinaryUrls?.length || 0,
+        productImageCount: getProductImageUrls(product).length,
+      }));
+      continue;
+    }
+    const productMatch = buildAuthoritativeProductImageMatch(candidate, product);
+    catalogCandidates.push({ product, productMatch });
+    if (candidate.embeddingModel !== IMAGE_EMBEDDING_VERSION || !hasValidImageEmbeddings(candidate.imageEmbeddings)) continue;
+    const scores = scoreProductCandidate(productMatch, finalSignals);
+    if (!candidate.product || Number.isNaN(scores.confidence)) continue;
+    evaluatedResults.push({ product, productMatch, ...scores });
+  }
+
+  const imageProductOwners = new Map();
+  for (const { productMatch } of catalogCandidates) {
+    for (const url of productMatch.cloudinaryUrls || []) {
+      const owners = imageProductOwners.get(url) || new Set();
+      owners.add(String(productMatch.product));
+      imageProductOwners.set(url, owners);
+    }
+  }
+  for (const { productMatch } of catalogCandidates) {
+    productMatch.sharedCatalogImage = (productMatch.cloudinaryUrls || []).some(
+      (url) => (imageProductOwners.get(url)?.size || 0) > 1
+    );
+  }
+
+  const perVariantCategories = queryEmbeddingVariants.map(({ embedding, kind }) => ({
+    kind,
+    ...classifyImageCategory([embedding], catalogCandidates.map(({ productMatch }) => productMatch)),
+  }));
+  const confidentCategories = [...new Map(
+    perVariantCategories
+      .filter(({ confident }) => confident)
+      .map(({ category }) => [normalizeCategoryKey(category), category])
+  ).values()];
+  const bestGuessCategories = new Map();
+  for (const { ranked } of perVariantCategories) {
+    const bestGuess = ranked[0];
+    if (!bestGuess) continue;
+    const key = normalizeCategoryKey(bestGuess.category);
+    const previous = bestGuessCategories.get(key) || { category: bestGuess.category, votes: 0, confidence: 0 };
+    previous.votes += 1;
+    previous.confidence = Math.max(previous.confidence, bestGuess.similarity);
+    bestGuessCategories.set(key, previous);
+  }
+  const bestGuessCategory = [...bestGuessCategories.values()]
+    .sort((left, right) => right.votes - left.votes || right.confidence - left.confidence)[0]?.category || '';
+  const categoryClassification = {
+    category: confidentCategories[0] || bestGuessCategory,
+    confident: confidentCategories.length > 0,
+    confidence: perVariantCategories.reduce((maximum, item) => Math.max(maximum, item.confident ? item.confidence : 0), 0),
+    margin: Math.max(0, ...perVariantCategories.filter((item) => item.confident).map((item) => item.margin)),
+    categories: confidentCategories,
+    ranked: perVariantCategories,
+  };
   console.info(JSON.stringify({
     event: 'product-image-category-classification',
     requestId,
     confident: categoryClassification.confident,
-    selectedCategory: categoryClassification.category || null,
+    selectedCategories: categoryClassification.categories,
     confidence: categoryClassification.confidence,
     margin: categoryClassification.margin,
-    topCategories: categoryClassification.ranked,
+    perVariant: categoryClassification.ranked,
   }));
-
-  const evaluatedResults = [];
-
-  for (const candidate of candidates) {
-    const product = productsById.get(String(candidate.product));
-    if (!product) continue;
-
-    const scores = scoreProductCandidate(candidate, finalSignals);
-    const { confidence, exactIdentifierMatch } = scores;
-
-    if (!candidate.product || Number.isNaN(confidence)) continue;
-
-    evaluatedResults.push({
-      product,
-      productMatch: candidate,
-      ...scores,
-    });
-  }
 
   if (evaluatedResults.length === 0) {
     const result = {
-      ...emptyResult('no-match', "We couldn't confidently identify this product."),
+      ...emptyResult(
+        'no-match',
+        missingEmbeddingCount > 0
+          ? 'The catalog image index is being rebuilt. Please try scanning again shortly.'
+          : "We couldn't confidently identify this product."
+      ),
       requestId,
       ...(recognitionWarning ? { recognitionWarning } : {}),
     };
     logImageSearchDiagnostics(buildImageSearchDiagnostics({
       requestId,
-      candidates: candidates.slice(0, DEFAULT_RESULTS_LIMIT).map((candidate) => ({
+      candidates: candidates.slice(0, 10).map((candidate) => ({
         product: { _id: candidate.product },
+        productMatch: candidate,
         scores: {},
         imageCount: getProductImageCount(candidate),
         embeddingCount: candidate.imageEmbeddings?.length || 0,
-        rejectionReason: 'product-document-not-resolved',
+        rejectionReason: !productsById.has(String(candidate.product))
+          ? 'product-document-not-resolved'
+          : candidate.embeddingModel !== IMAGE_EMBEDDING_VERSION
+            ? 'catalog-embedding-version-mismatch'
+            : !hasValidImageEmbeddings(candidate.imageEmbeddings)
+              ? 'catalog-embedding-invalid'
+              : 'catalog-product-image-mismatch',
       })),
       index: {
         indexedImageProducts: imageBearingCandidates.length,
         candidatesReturned: candidates.length,
         activeProductsResolved: products.length,
         productsMissingEmbeddings: missingEmbeddingCount,
+        embeddingModelVersion: IMAGE_EMBEDDING_VERSION,
       },
       queryEmbeddingDimensions: queryEmbedding.length,
+      categoryClassification,
       outcome: result.matchType,
     }));
     return result;
@@ -1185,12 +1304,14 @@ export const searchProductsByImage = async (fileBuffer, mimeType, metadata = {})
     selectedMatch: verifiedMatch,
     categorySignal: categoryClassification.category,
     categoryConfident: categoryClassification.confident,
+    confidentCategories: categoryClassification.categories,
     minimumSimilarity: possibleMatchThreshold,
   });
   const diagnosticFilteredCandidates = filterPossibleImageMatches(rankedResults, {
     selectedMatch: verifiedMatch,
     categorySignal: categoryClassification.category,
     categoryConfident: categoryClassification.confident,
+    confidentCategories: categoryClassification.categories,
     minimumSimilarity: possibleMatchThreshold,
     limit: 10,
   });
@@ -1226,6 +1347,7 @@ export const searchProductsByImage = async (fileBuffer, mimeType, metadata = {})
       candidatesReturned: candidates.length,
       activeProductsResolved: products.length,
       productsMissingEmbeddings: missingEmbeddingCount,
+      embeddingModelVersion: IMAGE_EMBEDDING_VERSION,
     },
     queryEmbeddingDimensions: queryEmbedding.length,
     thresholds: {

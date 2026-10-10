@@ -2,7 +2,13 @@ import { Router } from 'express';
 
 const router = Router();
 
-const healthResponse = { status: 'ok', message: 'HoneyVision API is running' };
+const healthResponse = () => ({
+  status: 'ok',
+  message: 'HoneyVision API is running',
+  ...(process.env.RENDER_GIT_COMMIT || process.env.GIT_COMMIT
+    ? { revision: process.env.RENDER_GIT_COMMIT || process.env.GIT_COMMIT }
+    : {}),
+});
 
 const getPrimaryFrontendUrl = () => (process.env.FRONTEND_URL || '')
   .split(',')
@@ -24,7 +30,7 @@ router.get('/', (_req, res) => {
 });
 
 router.get('/health', (_req, res) => {
-  res.json(healthResponse);
+  res.json(healthResponse());
 });
 
 router.head('/health', (_req, res) => {
