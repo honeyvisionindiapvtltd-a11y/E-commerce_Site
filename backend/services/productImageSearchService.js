@@ -1,6 +1,7 @@
 import 'dotenv/config';
 import crypto from 'crypto';
 import OpenAI from 'openai';
+import sharp from 'sharp';
 import Product from '../models/Product.js';
 import ProductImageIndex from '../models/ProductImageIndex.js';
 
@@ -29,10 +30,13 @@ const IMAGE_VISION_CLIENT = imageVisionConfig.enabled
   : null;
 const INDEX_VERSION = 'product-image-index-v1';
 const IMAGE_EMBEDDING_MODEL = String(process.env.IMAGE_EMBEDDING_MODEL || 'Xenova/clip-vit-base-patch32').trim();
-const IMAGE_EMBEDDING_VERSION = `clip:${IMAGE_EMBEDDING_MODEL}`;
+const IMAGE_PREPROCESSING_VERSION = 'oriented-jpeg-tiles-v2';
+const IMAGE_EMBEDDING_VERSION = `clip:${IMAGE_EMBEDDING_MODEL}:${IMAGE_PREPROCESSING_VERSION}`;
 const DEFAULT_CANDIDATE_LIMIT = 1000;
 const DEFAULT_RESULTS_LIMIT = 5;
-const MAX_IMAGES_PER_PRODUCT = 3;
+const MAX_IMAGES_PER_PRODUCT = 5;
+const CATEGORY_CLASSIFIER_MARGIN = 0.05;
+const CATEGORY_CLASSIFIER_MIN_SIMILARITY = 0.7;
 let imageIndexTask = null;
 let imageEmbedderTask = null;
 
@@ -87,6 +91,86 @@ export const createImageEmbedding = async (imageBuffer, mimeType = 'image/jpeg',
   return normalizeEmbeddingVector(tensor?.data || []);
 };
 
+const normalizeImageForEmbedding = async (imageBuffer) => {
+  const { data, info } = await sharp(imageBuffer, { limitInputPixels: 40000000 })
+    .rotate()
+    .jpeg({ quality: 95 })
+    .toBuffer({ resolveWithObject: true });
+  return { buffer: data, width: info.width, height: info.height };
+};
+
+const getImageEmbeddingVariants = async (imageBuffer) => {
+  const normalized = await normalizeImageForEmbedding(imageBuffer);
+  const variants = [{ buffer: normalized.buffer, kind: 'full' }];
+  const cropVariant = async (left, top, width, height, kind) => {
+    if (width < 160 || height < 160) return;
+    const buffer = await sharp(normalized.buffer)
+      .extract({ left, top, width, height })
+      .jpeg({ quality: 95 })
+      .toBuffer();
+    variants.push({ buffer, kind });
+  };
+
+  try {
+    const trimmed = await sharp(normalized.buffer)
+      .trim({ background: '#ffffff', threshold: 18 })
+      .jpeg({ quality: 95 })
+      .toBuffer({ resolveWithObject: true });
+    const originalArea = normalized.width * normalized.height;
+    const trimmedArea = trimmed.info.width * trimmed.info.height;
+    if (trimmedArea > 0 && trimmedArea < originalArea * 0.88) {
+      variants.push({ buffer: trimmed.data, kind: 'background-trim' });
+    }
+  } catch (error) {
+    if (error?.message !== 'Image to trim is blank') throw error;
+  }
+
+  const aspectRatio = normalized.width / normalized.height;
+  if (aspectRatio >= 1.35 && normalized.width >= 480) {
+    const tileWidth = Math.ceil(normalized.width / 3);
+    const overlap = Math.round(tileWidth * 0.06);
+    for (let index = 0; index < 3; index += 1) {
+      const left = Math.max(0, index * tileWidth - overlap);
+      const right = Math.min(normalized.width, (index + 1) * tileWidth + overlap);
+      await cropVariant(left, 0, right - left, normalized.height, `horizontal-tile-${index + 1}`);
+    }
+  } else if (aspectRatio <= 0.74 && normalized.height >= 480) {
+    const tileHeight = Math.ceil(normalized.height / 3);
+    const overlap = Math.round(tileHeight * 0.06);
+    for (let index = 0; index < 3; index += 1) {
+      const top = Math.max(0, index * tileHeight - overlap);
+      const bottom = Math.min(normalized.height, (index + 1) * tileHeight + overlap);
+      await cropVariant(0, top, normalized.width, bottom - top, `vertical-tile-${index + 1}`);
+    }
+  } else if (Math.min(normalized.width, normalized.height) >= 480) {
+    const tileWidth = Math.ceil(normalized.width / 2);
+    const tileHeight = Math.ceil(normalized.height / 2);
+    const overlapX = Math.round(tileWidth * 0.06);
+    const overlapY = Math.round(tileHeight * 0.06);
+    for (let row = 0; row < 2; row += 1) {
+      for (let column = 0; column < 2; column += 1) {
+        const left = Math.max(0, column * tileWidth - overlapX);
+        const top = Math.max(0, row * tileHeight - overlapY);
+        const right = Math.min(normalized.width, (column + 1) * tileWidth + overlapX);
+        const bottom = Math.min(normalized.height, (row + 1) * tileHeight + overlapY);
+        await cropVariant(left, top, right - left, bottom - top, `grid-tile-${row + 1}-${column + 1}`);
+      }
+    }
+  }
+
+  return variants;
+};
+
+export const createImageSearchEmbeddings = async (imageBuffer, embedder = null) => {
+  const variants = await getImageEmbeddingVariants(imageBuffer);
+  const embeddings = [];
+  for (const variant of variants) {
+    const embedding = await createImageEmbedding(variant.buffer, 'image/jpeg', embedder);
+    if (embedding.length) embeddings.push({ embedding, kind: variant.kind });
+  }
+  return embeddings;
+};
+
 const fetchCatalogImageEmbedding = async (imageUrl) => {
   const response = await fetch(imageUrl, { signal: AbortSignal.timeout(15000) });
   if (!response.ok) throw new Error(`Image download failed with HTTP ${response.status}`);
@@ -94,12 +178,50 @@ const fetchCatalogImageEmbedding = async (imageUrl) => {
   if (!mimeType.startsWith('image/')) throw new Error('Catalog URL did not return an image');
   const imageBuffer = Buffer.from(await response.arrayBuffer());
   if (imageBuffer.length === 0 || imageBuffer.length > 10 * 1024 * 1024) throw new Error('Catalog image size is outside the supported range');
-  return createImageEmbedding(imageBuffer, mimeType);
+  const { buffer } = await normalizeImageForEmbedding(imageBuffer);
+  return createImageEmbedding(buffer, 'image/jpeg');
 };
 
 export const getCatalogEmbeddingSimilarity = (queryEmbedding, imageEmbeddings = []) => {
   const vectors = Array.isArray(imageEmbeddings) ? imageEmbeddings : [];
   return roundValue(Math.max(0, ...vectors.map((vector) => cosineSimilarity(queryEmbedding, vector))));
+};
+
+export const classifyImageCategory = (queryEmbeddings = [], candidates = [], {
+  minimumSimilarity = CATEGORY_CLASSIFIER_MIN_SIMILARITY,
+  minimumMargin = CATEGORY_CLASSIFIER_MARGIN,
+} = {}) => {
+  const queries = queryEmbeddings.length && Array.isArray(queryEmbeddings[0])
+    ? queryEmbeddings
+    : queryEmbeddings.length ? [queryEmbeddings] : [];
+  const categories = new Map();
+  for (const candidate of candidates) {
+    const category = String(candidate.category || candidate.subCategory || '').trim();
+    const key = normalizeCategoryKey(category);
+    if (!key || !hasValidImageEmbeddings(candidate.imageEmbeddings)) continue;
+    const vectors = categories.get(key) || { category, vectors: [] };
+    vectors.vectors.push(...candidate.imageEmbeddings);
+    categories.set(key, vectors);
+  }
+  const ranked = [...categories.values()].map(({ category, vectors }) => {
+    const centroid = normalizeEmbeddingVector(vectors[0].map((_, index) => (
+      vectors.reduce((sum, vector) => sum + vector[index], 0) / vectors.length
+    )));
+    return {
+      category,
+      similarity: roundValue(Math.max(0, ...queries.map((query) => cosineSimilarity(query, centroid)))),
+    };
+  }).sort((left, right) => right.similarity - left.similarity);
+  const top = ranked[0];
+  const margin = top ? roundValue(top.similarity - (ranked[1]?.similarity || 0)) : 0;
+  const confident = Boolean(top && top.similarity >= minimumSimilarity && margin >= minimumMargin);
+  return {
+    category: confident ? top.category : '',
+    confidence: top?.similarity || 0,
+    margin,
+    confident,
+    ranked: ranked.slice(0, 3),
+  };
 };
 
 const hasValidImageEmbeddings = (imageEmbeddings = []) => {
@@ -670,7 +792,9 @@ export const buildImageSearchDiagnostics = ({
   index = {},
   queryEmbeddingDimensions = 0,
   thresholds = {},
+  categoryClassification = null,
   candidates = [],
+  filteredCandidateProductIds = [],
   selectedProductId = null,
   outcome = 'no-match',
 } = {}) => ({
@@ -680,6 +804,8 @@ export const buildImageSearchDiagnostics = ({
   index,
   queryEmbeddingDimensions,
   thresholds,
+  categoryClassification,
+  filteredCandidateProductIds: filteredCandidateProductIds.map(String),
   candidates: candidates.map(({ product, scores, imageCount = 0, embeddingCount = 0, rejectionReason = '' }) => ({
     productId: String(product?._id || product?.product || ''),
     scores: {
@@ -714,12 +840,14 @@ const getProductImageCount = (candidate) => new Set([
 export const rankImageSearchCandidates = (candidates = [], signals = {}, queryEmbedding = []) => candidates
   .map((candidate) => {
     const imageEmbeddings = candidate.productMatch?.imageEmbeddings || [];
-    const embeddingCompatible = Array.isArray(queryEmbedding)
-      && queryEmbedding.length > 0
+    const queryEmbeddings = queryEmbedding.length && Array.isArray(queryEmbedding[0])
+      ? queryEmbedding
+      : queryEmbedding.length ? [queryEmbedding] : [];
+    const embeddingCompatible = queryEmbeddings.length > 0
       && hasValidImageEmbeddings(imageEmbeddings)
-      && imageEmbeddings[0].length === queryEmbedding.length;
+      && imageEmbeddings[0].length === queryEmbeddings[0].length;
     const visualSimilarity = embeddingCompatible
-      ? getCatalogEmbeddingSimilarity(queryEmbedding, imageEmbeddings)
+      ? roundValue(Math.max(0, ...queryEmbeddings.map((query) => getCatalogEmbeddingSimilarity(query, imageEmbeddings))))
       : 0;
     const scores = combineImageAndCatalogScores(candidate.productMatch, signals, { confidence: visualSimilarity });
     if (!hasValidImageEmbeddings(imageEmbeddings)) scores.matchReasons.push('catalog-image-embedding-unavailable');
@@ -743,31 +871,12 @@ export const rankImageSearchCandidates = (candidates = [], signals = {}, queryEm
 
 export const filterPossibleImageMatches = (
   rankedCandidates = [],
-  { selectedMatch = null, categorySignal = '', minimumSimilarity = 0.65, limit = 3 } = {}
+  { selectedMatch = null, categorySignal = '', minimumSimilarity = 0.65, limit = 3, categoryConfident = false } = {}
 ) => {
-  const categoryAnchor = selectedMatch?.productMatch?.category
-    || selectedMatch?.productMatch?.subCategory
-    || rankedCandidates.find((candidate) => (
-      candidate.imageCount > 0
-      && candidate.visualSimilarity >= minimumSimilarity
-      && (candidate.productMatch?.category || candidate.productMatch?.subCategory)
-    ))?.productMatch?.category
-    || rankedCandidates.find((candidate) => (
-      candidate.imageCount > 0
-      && candidate.visualSimilarity >= minimumSimilarity
-      && candidate.productMatch?.subCategory
-    ))?.productMatch?.subCategory
-    || '';
-
   return rankedCandidates
     .filter((candidate) => {
       if (candidate.imageCount === 0 || candidate.visualSimilarity < minimumSimilarity) return false;
-      if (categorySignal && candidate.categorySimilarity === 0) return false;
-      if (
-        categoryAnchor
-        && (candidate.productMatch?.category || candidate.productMatch?.subCategory)
-        && normalizeCategoryKey(categoryAnchor) !== normalizeCategoryKey(candidate.productMatch.category || candidate.productMatch.subCategory)
-      ) return false;
+      if (categorySignal && categoryConfident && candidate.categorySimilarity === 0) return false;
       if (selectedMatch && String(candidate.product?._id) === String(selectedMatch.product._id)) return false;
       return true;
     })
@@ -780,6 +889,7 @@ export const selectConfidentImageMatch = (
     visualThreshold = 0.94,
     confidenceThreshold = 0.72,
     marginThreshold = 0.06,
+    categoryConfident = false,
   } = {}
 ) => {
   const eligibleCandidates = rankedCandidates.filter((candidate) => (
@@ -788,6 +898,7 @@ export const selectConfidentImageMatch = (
     && candidate.confidence >= confidenceThreshold
     && candidate.identifierConflicts === 0
     && !candidate.brandConflict
+    && (!categoryConfident || !candidate.categoryConflict)
   ));
   const top = eligibleCandidates[0];
   if (!top) return null;
@@ -851,7 +962,15 @@ const toPossibleMatch = ({ product, confidence, visualSimilarity, matchReasons }
 
 const getCandidateRejectionReason = (
   candidate,
-  { visualThreshold, confidenceThreshold, marginThreshold, possibleMatchThreshold, categorySignal = '', alternativeCategory = '' },
+  {
+    visualThreshold,
+    confidenceThreshold,
+    marginThreshold,
+    possibleMatchThreshold,
+    categorySignal = '',
+    alternativeCategory = '',
+    categoryConfident = false,
+  },
   selected,
   rankedCandidates
 ) => {
@@ -861,6 +980,7 @@ const getCandidateRejectionReason = (
   if (!candidate.embeddingCompatible) return 'embedding-dimension-mismatch';
   if (candidate.identifierConflicts > 0) return 'conflicting-identifier';
   if (candidate.brandConflict) return 'conflicting-brand';
+  if (categoryConfident && candidate.categoryConflict) return 'category-incompatible';
   if (categorySignal && candidate.categorySimilarity === 0) return 'category-incompatible';
   if (
     alternativeCategory
@@ -881,6 +1001,7 @@ const getCandidateRejectionReason = (
     && item.confidence >= confidenceThreshold
     && item.identifierConflicts === 0
     && !item.brandConflict
+    && (!categoryConfident || !item.categoryConflict)
   ));
   if (eligible.length > 1 && eligible[0].confidence - eligible[1].confidence < marginThreshold) {
     return 'ambiguous-confidence-margin';
@@ -940,13 +1061,16 @@ export const searchProductsByImage = async (fileBuffer, mimeType, metadata = {})
   };
 
   await ensureImageIndexCoverage(requestId);
-  const queryEmbedding = await createImageEmbedding(fileBuffer, mimeType);
-  if (!queryEmbedding.length) throw new Error('Image embedding model returned an empty vector');
+  const queryEmbeddingVariants = await createImageSearchEmbeddings(fileBuffer);
+  const queryEmbeddings = queryEmbeddingVariants.map(({ embedding }) => embedding);
+  if (!queryEmbeddings.length) throw new Error('Image embedding model returned an empty vector');
+  const queryEmbedding = queryEmbeddings[0];
   console.info(JSON.stringify({
     event: 'product-image-query-embedding',
     requestId,
     mimeType,
     embeddingDimensions: queryEmbedding.length,
+    embeddingVariants: queryEmbeddingVariants.map(({ kind }) => kind),
   }));
   const candidates = await ProductImageIndex.find({ indexingStatus: { $in: ['indexed', 'outdated'] } })
     .sort({ updatedAt: -1 })
@@ -981,6 +1105,17 @@ export const searchProductsByImage = async (fileBuffer, mimeType, metadata = {})
     activeProductsResolved: products.length,
     queryEmbeddingDimensions: queryEmbedding.length,
     productsMissingEmbeddings: missingEmbeddingCount,
+  }));
+
+  const categoryClassification = classifyImageCategory([queryEmbedding], imageBearingCandidates);
+  console.info(JSON.stringify({
+    event: 'product-image-category-classification',
+    requestId,
+    confident: categoryClassification.confident,
+    selectedCategory: categoryClassification.category || null,
+    confidence: categoryClassification.confidence,
+    margin: categoryClassification.margin,
+    topCategories: categoryClassification.ranked,
   }));
 
   const evaluatedResults = [];
@@ -1028,7 +1163,11 @@ export const searchProductsByImage = async (fileBuffer, mimeType, metadata = {})
     return result;
   }
 
-  const rankedResults = rankImageSearchCandidates(evaluatedResults, finalSignals, queryEmbedding);
+  const searchSignals = {
+    ...finalSignals,
+    category: categoryClassification.category || finalSignals.category,
+  };
+  const rankedResults = rankImageSearchCandidates(evaluatedResults, searchSignals, queryEmbeddings);
   const visualThreshold = Number(process.env.IMAGE_MATCH_VISUAL_THRESHOLD) || 0.94;
   const confidenceThreshold = Number(process.env.IMAGE_MATCH_CONFIDENCE_THRESHOLD) || 0.72;
   const marginThreshold = Number(process.env.IMAGE_MATCH_MARGIN_THRESHOLD) || 0.06;
@@ -1036,6 +1175,7 @@ export const searchProductsByImage = async (fileBuffer, mimeType, metadata = {})
     visualThreshold,
     confidenceThreshold,
     marginThreshold,
+    categoryConfident: categoryClassification.confident,
   });
   const verifiedMatch = confidenceCandidate
     ? rankedResults.find(({ product }) => String(product._id) === String(confidenceCandidate.product._id))
@@ -1043,8 +1183,16 @@ export const searchProductsByImage = async (fileBuffer, mimeType, metadata = {})
   const possibleMatchThreshold = Number(process.env.IMAGE_MATCH_POSSIBLE_THRESHOLD || 0.65);
   const possibleCandidates = filterPossibleImageMatches(rankedResults, {
     selectedMatch: verifiedMatch,
-    categorySignal: finalSignals.category,
+    categorySignal: categoryClassification.category,
+    categoryConfident: categoryClassification.confident,
     minimumSimilarity: possibleMatchThreshold,
+  });
+  const diagnosticFilteredCandidates = filterPossibleImageMatches(rankedResults, {
+    selectedMatch: verifiedMatch,
+    categorySignal: categoryClassification.category,
+    categoryConfident: categoryClassification.confident,
+    minimumSimilarity: possibleMatchThreshold,
+    limit: 10,
   });
   const possibleMatches = possibleCandidates.map((candidate) => toPossibleMatch(candidate));
   const alternativeCategory = verifiedMatch?.productMatch?.category
@@ -1058,7 +1206,7 @@ export const searchProductsByImage = async (fileBuffer, mimeType, metadata = {})
   });
   const diagnostics = buildImageSearchDiagnostics({
     requestId,
-    candidates: rankedResults.slice(0, DEFAULT_RESULTS_LIMIT).map((item) => ({
+    candidates: rankedResults.slice(0, 10).map((item) => ({
       ...item,
       scores: item,
       rejectionReason: getCandidateRejectionReason(item, {
@@ -1066,10 +1214,13 @@ export const searchProductsByImage = async (fileBuffer, mimeType, metadata = {})
         confidenceThreshold,
         marginThreshold,
         possibleMatchThreshold,
-        categorySignal: finalSignals.category,
+        categorySignal: categoryClassification.category,
         alternativeCategory,
+        categoryConfident: categoryClassification.confident,
       }, verifiedMatch, rankedResults),
     })),
+    categoryClassification,
+    filteredCandidateProductIds: diagnosticFilteredCandidates.map(({ product }) => product._id),
     index: {
       indexedImageProducts: imageBearingCandidates.length,
       candidatesReturned: candidates.length,
@@ -1082,6 +1233,8 @@ export const searchProductsByImage = async (fileBuffer, mimeType, metadata = {})
       confidence: confidenceThreshold,
       margin: marginThreshold,
       possibleMatch: possibleMatchThreshold,
+      categorySimilarity: CATEGORY_CLASSIFIER_MIN_SIMILARITY,
+      categoryMargin: CATEGORY_CLASSIFIER_MARGIN,
     },
     selectedProductId: verifiedMatch?.product._id,
     outcome: result.matchType,

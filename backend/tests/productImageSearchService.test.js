@@ -1,12 +1,15 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
+import sharp from 'sharp';
 import {
   buildImageSearchDiagnostics,
   buildImageSearchResultResponse,
+  classifyImageCategory,
   combineImageAndCatalogScores,
   cosineSimilarity,
   createImageEmbedding,
+  createImageSearchEmbeddings,
   filterPossibleImageMatches,
   getCatalogEmbeddingSimilarity,
   hasProductRecognitionSignals,
@@ -102,6 +105,24 @@ test('image embeddings are normalized and cosine comparison rejects incompatible
     return { data: new Float32Array([3, 4]) };
   });
   assert.deepEqual(embedding, [0.6, 0.8]);
+});
+
+test('multi-object uploads create full-frame and overlapping tile embeddings after orientation normalization', async () => {
+  const imageBuffer = await sharp({
+    create: { width: 900, height: 400, channels: 3, background: '#ffffff' },
+  }).png().toBuffer();
+  const embeddedBlobSizes = [];
+  const variants = await createImageSearchEmbeddings(imageBuffer, async (blob) => {
+    embeddedBlobSizes.push(blob.size);
+    return { data: new Float32Array([1, 0]) };
+  });
+
+  assert.ok(variants.some(({ kind }) => kind === 'full'));
+  assert.ok(variants.some(({ kind }) => kind === 'horizontal-tile-1'));
+  assert.ok(variants.some(({ kind }) => kind === 'horizontal-tile-2'));
+  assert.ok(variants.some(({ kind }) => kind === 'horizontal-tile-3'));
+  assert.equal(embeddedBlobSizes.length, variants.length);
+  assert.ok(variants.every(({ embedding }) => embedding.length === 2));
 });
 
 test('catalog image vectors use the strongest alternate view while remaining one product', () => {
@@ -201,12 +222,57 @@ test('possible matches exclude off-category catalog products and retain relevant
   const matches = filterPossibleImageMatches(ranked, {
     selectedMatch: ranked.find(({ product }) => product._id === 'hp-monitor'),
     categorySignal: 'monitor',
+    categoryConfident: true,
     minimumSimilarity: 0.65,
   });
 
   assert.ok(matches.some(({ product }) => product._id === 'dell-monitor'));
   assert.ok(matches.every(({ product }) => product._id !== 'hp-cooler'));
   assert.ok(matches.every(({ categorySimilarity }) => categorySimilarity > 0));
+});
+
+test('catalog-derived category classification is margin-gated and category filtering is optional', () => {
+  const monitors = makeCandidate({
+    id: 'monitor-reference',
+    category: 'Monitors & Displays',
+    imageEmbeddings: [[1, 0], [0.98, 0.2]],
+  }).productMatch;
+  const coolers = makeCandidate({
+    id: 'cooling-pad-reference',
+    category: 'Computer Accessories',
+    imageEmbeddings: [[0, 1], [0.1, 0.99]],
+  }).productMatch;
+  const clearClassification = classifyImageCategory([[1, 0]], [monitors, coolers], {
+    minimumSimilarity: 0.7,
+    minimumMargin: 0.05,
+  });
+  const uncertainClassification = classifyImageCategory([[0.7, Math.sqrt(1 - (0.7 ** 2))]], [monitors, coolers], {
+    minimumSimilarity: 0.7,
+    minimumMargin: 0.05,
+  });
+  const monitor = makeCandidate({
+    id: 'monitor',
+    category: 'Monitors & Displays',
+    imageEmbeddings: [[1, 0]],
+  });
+  const coolingPad = makeCandidate({
+    id: 'cooling-pad',
+    category: 'Computer Accessories',
+    imageEmbeddings: [[0.8, 0.6]],
+  });
+  const ranked = rankImageSearchCandidates([coolingPad, monitor], {}, [1, 0]);
+
+  assert.equal(clearClassification.category, 'Monitors & Displays');
+  assert.equal(clearClassification.confident, true);
+  assert.equal(uncertainClassification.confident, false);
+  assert.equal(uncertainClassification.category, '');
+  assert.ok(filterPossibleImageMatches(ranked, { minimumSimilarity: 0.65 }).some(({ product }) => product._id === 'cooling-pad'));
+  assert.ok(filterPossibleImageMatches(ranked, {
+    categorySignal: clearClassification.category,
+    categoryConfident: clearClassification.confident,
+    minimumSimilarity: 0.65,
+  }).every(({ product }) => product._id !== 'cooling-pad'));
+  assert.equal(selectConfidentImageMatch(ranked, { categoryConfident: true })?.product._id, 'monitor');
 });
 
 test('conflicting OCR identifiers are penalized and cannot produce an automatic match', () => {
