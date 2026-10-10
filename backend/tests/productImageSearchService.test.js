@@ -169,6 +169,22 @@ test('multi-object uploads create full-frame and overlapping tile embeddings aft
   assert.ok(variants.every(({ embedding }) => embedding.length === 2));
 });
 
+test('small landscape collages are split into overlapping object crops instead of embedded only as one frame', async () => {
+  const imageBuffer = await sharp({
+    create: { width: 474, height: 266, channels: 3, background: '#ffffff' },
+  }).png().toBuffer();
+  const variants = await createImageSearchEmbeddings(imageBuffer, async () => ({
+    data: new Float32Array([1, 0]),
+  }));
+
+  assert.deepEqual(variants.map(({ kind }) => kind), [
+    'full',
+    'horizontal-tile-1',
+    'horizontal-tile-2',
+    'horizontal-tile-3',
+  ]);
+});
+
 test('catalog image vectors use the strongest alternate view while remaining one product', () => {
   const alternateViews = [[0.7, Math.sqrt(0.51)], [1, 0], [0.8, 0.6]];
   const reference = [1, 0];
@@ -623,6 +639,10 @@ test('structured diagnostics contain product IDs and scores but no image URL or 
     candidates: [{
       product: { _id: 'mongo-product-1' },
       productMatch: {
+        name: 'Samsung Gaming Monitor',
+        brand: 'Samsung',
+        sku: 'MON-123',
+        modelNumber: 'G7',
         category: 'Monitors & Displays',
         subCategory: 'Gaming Monitors',
         cloudinaryUrls: ['https://images.example.test/catalog.webp'],
@@ -639,6 +659,9 @@ test('structured diagnostics contain product IDs and scores but no image URL or 
 
   assert.equal(diagnostics.requestId, 'request-123');
   assert.equal(diagnostics.candidates[0].productId, 'mongo-product-1');
+  assert.equal(diagnostics.candidates[0].name, 'Samsung Gaming Monitor');
+  assert.equal(diagnostics.candidates[0].brand, 'Samsung');
+  assert.equal(diagnostics.candidates[0].sku, 'MON-123');
   assert.equal(diagnostics.candidates[0].rejectionReason, 'selected-confident-match');
   assert.equal(diagnostics.candidates[0].category, 'Monitors & Displays');
   assert.equal(diagnostics.candidates[0].embeddingVersion, IMAGE_EMBEDDING_VERSION);

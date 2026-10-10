@@ -103,7 +103,7 @@ const getImageEmbeddingVariants = async (imageBuffer) => {
   const normalized = await normalizeImageForEmbedding(imageBuffer);
   const variants = [{ buffer: normalized.buffer, kind: 'full' }];
   const cropVariant = async (left, top, width, height, kind) => {
-    if (width < 160 || height < 160) return;
+    if (width < 96 || height < 96) return;
     const buffer = await sharp(normalized.buffer)
       .extract({ left, top, width, height })
       .jpeg({ quality: 95 })
@@ -126,12 +126,19 @@ const getImageEmbeddingVariants = async (imageBuffer) => {
   }
 
   const aspectRatio = normalized.width / normalized.height;
-  if (aspectRatio >= 1.35 && normalized.width >= 480) {
-    const tileWidth = Math.ceil(normalized.width / 3);
+  if (aspectRatio >= 1.35 && normalized.width >= 360) {
+    const tileWidth = normalized.width < 720
+      ? Math.ceil(normalized.width * 0.58)
+      : Math.ceil(normalized.width / 3);
     const overlap = Math.round(tileWidth * 0.06);
+    const stride = (normalized.width - tileWidth) / 2;
     for (let index = 0; index < 3; index += 1) {
-      const left = Math.max(0, index * tileWidth - overlap);
-      const right = Math.min(normalized.width, (index + 1) * tileWidth + overlap);
+      const left = normalized.width < 720
+        ? Math.max(0, Math.round(index * stride) - (index === 0 ? 0 : overlap))
+        : Math.max(0, index * tileWidth - overlap);
+      const right = normalized.width < 720
+        ? Math.min(normalized.width, Math.round(index * stride) + tileWidth + (index === 2 ? 0 : overlap))
+        : Math.min(normalized.width, (index + 1) * tileWidth + overlap);
       await cropVariant(left, 0, right - left, normalized.height, `horizontal-tile-${index + 1}`);
     }
   } else if (aspectRatio <= 0.74 && normalized.height >= 480) {
@@ -834,6 +841,10 @@ export const buildImageSearchDiagnostics = ({
   filteredCandidateProductIds: filteredCandidateProductIds.map(String),
   candidates: candidates.map(({ product, productMatch, scores, imageCount = 0, embeddingCount = 0, rejectionReason = '' }) => ({
     productId: String(product?._id || product?.product || ''),
+    name: String(product?.name || productMatch?.name || ''),
+    brand: String(product?.brand || productMatch?.brand || ''),
+    sku: String(product?.sku || productMatch?.sku || ''),
+    model: String(product?.model || productMatch?.modelNumber || ''),
     category: String(productMatch?.category || ''),
     subCategory: String(productMatch?.subCategory || ''),
     catalogImageUrls: Array.isArray(productMatch?.cloudinaryUrls) ? productMatch.cloudinaryUrls.slice(0, MAX_IMAGES_PER_PRODUCT) : [],
@@ -852,8 +863,8 @@ export const buildImageSearchDiagnostics = ({
     matchReasons: scores?.matchReasons || [],
     imageCount,
     embeddingCount,
-    embeddingModelCompatible: scores?.embeddingModelCompatible ?? null,
-    sharedCatalogImage: Boolean(scores?.sharedCatalogImage),
+    embeddingModelCompatible: productMatch?.embeddingModel === IMAGE_EMBEDDING_VERSION,
+    sharedCatalogImage: Boolean(productMatch?.sharedCatalogImage || scores?.sharedCatalogImage),
     embeddingVersion: productMatch?.embeddingModel || '',
     rejectionReason,
   })),
