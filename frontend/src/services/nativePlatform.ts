@@ -88,7 +88,7 @@ export class NativePlatformService {
     }
 
     if (this.isNativePlatform()) {
-      return 'https://e-commerce-site-vlec.onrender.com/api';
+      return 'https://e-commerce-site-gi8y.onrender.com/api';
     }
 
     return '/api'; // Web or fallback
