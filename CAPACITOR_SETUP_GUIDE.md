@@ -209,10 +209,11 @@ npm run cap:build:android
 cd frontend
 npm run cap:sync:ios
 ```
+This builds with the production environment in `.env.production`, so the iOS app uses the deployed backend rather than a local development server.
 
 **2. Install CocoaPods Dependencies**
 ```bash
-cd ios
+cd ios/App
 pod install
 ```
 
@@ -236,10 +237,46 @@ Product → Archive
 ```
 
 **6. Submit to App Store**
-- Xcode automatically uploads to TestFlight
+- Upload the archive to App Store Connect through Xcode Organizer or Transporter
+- After processing, enable the build for TestFlight in App Store Connect
 - Review in App Store Connect
 - Complete required information
 - Submit for App Review
+
+#### Signed IPA with GitHub Actions
+
+The repository workflow at `.github/workflows/ios-ipa.yml` builds and exports a signed IPA on a GitHub-hosted `macos-15` runner. It exports for **App Store Connect distribution** so the IPA can be uploaded to TestFlight or App Store Connect later; the workflow does not upload or publish the app.
+
+Before running it, create an Apple Distribution certificate and export it as a password-protected `.p12`. Create an **App Store Connect** provisioning profile for `in.honeyvision.app` using that certificate. The App ID must also enable Associated Domains to match the app's existing entitlements. Do not commit these files or put their contents in workflow logs.
+
+Add these repository Actions secrets under **Settings → Secrets and variables → Actions → New repository secret**:
+
+| Secret | Value |
+| --- | --- |
+| `IOS_DISTRIBUTION_CERTIFICATE_BASE64` | Base64-encoded Apple Distribution `.p12` file |
+| `IOS_DISTRIBUTION_CERTIFICATE_PASSWORD` | Password used to export the `.p12` |
+| `IOS_APP_STORE_PROFILE_BASE64` | Base64-encoded App Store Connect `.mobileprovision` file |
+| `IOS_TEAM_ID` | Apple Developer Team ID (10-character identifier) |
+| `IOS_KEYCHAIN_PASSWORD` | A new strong password used only for the temporary CI keychain |
+
+Encode the signing files on macOS without putting their contents in the repository:
+
+```bash
+base64 -i distribution.p12 | pbcopy
+base64 -i HoneyVision_AppStore.mobileprovision | pbcopy
+```
+
+Paste each copied value into its corresponding GitHub secret. Use a GitHub repository with Actions enabled and ensure its plan allows macOS runners.
+
+After pushing the workflow to `main` and configuring all five secrets, run it from **Actions → Build HoneyVision iOS IPA → Run workflow** and select `main`. The workflow is manual-only so it will not start before signing secrets are configured. A successful run uploads the actual signed IPA as the `honeyvision-ios-ipa` artifact for 14 days. Download it from the completed workflow run's **Artifacts** section. Upload it to App Store Connect/Transporter yourself if you want to distribute through TestFlight; that upload is not automated.
+
+For registered-device (Ad Hoc) distribution, this workflow must be intentionally changed to use an Ad Hoc provisioning profile and the matching Xcode export method; register the target devices with Apple first. The current workflow does not produce an Ad Hoc IPA.
+
+#### Remaining iOS service configuration
+
+- Google sign-in currently uses Google's web SDK. Validate it on an iOS device and configure an iOS OAuth client/redirect scheme or a supported native/system-browser OAuth flow if the web flow is rejected in `WKWebView`.
+- Push notifications require the Apple Push Notifications capability, an APNs key/certificate configured with the push provider, and a provisioning profile containing the push entitlement. The existing iOS entitlements currently cover Associated Domains only.
+- The CI workflow does not run App Store upload, device installation, or end-to-end ecommerce tests.
 
 #### Testing Before Release
 

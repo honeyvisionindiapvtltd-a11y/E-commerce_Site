@@ -9,11 +9,11 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "cap:sync:android": "vite build --mode production && npx cap sync android",
-    "cap:sync:ios": "vite build && npx cap sync ios",
+    "cap:sync:ios": "vite build --mode production && npx cap sync ios",
     "cap:open:android": "npx cap open android",
     "cap:open:ios": "npx cap open ios",
     "cap:build:android": "vite build --mode android && npx cap sync android && npx cap run android",
-    "cap:build:ios": "vite build && npx cap sync ios"
+    "cap:build:ios": "vite build --mode production && npx cap sync ios"
   },
   "dependencies": {
     "@capacitor/android": "^6.2.2",

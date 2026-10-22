@@ -22,6 +22,25 @@
 	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>HoneyVision uses the camera when you scan products or add photos to a request.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>HoneyVision lets you choose photos to attach to a support or installation request.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>HoneyVision needs permission to save photos when you choose to save them to your library.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>HoneyVision uses your location to check delivery availability and provide location-based delivery features.</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>in.honeyvision.app</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>honeyvision</string>
+			</array>
+		</dict>
+	</array>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
 	<key>UIMainStoryboardFile</key>
