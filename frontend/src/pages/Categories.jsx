@@ -1,13 +1,19 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { useCatalog } from "../context/CatalogContext.jsx";
-const API_BASE = import.meta.env.VITE_API_URL || "/api";
 import {
+  ArrowRight,
   ChevronRight,
   Grid2X2,
+  Headphones,
   Search,
+  ShieldCheck,
+  ShoppingCart,
+  Truck,
 } from "lucide-react";
+import { useCatalog } from "../context/CatalogContext.jsx";
+import { useCommerce } from "../context/index.js";
 
+const API_BASE = import.meta.env.VITE_API_URL || "/api";
 const categoryImageFallback =
   "https://res.cloudinary.com/vhrkwyzs/image/upload/v1786010029/laptop_ktvxcs.png";
 
@@ -17,17 +23,35 @@ const popularBrands = [
   ["CP Plus", "https://res.cloudinary.com/vhrkwyzs/image/upload/v1787377702/cp_plus-logo_asuqmb.png"],
   ["Honeywell", "https://res.cloudinary.com/vhrkwyzs/image/upload/v1787377703/Honeywell-Logo_cdkjfy.svg"],
   ["Prama", "https://res.cloudinary.com/vhrkwyzs/image/upload/v1787377702/prama-logo_pqskkz.png"],
+  ["TP-Link", "https://res.cloudinary.com/vhrkwyzs/image/upload/v1786172593/Tp-Link_logo_2016_tlbnnn.png"],
+];
+
+const heroImages = [
+  {
+    src: "https://res.cloudinary.com/vhrkwyzs/image/upload/v1791460545/application_based_opgyfw.png",
+    alt: "AI PTZ security camera",
+    className: "categories-hero-camera",
+  },
+  {
+    src: "https://res.cloudinary.com/vhrkwyzs/image/upload/v1791527381/368-3686253_cctv-camera-with-dvr-png-clipart_p7tmjw.png",
+    alt: "Office security system",
+    className: "categories-hero-combo",
+  },
+  {
+    src: "https://res.cloudinary.com/vhrkwyzs/image/upload/v1788069523/Samsung_Ultrawide_Monitors_m2acv9.webp",
+    alt: "Laptop and connected technology",
+    className: "categories-hero-laptop",
+  },
 ];
 
 export default function Categories() {
   const { products } = useCatalog();
+  const { addToCart } = useCommerce();
   const [categoryTiles, setCategoryTiles] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All Categories");
   const selectedCategoryButtonRef = useRef(null);
-  const featuredRailRef = useRef(null);
-  const featuredRailInteractingRef = useRef(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -38,23 +62,21 @@ export default function Categories() {
         if (!response.ok) throw new Error("Unable to load categories");
 
         const data = await response.json();
-        const trees = Array.isArray(data.categories)
-          ? data.categories
-          : [];
-
-        const nextTiles = trees.map((category) => ({
-          name: category.name || category.label || "Category",
-          slug: category.slug || "",
-          image: category.image || categoryImageFallback,
-          subcategories: Array.isArray(category.subcategories)
-            ? category.subcategories
-            : [],
-        }));
+        const trees = Array.isArray(data.categories) ? data.categories : [];
+        const nextTiles = trees
+          .filter((category) => category && category.name && category.isActive !== false)
+          .map((category) => ({
+            name: category.name,
+            slug: category.slug || "",
+            image: category.image || category.icon || categoryImageFallback,
+            subcategories: Array.isArray(category.subcategories)
+              ? category.subcategories.filter((subcategory) => subcategory?.isActive !== false)
+              : [],
+          }));
 
         if (isMounted) setCategoryTiles(nextTiles);
       } catch (error) {
         console.error("Failed to load categories:", error);
-
         if (isMounted) setCategoryTiles([]);
       } finally {
         if (isMounted) setIsLoading(false);
@@ -62,46 +84,10 @@ export default function Categories() {
     };
 
     loadCategories();
-
     return () => {
       isMounted = false;
     };
   }, []);
-
-  const visibleTiles = useMemo(() => {
-    const search = searchTerm.trim().toLowerCase();
-
-    return categoryTiles.filter((category) => {
-      const matchesCategory =
-        selectedCategory === "All Categories" ||
-        category.name === selectedCategory;
-
-      if (!search) return matchesCategory;
-
-      const matchesName = category.name.toLowerCase().includes(search);
-      const matchesSubcategory = category.subcategories.some((sub) =>
-        (sub.name || "").toLowerCase().includes(search)
-      );
-
-      return matchesCategory && (matchesName || matchesSubcategory);
-    });
-  }, [categoryTiles, searchTerm, selectedCategory]);
-
-  const selectedCategoryData = useMemo(
-    () => categoryTiles.find((category) => category.name === selectedCategory),
-    [categoryTiles, selectedCategory]
-  );
-
-  const visibleSubcategories = useMemo(() => {
-    const search = searchTerm.trim().toLowerCase();
-    const subcategories = selectedCategoryData?.subcategories || [];
-
-    if (!search) return subcategories;
-
-    return subcategories.filter((subcategory) =>
-      (subcategory.name || "").toLowerCase().includes(search)
-    );
-  }, [selectedCategoryData, searchTerm]);
 
   useEffect(() => {
     if (selectedCategory === "All Categories") return;
@@ -113,259 +99,320 @@ export default function Categories() {
     });
   }, [selectedCategory, categoryTiles]);
 
-  const featuredProducts = useMemo(() => {
-    const categoryProducts = selectedCategory === "All Categories"
-      ? products
-      : products.filter((product) => product.category === selectedCategory);
-    const categoryProductSet = new Set(categoryProducts);
-    const remainingProducts = products.filter(
-      (product) => !categoryProductSet.has(product)
-    );
+  const visibleCategories = useMemo(() => {
+    const query = searchTerm.trim().toLowerCase();
+    return categoryTiles.filter((category) => {
+      const matchesSelected =
+        selectedCategory === "All Categories" || category.name === selectedCategory;
+      if (!query) return matchesSelected;
 
-    return [...categoryProducts, ...remainingProducts].slice(0, 28);
-  }, [products, selectedCategory]);
-  const featuredProductCount = featuredProducts.length;
-  const accessoryProducts = useMemo(() => {
-    const accessoryPattern = /\b(accessor(?:y|ies)|cables?|cords?|connectors?|adapters?|power supplies|mounts?|brackets?|junction boxes|hdmi|usb|bnc|patch leads?|lan)\b/i;
-    const cameraProductPattern = /\b(camera|cctv|surveillance|ptz|dome|bullet|fisheye|anpr)\b/i;
-    const nonCameraProducts = products.filter((product) => {
-      const details = `${product.name || ""} ${product.category || ""} ${product.subCategory || ""}`;
-      return !cameraProductPattern.test(details);
+      return matchesSelected && (
+        category.name.toLowerCase().includes(query) ||
+        category.subcategories.some((subcategory) =>
+          (subcategory.name || "").toLowerCase().includes(query)
+        )
+      );
     });
-    const accessoryMatches = nonCameraProducts.filter((product) => (
-      accessoryPattern.test(`${product.name || ""} ${product.category || ""} ${product.subCategory || ""}`)
+  }, [categoryTiles, searchTerm, selectedCategory]);
+
+  const selectedCategoryData = useMemo(
+    () => categoryTiles.find((category) => category.name === selectedCategory),
+    [categoryTiles, selectedCategory]
+  );
+
+  const visibleTiles = selectedCategory === "All Categories"
+    ? visibleCategories
+    : (selectedCategoryData?.subcategories || []).filter((subcategory) => (
+      !searchTerm.trim() ||
+      (subcategory.name || "").toLowerCase().includes(searchTerm.trim().toLowerCase())
     ));
-    const accessoryIds = new Set(accessoryMatches.map((product) => String(product.id || product._id)));
-    const remainingProducts = nonCameraProducts.filter(
-      (product) => !accessoryIds.has(String(product.id || product._id))
-    );
 
-    return [...accessoryMatches, ...remainingProducts].slice(0, 12);
-  }, [products]);
+  const featuredProducts = useMemo(() => {
+    const catalog = Array.isArray(products) ? products : [];
+    if (selectedCategory === "All Categories") return catalog.slice(0, 5);
 
-  useEffect(() => {
-    const rail = featuredRailRef.current;
-    const motionPreference = window.matchMedia("(prefers-reduced-motion: reduce)");
-    if (!rail || motionPreference.matches || featuredProductCount < 2) return undefined;
+    const matchingProducts = catalog.filter((product) => (
+      product.category === selectedCategory ||
+      product.category?.name === selectedCategory
+    ));
+    const matchingIds = new Set(matchingProducts.map((product) => String(product.id || product._id)));
+    return [
+      ...matchingProducts,
+      ...catalog.filter((product) => !matchingIds.has(String(product.id || product._id))),
+    ].slice(0, 5);
+  }, [products, selectedCategory]);
 
-    let frameId;
-    let previousTime = 0;
-    const animate = (time) => {
-      if (previousTime && !featuredRailInteractingRef.current) {
-        const elapsed = Math.min(time - previousTime, 50);
-        rail.scrollLeft += elapsed * 0.08;
-
-        const track = rail.firstElementChild;
-        const loopWidth = track?.children[1]?.offsetLeft - track?.offsetLeft;
-        if (loopWidth > 0 && rail.scrollLeft >= loopWidth) {
-          rail.scrollLeft -= loopWidth;
-        }
-      }
-
-      previousTime = time;
-      frameId = window.requestAnimationFrame(animate);
-    };
-
-    frameId = window.requestAnimationFrame(animate);
-    return () => window.cancelAnimationFrame(frameId);
-  }, [featuredProductCount]);
+  const selectCategory = (categoryName) => {
+    setSelectedCategory(categoryName);
+    setSearchTerm("");
+  };
 
   return (
-    <main className="categories-page min-h-screen overflow-x-clip bg-[#f4f8fc] text-[#123563]">
-      <section className="mx-auto max-w-[1600px] px-3 pb-5 pt-3 sm:px-6 sm:pt-5 lg:px-8">
-        <div className="mb-3 hidden items-center gap-2 text-[11px] font-semibold text-[#6f89a8] sm:flex">
-          <Link to="/" className="hover:text-[#123563]">Home</Link>
+    <main className="categories-page categories-redesign">
+      <div className="categories-layout">
+        <div className="categories-breadcrumb">
+          <Link to="/">Home</Link>
           <ChevronRight size={13} />
-          <span className="text-[#123563]">Categories</span>
+          <span>Categories</span>
         </div>
 
-        <div className="categories-sticky-bar sticky top-0 z-40 isolate -mx-3 mb-3 block overflow-x-auto bg-white px-3 py-2 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8 lg:hidden">
-          <div className="categories-sticky-track flex min-w-max gap-2">
+        <div className="categories-mobile-filter" aria-label="Filter by category">
+          <button
+            type="button"
+            className={selectedCategory === "All Categories" ? "is-active" : ""}
+            aria-pressed={selectedCategory === "All Categories"}
+            onClick={() => selectCategory("All Categories")}
+          >
+            All Categories
+          </button>
+          {categoryTiles.map((category) => (
+            <button
+              key={category.name}
+              ref={selectedCategory === category.name ? selectedCategoryButtonRef : null}
+              type="button"
+              className={selectedCategory === category.name ? "is-active" : ""}
+              aria-pressed={selectedCategory === category.name}
+              onClick={() => selectCategory(category.name)}
+            >
+              {category.name}
+            </button>
+          ))}
+        </div>
+
+        <div className="categories-columns">
+          <aside className="categories-sidebar">
+            <div className="categories-sidebar-heading">
+              <Grid2X2 size={18} />
+              <span>All Categories</span>
+            </div>
             <button
               type="button"
-              onClick={() => setSelectedCategory("All Categories")}
-              aria-pressed={selectedCategory === "All Categories"}
-              className={`min-h-11 rounded-full px-3 py-2 text-sm font-semibold transition ${selectedCategory === "All Categories" ? "bg-[#0862c6] text-white shadow-sm" : "border border-[#dbe7f3] bg-white text-[#123563]"}`}
+              className={`categories-sidebar-row ${selectedCategory === "All Categories" ? "is-selected" : ""}`}
+              onClick={() => selectCategory("All Categories")}
             >
-              All
+              <span className="categories-sidebar-all-icon"><Grid2X2 size={15} /></span>
+              <span className="categories-sidebar-name">All Categories</span>
+              <span className="categories-sidebar-count">{categoryTiles.length}</span>
             </button>
-            {categoryTiles.map((category) => (
-              <button
-                key={category.name}
-                type="button"
-                onClick={() => setSelectedCategory(category.name)}
-                ref={selectedCategory === category.name ? selectedCategoryButtonRef : null}
-                aria-pressed={selectedCategory === category.name}
-                className={`min-h-11 rounded-full px-4 py-2 text-sm font-semibold transition ${selectedCategory === category.name ? "bg-[#0862c6] text-white shadow-sm" : "border border-[#dbe7f3] bg-white text-[#34577f] hover:border-[#0862c6] hover:text-[#0862c6]"}`}
-              >
-                {category.name}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="lg:grid lg:grid-cols-[220px_minmax(0,1fr)] lg:gap-4">
-          <aside className="categories-sidebar hidden self-start overflow-hidden rounded-xl border border-[#dbe7f3] bg-white shadow-[0_2px_8px_rgba(24,61,103,0.04)] lg:sticky lg:top-24 lg:block lg:max-h-[calc(100vh-7rem)] lg:overflow-y-auto lg:overscroll-contain">
-            <div className="p-1.5">
-              <button type="button" onClick={() => setSelectedCategory("All Categories")} className={`flex w-full items-center justify-between rounded-md px-2 py-2.5 text-left text-[11px] font-bold ${selectedCategory === "All Categories" ? "bg-[#0862c6] text-white" : "text-[#123563] hover:bg-[#f1f6fb]"}`}>
-                <span className="truncate">All</span>
-                <ChevronRight size={13} />
-              </button>
+            <div className="categories-sidebar-list">
               {categoryTiles.map((category) => (
-                <button key={category.name} type="button" onClick={() => setSelectedCategory(category.name)} className={`group flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-[10px] font-semibold leading-tight ${selectedCategory === category.name ? "bg-[#fff4cf] text-[#123563]" : "text-[#34577f] hover:bg-[#f1f6fb]"}`}>
-                  <img src={category.image || categoryImageFallback} alt="" className="h-7 w-10 shrink-0 rounded object-contain" onError={(e) => { e.currentTarget.src = categoryImageFallback; }} />
-                  <span className="min-w-0 flex-1 truncate">{category.name}</span>
-                  <ChevronRight size={12} className="hidden shrink-0 text-[#87a1bd] group-hover:text-[#123563] sm:block" />
+                <button
+                  key={category.name}
+                  type="button"
+                  className={`categories-sidebar-row ${selectedCategory === category.name ? "is-selected" : ""}`}
+                  onClick={() => selectCategory(category.name)}
+                >
+                  <img
+                    src={category.image}
+                    alt=""
+                    loading="lazy"
+                    onError={(event) => {
+                      event.currentTarget.src = categoryImageFallback;
+                    }}
+                  />
+                  <span className="categories-sidebar-name">{category.name}</span>
+                  <span className="categories-sidebar-count">{category.subcategories.length}</span>
                 </button>
               ))}
             </div>
+            <div className="categories-expert-card">
+              <img
+                src="https://res.cloudinary.com/vhrkwyzs/image/upload/v1791460549/indoor_camera_i7yryb.png"
+                alt=""
+                loading="lazy"
+              />
+              <p className="categories-expert-title">Need help choosing?</p>
+              <p className="categories-expert-copy">Talk with our team to find the right solution.</p>
+              <Link to="/contact">
+                Talk to an Expert <ArrowRight size={13} />
+              </Link>
+            </div>
           </aside>
 
-          <div className="categories-content-panel min-w-0 rounded-xl border border-[#dbe7f3] bg-white p-3 shadow-[0_2px_8px_rgba(24,61,103,0.04)] sm:p-4">
-            <div className="mb-3 flex items-center justify-between gap-2 border-b border-[#e4edf5] pb-3">
-              <div className="flex min-w-0 items-center gap-2 sm:gap-3">
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-[#edf5fc] text-[#123563] sm:h-10 sm:w-10"><Grid2X2 size={16} /></div>
-                <div className="min-w-0">
-                  <h1 className="truncate text-base font-extrabold sm:text-2xl">{selectedCategory}</h1>
-                  <p className="hidden text-[10px] text-[#6f89a8] sm:block">Explore our range of high-quality {selectedCategory.toLowerCase()} for home, office and business.</p>
+          <div className="categories-main">
+            <section className="categories-hero">
+              <div className="categories-hero-copy">
+                <p className="categories-eyebrow"><span /> Our categories</p>
+                <h1>Explore Our Product Categories</h1>
+                <p className="categories-hero-description">
+                  Find the perfect technology solutions for your home, office and business.
+                </p>
+                <div className="categories-hero-benefits">
+                  <span><ShieldCheck size={17} /> Genuine Products</span>
+                  <span><Truck size={17} /> Fast Delivery</span>
+                  <span><Headphones size={17} /> Expert Support</span>
                 </div>
               </div>
-              <div className="relative hidden w-48 sm:block">
-                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8ba4bd]" />
-                <input value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} placeholder="Search categories" className="h-9 w-full rounded-md border border-[#dbe7f3] bg-[#f8fbfe] pl-8 pr-2 text-[11px] outline-none focus:border-[#3779b8]" />
-              </div>
-            </div>
-
-            {isLoading ? (
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
-                {[1,2,3,4,5,6].map((item) => <div key={item} className="h-36 animate-pulse rounded-lg bg-[#eef4f9]" />)}
-              </div>
-            ) : null}
-
-            {!isLoading && (selectedCategory === "All Categories" ? visibleTiles.length === 0 : visibleSubcategories.length === 0) ? (
-              <div className="p-10 text-center text-sm text-[#6f89a8]">No categories found.</div>
-            ) : null}
-
-            {!isLoading && selectedCategory === "All Categories" && visibleTiles.length > 0 ? (
-              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3 xl:grid-cols-6">
-                {visibleTiles.map(({ name, slug, image, subcategories }) => (
-                  <Link key={name} to={`/products?category=${slug}`} onClick={(event) => { event.preventDefault(); setSelectedCategory(name); setSearchTerm(""); }} className="category-tile group overflow-hidden rounded-xl border border-[#e1ebf4] bg-gradient-to-b from-[#fbfdff] to-[#f1f6fb] transition hover:-translate-y-0.5 hover:border-[#8bb3d7] hover:shadow-md">
-                    <div className="flex h-24 items-center justify-center p-2 sm:h-28">
-                      <img src={image || categoryImageFallback} alt={name} className="h-full w-full object-contain transition duration-300 group-hover:scale-105" onError={(e) => { e.currentTarget.src = categoryImageFallback; }} />
-                    </div>
-                    <div className="category-name-section border-t border-[#e4edf5] px-2 py-2">
-                      <h3 className="truncate text-[11px] font-extrabold text-[#123563] sm:text-[11px]">{name}</h3>
-                      <p className="mt-1 hidden truncate text-[9px] text-[#6f89a8] sm:block">{subcategories.length ? `${subcategories.length} subcategories` : "Explore products"}</p>
-                    </div>
-                  </Link>
+              <div className="categories-hero-art" aria-hidden="true">
+                {heroImages.map((image) => (
+                  <img
+                    key={image.className}
+                    src={image.src}
+                    alt={image.alt}
+                    className={image.className}
+                  />
                 ))}
               </div>
-            ) : null}
+            </section>
 
-            {!isLoading && selectedCategory !== "All Categories" && visibleSubcategories.length > 0 ? (
-              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3 xl:grid-cols-6">
-                {visibleSubcategories.map((subcategory) => (
-                  <Link key={subcategory._id || subcategory.slug || subcategory.name} to={`/products?category=${selectedCategoryData.slug}&subCategory=${subcategory.slug}`} className="category-tile group overflow-hidden rounded-xl border border-[#e1ebf4] bg-gradient-to-b from-[#fbfdff] to-[#f1f6fb] transition hover:-translate-y-0.5 hover:border-[#8bb3d7] hover:shadow-md">
-                    <div className="flex h-24 items-center justify-center p-2 sm:h-28">
-                      <img src={subcategory.image || categoryImageFallback} alt={subcategory.name} className="h-full w-full object-contain transition duration-300 group-hover:scale-105" onError={(e) => { e.currentTarget.src = categoryImageFallback; }} />
-                    </div>
-                    <div className="category-name-section border-t border-[#e4edf5] px-2 py-2">
-                      <h3 className="truncate text-[11px] font-extrabold text-[#123563] sm:text-[11px]">{subcategory.name}</h3>
-                      <p className="mt-1 hidden truncate text-[9px] text-[#6f89a8] sm:block">{subcategory.productCount ? `${subcategory.productCount} products` : "Explore products"}</p>
-                    </div>
-                  </Link>
-                ))}
-              </div>
-            ) : null}
-
-            <div className="mt-4 border-t border-[#e4edf5] pt-3 sm:mt-5 sm:pt-4">
-              <div className="mb-2 flex items-center justify-between gap-2">
-                <h2 className="text-sm font-extrabold sm:text-base">Popular Brands</h2>
-                <Link to="/brands" className="text-[10px] font-semibold text-[#3779b8] sm:text-[11px]">View all <ChevronRight size={10} className="inline" /></Link>
-              </div>
-              <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
-                {popularBrands.map(([name, logo]) => (
-                  <Link key={name} to={`/products?brand=${encodeURIComponent(name)}`} className="category-brand-card flex h-12 items-center justify-center rounded-lg border border-[#e1ebf4] bg-white px-2 transition hover:border-[#8bb3d7] hover:shadow-sm sm:h-14">
-                    <img src={logo} alt={name} className="max-h-7 w-full object-contain sm:max-h-9" />
-                  </Link>
-                ))}
-              </div>
-            </div>
-
-            <div className="mt-4 border-t border-[#e4edf5] pt-3 sm:mt-5 sm:pt-4">
-              <div className="mb-2 flex items-center justify-between gap-2">
-                <h2 className="text-sm font-extrabold sm:text-base">Featured Products</h2>
-                <Link to="/products" className="text-[10px] font-semibold text-[#3779b8] sm:text-[11px]">Shop all <ChevronRight size={10} className="inline" /></Link>
-              </div>
-              <div
-                ref={featuredRailRef}
-                className="category-featured-rail overflow-x-auto pb-2"
-                onPointerEnter={() => { featuredRailInteractingRef.current = true; }}
-                onPointerLeave={() => { featuredRailInteractingRef.current = false; }}
-                onTouchStart={() => { featuredRailInteractingRef.current = true; }}
-                onTouchEnd={() => { featuredRailInteractingRef.current = false; }}
-                onFocusCapture={() => { featuredRailInteractingRef.current = true; }}
-                onBlurCapture={(event) => {
-                  if (!event.currentTarget.contains(event.relatedTarget)) {
-                    featuredRailInteractingRef.current = false;
-                  }
-                }}
-              >
-                <div className="category-featured-track">
-                  {[0, 1].map((groupIndex) => (
-                    <div
-                      key={groupIndex}
-                      className="category-featured-track-group"
-                      aria-hidden={groupIndex === 1 || undefined}
-                    >
-                      {featuredProducts.map((product, productIndex) => (
-                        <Link
-                          key={`${product.id || product._id || product.name}-${productIndex}`}
-                          to={`/products/${product.slug || product.id || product._id}`}
-                          tabIndex={groupIndex === 1 ? -1 : undefined}
-                          className="category-featured-card group min-w-0 w-[190px] shrink-0 overflow-hidden rounded-xl border border-[#e1ebf4] bg-white p-2 transition hover:-translate-y-0.5 hover:border-[#8bb3d7] hover:shadow-sm sm:w-[220px]"
-                        >
-                          <div className="flex h-20 items-center justify-center rounded-lg bg-[#f7fafd] sm:h-24"><img src={product.image || product.thumbnail || categoryImageFallback} alt={product.name} className="h-full w-full object-contain p-1 transition group-hover:scale-105" /></div>
-                          <p className="mt-2 truncate text-[11px] font-bold text-[#123563] sm:text-[12px]">{product.name}</p>
-                          <p className="mt-1 text-[10px] font-extrabold text-[#123563] sm:text-[11px]">₹{Number(product.price || 0).toLocaleString("en-IN")}</p>
-                        </Link>
-                      ))}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            {accessoryProducts.length > 0 && (
-              <div className="mt-4 border-t border-[#e4edf5] pt-3 sm:mt-5 sm:pt-4">
-                <div className="mb-2 flex items-center justify-between gap-2">
-                  <h2 className="text-sm font-extrabold sm:text-base">Accessories & Essentials</h2>
-                  <Link to="/products" className="text-[10px] font-semibold text-[#3779b8] sm:text-[11px]">
-                    Shop all <ChevronRight size={10} className="inline" />
-                  </Link>
-                </div>
-                <div className="category-image-product-rail flex gap-2 overflow-x-auto pb-2 sm:gap-3">
-                  {accessoryProducts.map((product, productIndex) => (
-                    <Link
-                      key={`image-${product.id || product._id || product.name}-${productIndex}`}
-                      to={`/products/${product.slug || product.id || product._id}`}
-                      aria-label={`View ${product.name}`}
-                      className="category-image-product group flex h-[76px] w-[76px] shrink-0 items-center justify-center overflow-hidden rounded-lg border border-[#e1ebf4] bg-[#f7fafd] p-1.5 transition hover:border-[#8bb3d7] hover:shadow-sm sm:h-24 sm:w-24 sm:rounded-xl sm:p-2"
-                    >
-                      <img
-                        src={product.image || product.thumbnail || categoryImageFallback}
-                        alt=""
-                        loading="lazy"
-                        className="h-full w-full object-contain transition duration-300 group-hover:scale-105"
-                      />
+            <section className="categories-section" id="category-grid">
+              <div className="categories-section-heading">
+                <h2>{selectedCategory === "All Categories" ? "Shop by Category" : `Explore ${selectedCategory}`}</h2>
+                <div className="categories-heading-actions">
+                  <label className="categories-search">
+                    <Search size={14} />
+                    <input
+                      value={searchTerm}
+                      onChange={(event) => setSearchTerm(event.target.value)}
+                      placeholder="Search categories"
+                    />
+                  </label>
+                  {selectedCategory !== "All Categories" && (
+                    <button type="button" onClick={() => selectCategory("All Categories")}>
+                      All Categories <ArrowRight size={13} />
+                    </button>
+                  )}
+                  {selectedCategory === "All Categories" && (
+                    <Link to="/products">
+                      View All Categories <ArrowRight size={13} />
                     </Link>
-                  ))}
+                  )}
                 </div>
               </div>
-            )}
+
+              {isLoading ? (
+                <div className="categories-grid">
+                  {Array.from({ length: 12 }).map((_, index) => (
+                    <div className="categories-card-skeleton" key={index} />
+                  ))}
+                </div>
+              ) : visibleTiles.length ? (
+                <div className="categories-grid">
+                  {selectedCategory === "All Categories"
+                    ? visibleTiles.map((category) => (
+                      <button
+                        type="button"
+                        key={category.name}
+                        className="categories-card"
+                        onClick={() => selectCategory(category.name)}
+                      >
+                        <span className="categories-card-image">
+                          <img
+                            src={category.image}
+                            alt={category.name}
+                            loading="lazy"
+                            onError={(event) => {
+                              event.currentTarget.src = categoryImageFallback;
+                            }}
+                          />
+                        </span>
+                        <span className="categories-card-info">
+                          <strong>{category.name}</strong>
+                          <small>{category.subcategories.length} subcategories</small>
+                        </span>
+                        <span className="categories-card-arrow"><ArrowRight size={12} /></span>
+                      </button>
+                    ))
+                    : visibleTiles.map((subcategory) => (
+                      <Link
+                        key={subcategory._id || subcategory.slug || subcategory.name}
+                        className="categories-card"
+                        to={`/products?category=${selectedCategoryData?.slug || ""}&subCategory=${subcategory.slug || ""}`}
+                      >
+                        <span className="categories-card-image">
+                          <img
+                            src={subcategory.image || categoryImageFallback}
+                            alt={subcategory.name}
+                            loading="lazy"
+                            onError={(event) => {
+                              event.currentTarget.src = categoryImageFallback;
+                            }}
+                          />
+                        </span>
+                        <span className="categories-card-info">
+                          <strong>{subcategory.name}</strong>
+                          <small>{subcategory.productCount || 0} products</small>
+                        </span>
+                        <span className="categories-card-arrow"><ArrowRight size={12} /></span>
+                      </Link>
+                    ))}
+                </div>
+              ) : (
+                <p className="categories-empty">
+                  {isLoading ? "Loading categories..." : "No categories found. Try a different search."}
+                </p>
+              )}
+            </section>
+
+            <section className="categories-section categories-brands">
+              <div className="categories-section-heading">
+                <h2>Popular Brands</h2>
+                <Link to="/brands">View All Brands <ArrowRight size={13} /></Link>
+              </div>
+              <div className="categories-brand-grid">
+                {popularBrands.map(([name, logo]) => (
+                  <Link key={name} to={`/products?brand=${encodeURIComponent(name)}`} aria-label={`Shop ${name}`}>
+                    <img src={logo} alt={name} loading="lazy" />
+                  </Link>
+                ))}
+              </div>
+            </section>
+
+            <section className="categories-section categories-featured">
+              <div className="categories-section-heading">
+                <h2>Featured Products</h2>
+                <Link to="/products">View All Featured Products <ArrowRight size={13} /></Link>
+              </div>
+              {featuredProducts.length ? (
+                <div className="categories-product-grid">
+                  {featuredProducts.map((product, index) => {
+                    const productId = product.id || product._id;
+                    const price = Number(product.price || 0);
+                    const mrp = Number(product.mrp || 0);
+                    const hasDiscount = mrp > price && mrp > 0;
+                    const discount = hasDiscount ? Math.round(((mrp - price) / mrp) * 100) : 0;
+                    const productImage = product.image || product.thumbnail || categoryImageFallback;
+
+                    return (
+                      <article className="categories-product-card" key={productId || product.name}>
+                        {index === 0 && <span className="categories-product-badge">Featured</span>}
+                        <Link to={`/products/${product.slug || productId}`} className="categories-product-image">
+                          <img src={productImage} alt={product.name} loading="lazy" />
+                        </Link>
+                        <div className="categories-product-details">
+                          <Link to={`/products/${product.slug || productId}`} className="categories-product-name">
+                            {product.name}
+                          </Link>
+                          <div className="categories-product-rating" aria-label={`Rated ${product.rating || 0} out of 5`}>
+                            <span>★★★★★</span>
+                            <small>({Number(product.reviews || 0)})</small>
+                          </div>
+                          <div className="categories-product-pricing">
+                            <strong>₹{price.toLocaleString("en-IN")}</strong>
+                            {hasDiscount && <del>₹{mrp.toLocaleString("en-IN")}</del>}
+                            {discount > 0 && <span>{discount}% OFF</span>}
+                          </div>
+                          <button
+                            type="button"
+                            className="categories-add-to-cart"
+                            disabled={Number(product.stock) <= 0}
+                            onClick={() => addToCart(productId, 1, false, product)}
+                          >
+                            <ShoppingCart size={13} />
+                            {Number(product.stock) <= 0 ? "Out of Stock" : "Add to Cart"}
+                          </button>
+                        </div>
+                      </article>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="categories-empty">Featured products will appear here when available.</p>
+              )}
+            </section>
           </div>
         </div>
-      </section>
+      </div>
     </main>
   );
 }

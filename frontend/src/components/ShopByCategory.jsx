@@ -200,7 +200,7 @@ export default function ShopByCategory({
                       <img
                         src={image}
                         alt={category.name}
-                        className="shop-category-image mx-auto h-20 w-28 rounded-lg object-cover transition group-hover:scale-105 sm:h-24 sm:w-32"
+                        className="shop-category-image mx-auto h-20 w-28 scale-105 rounded-lg object-contain transition-transform group-hover:scale-110 sm:h-24 sm:w-32"
                         onError={(event) => {
                           event.currentTarget.src = FALLBACK_CATEGORY_IMAGE;
                         }}

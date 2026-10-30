@@ -244,7 +244,7 @@ export default function Navbar({ isDarkTheme = false, onToggleTheme }) {
       <header className={`site-navbar sticky top-0 z-50 w-full ${isDarkTheme ? "bg-[#020b1b]" : "bg-[#071426]"} text-white shadow-lg${isCompact ? " navbar--compact" : ""}${isHiddenOnMobile ? " navbar--hidden-mobile" : ""}`}>
       {/* Top header */}
       <div className="navbar-top-row border-b border-white/10">
-        <div className="flex h-11 w-full items-center justify-between px-3 text-xs sm:px-6 sm:text-sm">
+        <div className="flex h-9 w-full items-center justify-between px-3 text-xs sm:px-6 sm:text-sm">
           <button
             type="button"
             onClick={() => setShowLocationSelector(true)}
@@ -282,7 +282,7 @@ export default function Navbar({ isDarkTheme = false, onToggleTheme }) {
       </div>
 
       {/* Logo, search and icons */}
-      <div className="navbar-main-row flex w-full items-center gap-2 px-2 py-2 sm:gap-4 sm:px-6 sm:py-3">
+      <div className="navbar-main-row flex w-full items-center gap-2 px-2 py-1 sm:gap-4 sm:px-6 sm:py-2">
         <button
           type="button"
           onClick={() => setMenuOpen((value) => !value)}
@@ -294,7 +294,7 @@ export default function Navbar({ isDarkTheme = false, onToggleTheme }) {
 
         {/* Keep the mobile search directly beside the menu control. */}
         <div ref={searchRef} className="relative order-2 min-w-0 flex-1 lg:hidden">
-          <form onSubmit={submitSearch} className="flex h-9 items-center overflow-hidden rounded-lg border border-yellow-400 bg-white shadow-[0_4px_12px_rgba(251,191,36,0.10)]">
+          <form onSubmit={submitSearch} className="flex h-9 items-center overflow-hidden rounded-full border border-yellow-400 bg-white shadow-[0_4px_12px_rgba(251,191,36,0.10)]">
             <Search size={14} className="ml-2 mr-1.5 shrink-0 text-slate-400" />
             <input
               type="search"
@@ -349,7 +349,7 @@ export default function Navbar({ isDarkTheme = false, onToggleTheme }) {
           <img
             src={logo}
             alt="Honey Vision"
-            className="h-9 w-auto object-contain sm:h-14"
+            className="h-8 w-auto object-contain sm:h-12"
           />
 
           <div className="hidden sm:block">
@@ -364,7 +364,7 @@ export default function Navbar({ isDarkTheme = false, onToggleTheme }) {
 
         {/* Desktop search */}
         <div ref={searchRef} className="navbar-desktop-search relative hidden flex-1 lg:block">
-          <form onSubmit={submitSearch} className="flex h-10 w-full items-center overflow-hidden rounded-lg border border-yellow-400 bg-white shadow-[0_6px_16px_rgba(251,191,36,0.12)] ring-1 ring-yellow-200">
+          <form onSubmit={submitSearch} className="flex h-9 w-full items-center overflow-hidden rounded-full border border-yellow-400 bg-white shadow-[0_6px_16px_rgba(251,191,36,0.12)] ring-1 ring-yellow-200">
             <button
               type="button"
               onClick={() => {
@@ -515,7 +515,7 @@ export default function Navbar({ isDarkTheme = false, onToggleTheme }) {
 
       {/* Mobile search */}
       <div className="hidden">
-        <form onSubmit={submitSearch} className="flex h-10 items-center overflow-hidden rounded-lg border border-yellow-400 bg-white shadow-[0_6px_18px_rgba(251,191,36,0.10)]">
+        <form onSubmit={submitSearch} className="flex h-10 items-center overflow-hidden rounded-full border border-yellow-400 bg-white shadow-[0_6px_18px_rgba(251,191,36,0.10)]">
           <Search size={16} className="ml-2.5 mr-2 text-slate-400" />
           <input
             type="search"
@@ -567,29 +567,29 @@ export default function Navbar({ isDarkTheme = false, onToggleTheme }) {
 
       {/* Navigation menu */}
       <nav ref={navRef} className="navbar-primary-nav border-t border-white/10">
-        <div className="w-full px-3 sm:px-6">
-          <ul className="navbar-desktop-links hidden h-14 items-center gap-8 text-sm font-medium lg:flex">
+        <div className="flex w-full justify-center px-3 sm:px-6">
+          <ul className="navbar-desktop-links hidden h-11 items-center justify-center gap-8 text-sm font-medium lg:flex">
             <li>
               <NavLink
                 to="/"
                 end
                 className={({ isActive }) =>
                   isActive
-                    ? "inline-flex h-14 items-center border-b-2 border-yellow-400 text-yellow-400"
-                    : "inline-flex h-14 items-center hover:text-yellow-400"
+                    ? "inline-flex h-11 items-center border-b-2 border-yellow-400 text-yellow-400"
+                    : "inline-flex h-11 items-center hover:text-yellow-400"
                 }
               >
                 Home
               </NavLink>
             </li>
 
-            <li className="group relative h-14">
+            <li className="group relative h-11">
               <NavLink
                 to="/products"
                 className={({ isActive }) =>
                   isActive
-                    ? "flex h-14 items-center gap-1 text-yellow-400"
-                    : "flex h-14 items-center gap-1 hover:text-yellow-400"
+                    ? "flex h-11 items-center gap-1 text-yellow-400"
+                    : "flex h-11 items-center gap-1 hover:text-yellow-400"
                 }
               >
                 Products
@@ -607,8 +607,8 @@ export default function Navbar({ isDarkTheme = false, onToggleTheme }) {
                   to={path}
                   className={({ isActive }) =>
                     isActive
-                      ? "inline-flex h-14 items-center border-b-2 border-yellow-400 text-yellow-400"
-                      : "inline-flex h-14 items-center hover:text-yellow-400"
+                      ? "inline-flex h-11 items-center border-b-2 border-yellow-400 text-yellow-400"
+                      : "inline-flex h-11 items-center hover:text-yellow-400"
                   }
                 >
                   {label}

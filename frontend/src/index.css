@@ -1,5 +1,21 @@
 @import "tailwindcss";
 
+@theme {
+	--font-sans: "Inter", "Segoe UI", Arial, sans-serif;
+}
+
+html,
+body {
+	font-family: "Inter", "Segoe UI", Arial, sans-serif;
+}
+
+button,
+input,
+select,
+textarea {
+	font: inherit;
+}
+
 .brand-marquee {
 	margin-top: 0;
 	overflow-x: auto;

@@ -240,49 +240,36 @@ export default function Footer() {
 
       <div className="footer-features border-t border-gray-700">
 
-        <div className="mx-auto max-w-7xl px-4 py-5 sm:px-6 sm:py-7">
+        <div className="footer-features-row mx-auto max-w-7xl px-4 py-5 sm:px-6 sm:py-7">
 
-          <div className="grid grid-cols-2 gap-4 text-center sm:gap-6 lg:grid-cols-4">
+          <div className="footer-features-grid grid grid-cols-2 gap-4 text-center sm:gap-6 lg:grid-cols-5">
 
-            <div>
+            <div className="footer-benefit">
               <span className="text-lg">🚚</span> <h4 className="mt-1 text-xs font-semibold text-white sm:text-sm">Fast Delivery</h4>
             </div>
 
-            <div>
+            <div className="footer-benefit">
               <span className="text-lg">🛠</span> <h4 className="mt-1 text-xs font-semibold text-white sm:text-sm">Professional Installation</h4>
             </div>
 
-            <div>
+            <div className="footer-benefit">
               <span className="text-lg">🛡</span> <h4 className="mt-1 text-xs font-semibold text-white sm:text-sm">100% Genuine Products</h4>
             </div>
 
-            <div>
+            <div className="footer-benefit">
               <span className="text-lg">📞</span> <h4 className="mt-1 text-xs font-semibold text-white sm:text-sm">24×7 Technical Support</h4>
             </div>
 
-          </div>
-
-        </div>
-
-      </div>
-
-      {/* Bottom Footer */}
-
-      <div className="border-t border-gray-700">
-
-        <div className="footer-bottom mx-auto flex max-w-7xl flex-col items-center justify-between gap-3 px-4 py-4 text-center text-xs sm:px-6 sm:py-5 sm:text-sm lg:flex-row lg:text-left">
-
-          <p>
-            © 2026 Honey Vision Pvt. Ltd. All Rights Reserved.
-          </p>
-
-          <div className="mt-1 flex gap-4 lg:mt-0">
-
-            {socialLinks.map(([Icon, href, label]) => href ? (
-              <a key={label} href={href} target="_blank" rel="noreferrer" aria-label={label} className="transition hover:text-yellow-400">
-                <Icon />
-              </a>
-            ) : null)}
+            <div className="footer-copyright-cell">
+              <p>© 2026 Honey Vision Pvt. Ltd. All Rights Reserved.</p>
+              <div className="footer-social-links">
+                {socialLinks.map(([Icon, href, label]) => href ? (
+                  <a key={label} href={href} target="_blank" rel="noreferrer" aria-label={label} className="transition hover:text-yellow-400">
+                    <Icon />
+                  </a>
+                ) : null)}
+              </div>
+            </div>
 
           </div>
 

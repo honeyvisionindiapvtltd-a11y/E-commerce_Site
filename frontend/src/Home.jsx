@@ -5,7 +5,6 @@ import { useAuth } from "./context/useAuth.js";
 import { useCatalog } from "./context/CatalogContext.jsx";
 import { money, normalizeProduct } from "./lib/products";
 import { getRecentlyViewed, RECENTLY_VIEWED_EVENT } from "./lib/recentlyViewed";
-import Hero from "./components/Hero";
 import ServicesOffers from "./components/ServicesOffers";
 import TrendingProduct from "./components/TrendingProduct";
 import FeaturedSection from "./components/FeaturedSection";
@@ -102,7 +101,9 @@ export default function Home() {
       <div className="home-ambient three" />
 
       <div className="relative z-10 flex flex-col gap-4 sm:gap-8">
-        <Hero />
+        <div className="home-section-shell home-section-promos px-3 sm:px-6">
+          <PromotionalBanners />
+        </div>
 
         <div className="home-section-shell home-section-category px-3 pt-2 sm:px-6">
           <ShopByCategory />
@@ -114,10 +115,6 @@ export default function Home() {
 
         <div className="home-section-shell home-section-trending bg-white/55 px-0 sm:px-6">
           <TrendingProduct />
-        </div>
-
-        <div className="home-section-shell home-section-promos px-3 sm:px-6">
-          <PromotionalBanners />
         </div>
 
         <RecentlyViewedSection />
